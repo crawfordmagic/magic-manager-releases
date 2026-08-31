@@ -204,7 +204,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.2.1';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -303,6 +303,47 @@ function versionLt_(a, b) {
   return false;
 }
 
+// Menu: force an immediate hub check (the app otherwise re-verifies at most once a day)
+// and report whether a newer version is out. Ages the cached check instead of deleting
+// it, so if the hub is briefly unreachable the grace window still covers the user rather
+// than locking them out.
+function checkForUpdatesNow() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  try {
+    var c = JSON.parse(props.getProperty('LICENSE_CACHE') || 'null');
+    if (c) { c.checkedAt = Date.now() - LICENSE_RECHECK_MS - 1; props.setProperty('LICENSE_CACHE', JSON.stringify(c)); }
+  } catch (e) {}
+  var state = getLicenseState_();
+  if (state.status === 'unset') {
+    ui.alert('Check for updates', 'Enter your license key first (Magic Manager → Enter license key), then try again.', ui.ButtonSet.OK);
+    return;
+  }
+  if (state.status === 'nohub') {
+    ui.alert('Check for updates', 'Updates aren’t set up for this app.', ui.ButtonSet.OK);
+    return;
+  }
+  if (state.status === 'revoked' || state.status === 'invalid') {
+    ui.alert('License problem', state.message || 'This license is not active.', ui.ButtonSet.OK);
+    return;
+  }
+  if (state.status === 'grace' || !state.ok) {
+    ui.alert('Check for updates', 'Couldn’t reach the update server just now — check your connection and try again in a few minutes.', ui.ButtonSet.OK);
+    return;
+  }
+  var info = getUpdateInfo();
+  if (info.updateAvailable) {
+    var msg = 'Version ' + info.latest + ' is available — you’re on ' + info.current + '.';
+    if (info.notes) msg += '\n\nWhat’s new:\n' + info.notes;
+    if (info.url) msg += '\n\nHow to update:\n' + info.url;
+    ui.alert('Update available ✦', msg, ui.ButtonSet.OK);
+  } else if (info.latest) {
+    ui.alert('You’re up to date', 'You’re running the latest version (' + info.current + ').', ui.ButtonSet.OK);
+  } else {
+    ui.alert('Check for updates', 'Couldn’t read the latest version just now — please try again in a few minutes.', ui.ButtonSet.OK);
+  }
+}
+
 function escHtml_(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -357,6 +398,7 @@ function onOpen() {
       .addItem('Enter Stripe secret key', 'promptStripeKey')
       .addSeparator()
       .addItem('Setup status', 'showSetupStatus')
+      .addItem('Check for updates now', 'checkForUpdatesNow')
       .addItem('Reset app URL', 'resetAppUrl')
       .addToUi();
   } catch (e) {}
