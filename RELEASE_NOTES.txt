@@ -1,0 +1,1 @@
+Flexible client import — map your columns to existing fields or create new ones; imported custom fields now show in the lead editor. Contracts and receipts now use your own logo and governing-law location.
