@@ -236,7 +236,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.3.1';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -527,6 +527,8 @@ function doGet(e) {
     template.token = e.parameter.sign;
     template.paid = e.parameter.paid || '';
     template.cfg = getConfig_();
+    // Embed the logo as a data: URI so it shows for the client (see getLogoDataUri_).
+    template.logoDataUri = getLogoDataUri_();
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Sign Agreement')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -630,6 +632,28 @@ function getLogoBlob_() {
     }
   } catch (e) {}
   return null;
+}
+
+// Returns the buyer's logo as a browser-ready data: URI (or ''), for pages served to the
+// CLIENT (the Sign page). The raw LOGO_URL can be a link only the SERVER can load — a Google
+// Drive / Dropbox share link, or an image behind the buyer's own Google login — which fetches
+// fine for the contract but breaks in a client's <img> (the client isn't logged into the
+// buyer's account). Embedding the bytes the way the contract does makes the logo show for
+// everyone. A data: URI is already browser-ready and passes straight through; an external URL
+// is fetched once (via getLogoBlob_) and cached to avoid refetching on every page load.
+function getLogoDataUri_() {
+  var url = (getConfig_().LOGO_URL || '').trim();
+  if (!url) return '';
+  if (/^data:/i.test(url)) return url;
+  var cache = null, ckey = 'logoDataUri_' + url.length + '_' + url.slice(-32);
+  try { cache = CacheService.getScriptCache(); var hit = cache.get(ckey); if (hit != null) return hit; } catch (e) {}
+  var out = '';
+  try {
+    var b = getLogoBlob_();
+    if (b) out = 'data:' + (b.getContentType() || 'image/png') + ';base64,' + Utilities.base64Encode(b.getBytes());
+  } catch (e) {}
+  if (cache && out) { try { cache.put(ckey, out, 21600); } catch (e) {} }
+  return out;
 }
 /**
  * Rebuilt to match a hand-designed layout (two-column header,
