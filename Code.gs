@@ -85,7 +85,6 @@ var CONFIG_FIELDS_ = [
   { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: 'Full legal entity name used on contracts.', section: 'business' },
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the sign page.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
-  { key: 'GOVERNING_LAW', label: 'Governing-law location', help: 'Fills the contract\'s Governing Law clause — e.g. "the State of Georgia", "the Province of Ontario", or "England and Wales". Blank uses a generic phrase. Consider a quick legal review for your area.', section: 'business' },
   { key: 'LOGO_URL', label: 'Logo', help: 'Upload a PNG or JPG — square works best (it gets embedded into your app). Avoid SVG and iPhone HEIC files. Pasting a link works only if it is a direct, public image URL (Drive/Dropbox share links will not).', section: 'business' },
   // How clients reach you
   { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the sign page and contract.', section: 'contact' },
@@ -236,7 +235,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.3.1';
+var APP_VERSION = '1.4.0';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -655,6 +654,49 @@ function getLogoDataUri_() {
   if (cache && out) { try { cache.put(ckey, out, 21600); } catch (e) {} }
   return out;
 }
+
+// US states (canonical name -> 2-letter abbr). Used to derive the contract's governing-law
+// state from the buyer's own business address, so onboarding never has to ask for it.
+var US_STATES_ = {
+  'Alabama':'AL','Alaska':'AK','Arizona':'AZ','Arkansas':'AR','California':'CA','Colorado':'CO',
+  'Connecticut':'CT','Delaware':'DE','District of Columbia':'DC','Florida':'FL','Georgia':'GA',
+  'Hawaii':'HI','Idaho':'ID','Illinois':'IL','Indiana':'IN','Iowa':'IA','Kansas':'KS','Kentucky':'KY',
+  'Louisiana':'LA','Maine':'ME','Maryland':'MD','Massachusetts':'MA','Michigan':'MI','Minnesota':'MN',
+  'Mississippi':'MS','Missouri':'MO','Montana':'MT','Nebraska':'NE','Nevada':'NV','New Hampshire':'NH',
+  'New Jersey':'NJ','New Mexico':'NM','New York':'NY','North Carolina':'NC','North Dakota':'ND',
+  'Ohio':'OH','Oklahoma':'OK','Oregon':'OR','Pennsylvania':'PA','Rhode Island':'RI','South Carolina':'SC',
+  'South Dakota':'SD','Tennessee':'TN','Texas':'TX','Utah':'UT','Vermont':'VT','Virginia':'VA',
+  'Washington':'WA','West Virginia':'WV','Wisconsin':'WI','Wyoming':'WY'
+};
+// Best-effort: pull a US state from a freeform address, anchored at the END (where the state
+// sits) so a street like "1600 Pennsylvania Ave, Washington DC" resolves to DC, not PA. Tries
+// a trailing full state name first (longest-first, so "West Virginia" beats "Virginia"), then
+// a trailing 2-letter abbreviation. Returns the canonical state name, or '' if none found.
+function usStateFromAddress_(addr) {
+  var s = String(addr == null ? '' : addr).trim();
+  if (!s) return '';
+  var abbrToName = {}; for (var k in US_STATES_) abbrToName[US_STATES_[k]] = k;
+  var tail = s.replace(/[\s,]*\d{5}(?:-\d{4})?\s*$/, '').replace(/[\s,]+$/, ''); // drop a trailing ZIP
+  var names = Object.keys(US_STATES_).sort(function (a, b) { return b.length - a.length; });
+  for (var i = 0; i < names.length; i++) {
+    if (new RegExp('(^|[\\s,])' + names[i].replace(/ /g, '\\s+') + '$', 'i').test(tail)) return names[i];
+  }
+  var m = tail.match(/[\s,]([A-Za-z]{2})\.?$/) || tail.match(/^([A-Za-z]{2})\.?$/);
+  if (m && abbrToName[m[1].toUpperCase()]) return abbrToName[m[1].toUpperCase()];
+  return '';
+}
+// The phrase dropped into the contract's Governing Law clause. An explicit GOVERNING_LAW
+// setting still wins (kept for existing installs / non-US buyers who set one); otherwise it's
+// derived from the buyer's business-address state; otherwise a generic fallback.
+function governingLawPhrase_() {
+  var cfg = getConfig_();
+  var explicit = (cfg.GOVERNING_LAW || '').trim();
+  if (explicit) return explicit;
+  var st = usStateFromAddress_(cfg.ADDRESS || '');
+  if (st === 'District of Columbia') return 'the District of Columbia';
+  if (st) return 'the State of ' + st;
+  return 'the state or country in which the Service Provider operates';
+}
 /**
  * Rebuilt to match a hand-designed layout (two-column header,
  * side-by-side Parties/Event Schedule, a real fee table, two-column Terms,
@@ -820,7 +862,7 @@ function buildContractTemplate_() {
   bulletTerm(leftTerms, 'Liability', 'Performer assumes no responsibility for damages or injuries during performance except in cases of gross negligence.');
 
   bulletTerm(rightTerms, 'Media & Photo Release', 'Photographs of the performance may be taken freely by the Client and guests. Video recording or filming of the performance is not permitted without the Service Provider\u2019s prior consent. The Service Provider may photograph and film the performance for promotional use, which the Client agrees to unless an opt-out notification is provided in writing prior to the event.', true);
-  var govLoc = (getConfig_().GOVERNING_LAW || '').trim() || 'the state or country in which the Service Provider operates';
+  var govLoc = governingLawPhrase_();
   bulletTerm(rightTerms, 'Governing Law', 'This Agreement shall be governed and construed in accordance with the laws of ' + govLoc + '.');
   bulletTerm(rightTerms, 'Entire Agreement', 'Supersedes all prior discussions. Any modifications must be executed in writing and signed by both parties.');
 

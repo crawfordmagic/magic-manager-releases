@@ -415,6 +415,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="taskDueCard" style="display:none"></div>
     <div id="genFollowupCard" style="display:none"></div>
     <div id="partnerCheckInCard" style="display:none"></div>
+    <div id="decRebookCard" style="display:none"></div>
     <div class="search-wrap">
       <input id="q" type="search" autocomplete="off" placeholder="Search name, company, notes, history&#8230;" oninput="setQ(this.value)">
       <button id="qClear" class="search-clear" type="button" aria-label="Clear search" onclick="clearSearch()">&#10005;</button>
@@ -1937,6 +1938,122 @@ function rebookLog(logKey, name, type){
     .withFailureHandler(function(){})
     .logContact(logKey, name||'', type, 'Rebooking outreach');
 }
+
+/* ---------- December Rebooking ---------- */
+// December is the strongest month for many seasonal entertainers (corporate holiday
+// parties), and a completed show otherwise just becomes dead history. This surfaces past
+// December clients as a forward-looking outreach list each summer, in the same tracked,
+// gentle spirit as the rest of the app: it nudges once, then once more if the first attempt
+// goes quiet, then lets it go for the year rather than nagging. It only appears for
+// businesses that actually have past December bookings, so it stays out of the way for
+// everyone else.
+function inDecemberRebookWindow(){
+  var m=new Date().getMonth(); // 0=Jan … 11=Dec
+  return m>=5 && m<=9; // June through October
+}
+function computeDecemberRebookList(){
+  var targetYear=new Date().getFullYear();
+  var pastDec={};
+  LEADS.forEach(function(L){
+    var ed=pd(L[C.eventDate]); if(!ed || ed.getMonth()!==11 || ed.getFullYear()>=targetYear) return;
+    var s=String(L[C.status]||'');
+    if(!(s==='Completed' || (s==='Booked' && ed<today0()))) return;
+    var key=clientIdentityKey(L);
+    if(!pastDec[key]) pastDec[key]={name:L[C.name],phone:'',email:'',company:'',years:[],lastPrice:0,lastYear:0,lastRow:null};
+    if(pastDec[key].years.indexOf(ed.getFullYear())===-1) pastDec[key].years.push(ed.getFullYear());
+    // Track whichever booking is the most recent, so the name opens the freshest record and
+    // contact info comes from their latest booking, not an arbitrary older one.
+    if(ed.getFullYear()>=pastDec[key].lastYear){
+      pastDec[key].lastYear=ed.getFullYear();
+      pastDec[key].lastRow=L._row;
+      pastDec[key].phone=L[C.phone]; pastDec[key].email=L[C.email]; pastDec[key].company=L[C.company];
+      var pr=money(L[C.price]); if(pr) pastDec[key].lastPrice=pr;
+    }
+  });
+  // Anyone who already has a December lead this year has re-engaged (Booked or Lost) — out
+  // of this system either way; not the app's call to second-guess.
+  var handled={};
+  LEADS.forEach(function(L){
+    var ed=pd(L[C.eventDate]); if(!ed || ed.getMonth()!==11 || ed.getFullYear()!==targetYear) return;
+    handled[clientIdentityKey(L)]=true;
+  });
+  var now0=today0(), fresh=[], followup=[];
+  Object.keys(pastDec).forEach(function(key){
+    if(handled[key]) return;
+    var c=pastDec[key]; c.years.sort();
+    var k1='rebook:'+key+':'+targetYear+':r1';
+    var k2='rebook:'+key+':'+targetYear+':r2';
+    var e1=LOGS.filter(function(l){ return l.key===k1; });
+    var e2=LOGS.filter(function(l){ return l.key===k2; });
+    if(e2.length) return; // second touch already happened — let it go for this year
+    if(!e1.length){ fresh.push({client:c, key:key, logKey:k1}); return; }
+    e1.sort(function(a,b){ return (pd(a.when)||0)-(pd(b.when)||0); });
+    var firstTouch=pd(e1[0].when);
+    var days = firstTouch ? Math.floor((now0-firstTouch)/86400000) : 999;
+    if(days>=30) followup.push({client:c, key:key, logKey:k2, firstTouch:firstTouch});
+    // else: still in the 30-day quiet window since the first touch — stay silent
+  });
+  var byName=function(a,b){ return String(a.client.name||'').localeCompare(String(b.client.name||'')); };
+  fresh.sort(byName); followup.sort(byName);
+  return {fresh:fresh, followup:followup, targetYear:targetYear};
+}
+function decRebookItemHtml(item){
+  var c=item.client;
+  var yearsTxt='Booked Dec '+c.years.join(', ');
+  var priceTxt=c.lastPrice ? ' · last quote '+fmtMoney(c.lastPrice) : '';
+  var phone=String(c.phone||'').trim(), email=String(c.email||'').trim(), company=String(c.company||'').trim();
+  var actions='';
+  if(phone) actions+='<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="decRebookCall(\''+esc(item.key)+'\')">Call</a>'
+    +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="decRebookText(\''+esc(item.key)+'\')">Text</button>';
+  if(email) actions+='<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="decRebookEmail(\''+esc(item.key)+'\')">Email</button>';
+  var nameHtml=(company?'<span style="color:var(--muted);font-weight:400">'+esc(company)+'</span> — ':'')+esc(c.name||'Client');
+  return '<div class="gfu-item">'
+    +'<div class="gfu-name"'+(c.lastRow?' onclick="openSheet('+c.lastRow+')"':'')+'>'+nameHtml+'</div>'
+    +'<div class="gfu-meta">'+esc(yearsTxt+priceTxt)+'</div>'
+    +(actions?'<div class="gfu-actions">'+actions+'</div>':'')
+    +'</div>';
+}
+function renderDecemberRebook(){
+  var box=$('decRebookCard'); if(!box) return;
+  if(!inDecemberRebookWindow()){ box.style.display='none'; box.innerHTML=''; return; }
+  var data=computeDecemberRebookList();
+  if(!data.fresh.length && !data.followup.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  var html='<div class="gfu-card winter"><div class="gfu-title">December Rebooking</div>'
+    +'<p class="note" style="text-align:left;margin:0 0 10px">Your strongest month — a little outreach now goes a long way.</p>';
+  html += data.fresh.map(decRebookItemHtml).join('');
+  if(data.followup.length){
+    html += '<div class="sec-title" style="margin-top:4px"><span class="t">Following Up Again</span><span class="rule"></span></div>';
+    html += data.followup.map(decRebookItemHtml).join('');
+  }
+  html += '</div>';
+  box.innerHTML=html;
+}
+function decRebookFindItem(key){
+  var data=computeDecemberRebookList();
+  return data.fresh.concat(data.followup).filter(function(x){ return x.key===key; })[0];
+}
+function decRebookCall(key){
+  var item=decRebookFindItem(key); if(!item) return;
+  rebookLog(item.logKey, item.client.name, 'Call'); renderDecemberRebook();
+  dialNumber(String(item.client.phone||'').trim());
+}
+function decRebookText(key){
+  var item=decRebookFindItem(key); if(!item) return;
+  rebookLog(item.logKey, item.client.name, 'Text'); renderDecemberRebook();
+  var c=item.client, ctx={}; ctx[C.name]=c.name; ctx[C.phone]=c.phone; ctx[C.email]=c.email;
+  TXTPICKER_MODE='rebook'; TXTPICKER_CTX=ctx; TXTPICKER_PHONE=String(c.phone||'').trim(); TXTPICKER_REFLEAD=null;
+  var rw=$('tpicker_refwrap'); if(rw) rw.style.display='none';
+  renderTextPicker();
+}
+function decRebookEmail(key){
+  var item=decRebookFindItem(key); if(!item) return;
+  rebookLog(item.logKey, item.client.name, 'Email'); renderDecemberRebook();
+  var c=item.client, ctx={}; ctx[C.name]=c.name; ctx[C.phone]=c.phone; ctx[C.email]=c.email;
+  EPICKER_MODE='rebook'; EPICKER_CTX=ctx; EPICKER_TO=String(c.email||'').trim(); EPICKER_REFLEAD=null;
+  var rw=$('epicker_refwrap'); if(rw) rw.style.display='none';
+  renderEmailPicker();
+}
 // Top Clients: total value per client identity (summed across every real
 // booking they've made — Completed or Booked, any year), not per single
 // booking. Deliberately all-time regardless of the Insights year scope,
@@ -2470,6 +2587,7 @@ function renderLeads(){
   renderGenFollowupDue();
   renderUnpaidBalanceCard();
   renderPartnerCheckInCard();
+  renderDecemberRebook();
   var t=today0(), h='';
 
   if(IFILTER){
