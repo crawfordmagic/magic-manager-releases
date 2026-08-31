@@ -375,6 +375,21 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 .spin{display:inline-block;animation:tw 1.4s linear infinite}
 @keyframes tw{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(.7)}100%{transform:rotate(360deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* Lead-status editor (Settings) */
+.se-list{display:flex;flex-direction:column;gap:6px}
+.se-row{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.se-name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:15px;color:var(--cream);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.se-lock{opacity:.75;font-size:12px}
+.se-badge{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 7px}
+.se-badge-income{color:#8FA876;border-color:rgba(143,168,118,.5)}
+.se-name-input{flex:1;min-width:0;font-size:15px;color:var(--cream);background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;outline:none}
+.se-actions{flex:0 0 auto;display:flex;gap:4px}
+.se-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--gold-bright);font-size:12px;line-height:1;cursor:pointer;padding:0}
+.se-btn:disabled{opacity:.3;cursor:default}
+.se-btn.se-danger{color:var(--crimson);font-size:16px}
+.se-add{display:flex;gap:8px;margin-top:8px}
+.se-add input{flex:1;min-width:0}
+.se-addbtn{flex:0 0 auto;background:transparent;border:1px solid var(--gold);color:var(--gold-bright);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -836,11 +851,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="sec-title" style="margin-top:18px"><span class="t">Match your columns</span><span class="rule"></span></div>
     <p class="note" style="text-align:left;margin:0 0 10px">We guessed these from your headers &mdash; fix any that are wrong, and choose <b>&mdash; Ignore &mdash;</b> for columns you don't want.</p>
     <div id="li_map"></div>
-    <div class="field" style="margin-top:14px"><label>Status for all imported clients</label>
-      <select id="li_status"><option>Completed</option><option>Booked</option><option>New</option><option>Pending</option></select></div>
-    <p class="note" style="text-align:left;margin:6px 0 0">Most people import past clients as <b>Completed</b>. Pick New/Pending if these are fresh leads you're still working. (Booked/Completed count toward revenue in Insights.)</p>
-    <div style="margin:12px 0 0;padding:11px 13px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;color:var(--cream);text-align:left">
-      <b style="color:var(--gold-bright)">If you map a column to Status:</b> only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights (and trigger the booking automations). Any other label &mdash; <i>Won, Confirmed, Contacted, Qualified&hellip;</i> &mdash; imports exactly as written and becomes a selectable pipeline stage, but <b>won't</b> count toward revenue. If a value in your sheet really means <i>booked</i>, rename it to <b>Booked</b> in your spreadsheet before importing (or update those leads afterward).
+    <div style="margin:14px 0 0;padding:11px 13px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;color:var(--cream);text-align:left">
+      <b style="color:var(--gold-bright)">Status comes from your data.</b> Map a column to <b>Status</b> and each client keeps their own; anyone with a blank status &mdash; or if you don't map a Status column &mdash; comes in as <b>New</b>. Only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights (and trigger the booking automations); other labels import as neutral pipeline stages. If a value in your sheet means <i>booked</i>, name it <b>Booked</b> before importing.
     </div>
     <button class="save" style="margin-top:14px" onclick="leadImportReview()">Continue to review &rarr;</button>
   </div>
@@ -2345,30 +2357,51 @@ function dismissShowtime(){
 
 /* ---------- Leads list ---------- */
 function isBookedLike(L){ var s=String(L[C.status]); return s==='Booked'||s==='Completed'; }
-// Status values the app offers by default, in dropdown order. Booked/Completed are the
-// only ones that count toward revenue in Insights (isBookedLike) and drive the booking
-// automations; the rest are neutral pipeline stages. Keep in sync with the static
-// <option>s in #d_status.
-var STATUS_BUILTINS = ['New','Pending','Booked','Completed','Lost','Referral','Referred'];
-// The Add-Lead quick form offers a curated subset (a brand-new lead is realistically only
-// one of these), still with any custom statuses appended below.
-var STATUS_ADD_BUILTINS = ['New','Pending','Booked'];
-// Rebuild a status <select> to list `builtins` (default STATUS_BUILTINS) plus any status
-// values already present in the data (an imported client list can carry its own labels),
-// then select `current`. De-duped by exact string so `current` always has a matching
-// <option> — an imported custom status therefore displays and stays selectable instead of
-// being silently lost.
-function fillStatusSelect(sel, current, builtins){
+// Statuses the app's own logic keys on by exact string — Booked/Completed count as income
+// (isBookedLike), Lost/Referral/Referred drive automations — so the Settings editor locks
+// these and they are always kept in the list.
+var SYSTEM_STATUSES = ['Booked','Completed','Lost','Referral','Referred'];
+function isSystemStatus(s){
+  s=String(s==null?'':s).trim().toLowerCase();
+  return SYSTEM_STATUSES.some(function(x){ return x.toLowerCase()===s; });
+}
+// Parse a newline-delimited status list; keep order, drop blanks.
+function parseStatusList(str){
+  return String(str==null?'':str).split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+}
+// De-dupe (case-insensitively), force canonical case on the system ones, and guarantee every
+// system status is present (appended if missing) — so a bad config can never drop Booked et al.
+function normalizeStatusList(list){
+  var seen={}, out=[];
+  (list||[]).forEach(function(name){
+    var key=String(name==null?'':name).trim().toLowerCase(); if(!key||seen[key]) return;
+    var sys=null; SYSTEM_STATUSES.forEach(function(x){ if(x.toLowerCase()===key) sys=x; });
+    seen[key]=1; out.push(sys || String(name).trim());
+  });
+  SYSTEM_STATUSES.forEach(function(x){ if(!seen[x.toLowerCase()]){ seen[x.toLowerCase()]=1; out.push(x); } });
+  return out;
+}
+// The buyer's configured statuses (Settings → Lead statuses), always system-safe.
+function configuredStatuses(){
+  var raw = (typeof CFG!=='undefined' && CFG && CFG.LEAD_STATUSES!=null) ? CFG.LEAD_STATUSES : '';
+  var list = normalizeStatusList(parseStatusList(raw));
+  return list.length ? list : normalizeStatusList(['New','Pending'].concat(SYSTEM_STATUSES));
+}
+// Rebuild a status <select> to list `statuses` (default = the buyer's configured statuses)
+// plus any status values already present in the data (an imported client list can carry its
+// own labels), then select `current`. De-duped by exact string so `current` always has a
+// matching <option> — a configured or imported custom status stays selectable, never lost.
+function fillStatusSelect(sel, current, statuses){
   if(!sel) return;
-  builtins = builtins || STATUS_BUILTINS;
+  statuses = statuses || configuredStatuses();
   current = String(current==null?'':current).trim();
   var seen={}, opts=[];
   function add(s){ s=String(s==null?'':s).trim(); if(s && !seen[s]){ seen[s]=1; opts.push(s); } }
-  builtins.forEach(add);
+  statuses.forEach(add);
   (LEADS||[]).forEach(function(L){ add(L[C.status]); });
   add(current);
   sel.innerHTML = opts.map(function(s){ return '<option>'+esc(s)+'</option>'; }).join('');
-  sel.value = current || builtins[0] || 'New';
+  sel.value = current || statuses[0] || 'New';
 }
 function isPastEvent(L){
   var e=pd(L[C.eventDate]); if(!e) return false;
@@ -6052,7 +6085,7 @@ function leadImportBackToMap(){ $('li_stage_review').style.display='none'; $('li
 // map + chosen status into reviewable rows, normalizing dates, requiring a
 // name, and flagging duplicates (against existing leads AND earlier rows in
 // this same file).
-function liBuildRows_(grid, map, status, existingLeads){
+function liBuildRows_(grid, map, existingLeads){
   var existing={}; (existingLeads||[]).forEach(function(L){ existing[liDupKey_(L[C.name], L[C.email])]=1; });
   var seen={}, out=[];
   grid.rows.forEach(function(cells){
@@ -6064,10 +6097,10 @@ function liBuildRows_(grid, map, status, existingLeads){
       f[tgt]=val;
     }
     var nm=String(f[C.name]||'').trim(); if(!nm) return;
-    if(!f[C.status]) f[C.status]=status;
+    if(!f[C.status]) f[C.status]='New';
     var dk=liDupKey_(nm, f[C.email]);
     var isDup=!!existing[dk] || !!seen[dk]; seen[dk]=1;
-    out.push({fields:f, name:nm, email:String(f[C.email]||''), phone:String(f[C.phone]||''), eventDate:String(f[C.eventDate]||''), dup:isDup, included:!isDup});
+    out.push({fields:f, name:nm, email:String(f[C.email]||''), phone:String(f[C.phone]||''), eventDate:String(f[C.eventDate]||''), status:String(f[C.status]||'New'), dup:isDup, included:!isDup});
   });
   return out;
 }
@@ -6076,25 +6109,25 @@ function leadImportReview(){
   var nameMapped=false, k;
   for(k in LI_MAP){ if(LI_MAP[k]===C.name){ nameMapped=true; break; } }
   if(!nameMapped){ toast('Map one column to Customer name first'); return; }
-  LI_ROWS=liBuildRows_(LI_GRID, LI_MAP, $('li_status').value, LEADS);
+  LI_ROWS=liBuildRows_(LI_GRID, LI_MAP, LEADS);
   if(!LI_ROWS.length){ toast('No rows with a customer name to import'); return; }
   renderLeadReview();
   $('li_stage_map').style.display='none'; $('li_stage_review').style.display='';
 }
 function renderLeadReview(){
-  var status=$('li_status').value;
   var dupCount=LI_ROWS.filter(function(r){ return r.dup; }).length;
   var bits=[LI_ROWS.length+' client'+(LI_ROWS.length===1?'':'s')+' found'];
   if(dupCount) bits.push(dupCount+' unchecked as likely duplicates of existing leads');
   var html='<a class="act" href="javascript:void(0)" style="display:inline-block;margin:0 0 10px" onclick="leadImportBackToMap()">&#8592; Adjust columns</a>';
-  html+='<p class="note" style="text-align:left;margin:0 0 12px">'+bits.join(', ')+'. They’ll be added as <b>'+esc(status)+'</b>. Uncheck anything you don’t want.</p>';
+  html+='<p class="note" style="text-align:left;margin:0 0 12px">'+bits.join(', ')+'. Each keeps the status from your file (blank &rarr; <b>New</b>). Uncheck anything you don’t want.</p>';
   html+=LI_ROWS.map(function(r,i){
     var sub=[]; if(r.email) sub.push(esc(r.email)); if(r.phone) sub.push(esc(r.phone)); if(r.eventDate) sub.push(esc(fmtDateY(r.eventDate)));
+    var st=String(r.status||'New');
     return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;'+(r.included?'':'opacity:.5')+'">'
       +'<div style="display:flex;align-items:flex-start;gap:8px">'
         +'<input type="checkbox" style="margin-top:3px;flex-shrink:0;width:18px" '+(r.included?'checked':'')+' onchange="toggleLeadRow('+i+')">'
         +'<div style="flex:1;min-width:0">'
-          +'<div style="font-weight:600;color:var(--cream);font-size:13px;word-break:break-word">'+esc(r.name)+'</div>'
+          +'<div style="font-weight:600;color:var(--cream);font-size:13px;word-break:break-word">'+esc(r.name)+' <span style="font-weight:600;color:var(--gold-bright);font-size:11px">&middot; '+esc(st)+'</span></div>'
           +(sub.length?'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+sub.join(' · ')+'</div>':'')
           +(r.dup?'<div style="font-size:11px;color:#E9927B;margin-top:4px">Looks like an existing lead — left unchecked.</div>':'')
         +'</div>'
@@ -6125,7 +6158,7 @@ function go(v, btn){
   if(btn) btn.classList.add('on');
   $('pageTitle').textContent = v==='leads'?'Magic Manager':(v==='insights'?'Insights':(v==='expenses'?'Expenses':(v==='add'?'New Lead':'Settings')));
   if(v==='expenses') renderExpenses();
-  if(v==='add') fillStatusSelect($('a_status'), ($('a_status')&&$('a_status').value)||'New', STATUS_ADD_BUILTINS);
+  if(v==='add') fillStatusSelect($('a_status'), ($('a_status')&&$('a_status').value)||'New');
   if(v==='settings') renderSettings();
   window.scrollTo(0,0);
 }
@@ -6155,6 +6188,7 @@ function renderSettings(){
     function filled(f){ var v=raw[f.key]; return v!=null && String(v).trim()!==''; }
     function fieldHtml(f){
       var val = (raw[f.key]!=null?raw[f.key]:'');
+      if(f.editor==='statuses') return statusEditorHtml(f, val, cfg);
       var ph = (cfg[f.key]!=null?cfg[f.key]:'');
       var ctrl = f.multiline
         ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -6253,6 +6287,62 @@ function saveSettingsFromForm(){
   google.script.run.withSuccessHandler(function(res){ if(res&&res.config) CFG=res.config; toast('Settings saved ✦'); maybeShowSetupNudge(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .saveSettings(obj);
+}
+
+/* ---------- Lead-status editor (Settings → Lead statuses) ---------- */
+var STATUS_EDIT = [];
+function statusEditorHtml(f, val, cfg){
+  var initial = (val!=null && String(val).trim()!=='') ? val : ((cfg&&cfg.LEAD_STATUSES)||'');
+  STATUS_EDIT = normalizeStatusList(parseStatusList(initial));
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+esc(STATUS_EDIT.join('\n'))+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<div id="statusEditorRows" class="se-list">'+statusRowsHtml()+'</div>'
+    + '<div class="se-add"><input id="statusAddInput" placeholder="Add a status…" '
+    +   'onkeydown="if(event.key===\'Enter\'){event.preventDefault();statusEditAdd();}">'
+    +   '<button type="button" class="se-addbtn" onclick="statusEditAdd()">Add</button></div>'
+    + '</div>';
+}
+function statusRowsHtml(){
+  return STATUS_EDIT.map(function(name, i){
+    var sys = isSystemStatus(name);
+    var revenue = (name==='Booked'||name==='Completed');
+    var cell = sys
+      ? '<span class="se-name"><span class="se-lock">&#128274;</span>'+esc(name)
+        + '<span class="se-badge'+(revenue?' se-badge-income':'')+'">'+(revenue?'counts as income':'system')+'</span></span>'
+      : '<input class="se-name-input" value="'+esc(name)+'" aria-label="Status name" '
+        + 'onchange="statusEditRename('+i+',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}">';
+    var up   = '<button type="button" class="se-btn"'+(i===0?' disabled':'')+' title="Move up" onclick="statusEditMove('+i+',-1)">&#9650;</button>';
+    var down = '<button type="button" class="se-btn"'+(i===STATUS_EDIT.length-1?' disabled':'')+' title="Move down" onclick="statusEditMove('+i+',1)">&#9660;</button>';
+    var rm   = sys ? '' : '<button type="button" class="se-btn se-danger" title="Remove" onclick="statusEditRemove('+i+')">&#215;</button>';
+    return '<div class="se-row">'+cell+'<span class="se-actions">'+up+down+rm+'</span></div>';
+  }).join('');
+}
+function renderStatusEditorRows(){ var b=$('statusEditorRows'); if(b) b.innerHTML=statusRowsHtml(); syncStatusHidden(); }
+function syncStatusHidden(){ var h=$('set_LEAD_STATUSES'); if(h) h.value=STATUS_EDIT.join('\n'); }
+function statusExists(name, exceptIdx){
+  var key=String(name==null?'':name).trim().toLowerCase();
+  return STATUS_EDIT.some(function(s,idx){ return idx!==exceptIdx && String(s).trim().toLowerCase()===key; });
+}
+function statusEditMove(i, dir){
+  var j=i+dir; if(j<0||j>=STATUS_EDIT.length) return;
+  var t=STATUS_EDIT[i]; STATUS_EDIT[i]=STATUS_EDIT[j]; STATUS_EDIT[j]=t; renderStatusEditorRows();
+}
+function statusEditRemove(i){ if(isSystemStatus(STATUS_EDIT[i])) return; STATUS_EDIT.splice(i,1); renderStatusEditorRows(); }
+function statusEditRename(i, val){
+  if(isSystemStatus(STATUS_EDIT[i])) return;
+  var nn=String(val==null?'':val).trim();
+  if(!nn){ toast('Status name can’t be empty'); renderStatusEditorRows(); return; }
+  if(isSystemStatus(nn)){ toast('“'+nn+'” is a reserved built-in status'); renderStatusEditorRows(); return; }
+  if(statusExists(nn,i)){ toast('“'+nn+'” already exists'); renderStatusEditorRows(); return; }
+  STATUS_EDIT[i]=nn; renderStatusEditorRows();
+}
+function statusEditAdd(){
+  var inp=$('statusAddInput'); if(!inp) return;
+  var nn=String(inp.value||'').trim(); if(!nn) return;
+  if(isSystemStatus(nn)){ toast('“'+nn+'” is already a built-in status'); return; }
+  if(statusExists(nn,-1)){ toast('“'+nn+'” already exists'); return; }
+  STATUS_EDIT.push(nn); inp.value=''; renderStatusEditorRows(); inp.focus();
 }
 
 /* ---------- Update-available banner (version check via the license hub) ---------- */

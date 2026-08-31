@@ -41,6 +41,7 @@ var CONFIG_DEFAULTS_ = {
   CONTACT_GROUP: '',
   SERVICES: 'Strolling\nStage\nStage & Strolling',
   EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nOther',
+  LEAD_STATUSES: 'New\nPending\nBooked\nCompleted\nLost\nReferral\nReferred',
   LEAD_SOURCES: 'Bark\nGigsalad\nWebsite\nCurrent Client\nReferral\nOther',
   AD_SOURCES: 'Bark\nGigsalad\nWebsite'
 };
@@ -106,6 +107,7 @@ var CONFIG_FIELDS_ = [
   // Services & client page
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
+  { key: 'LEAD_STATUSES', label: 'Lead statuses', help: 'Your pipeline stages, in order. Booked, Completed, Lost, Referral and Referred are built in and locked — Booked and Completed are the two that count as income in Insights. Add, rename, remove or reorder the rest.', editor: 'statuses', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'EVENT_PREP_NOTE', label: 'Event prep note', help: 'Shown to clients after they pay their deposit (e.g. setup needs, what to prepare). Leave blank to hide.', section: 'services' },
@@ -156,6 +158,35 @@ function getSettings() {
   return { config: getConfig_(), raw: getRawSettings_(), fields: CONFIG_FIELDS_, sections: SETTINGS_SECTIONS_ };
 }
 
+// Statuses the app's own logic keys on by exact string: Booked/Completed count as
+// income (isBookedLike), Lost/Referral/Referred drive automations. They can never be
+// removed or renamed away, so normalize any saved status list to keep them present
+// (canonical case), de-duped, in the buyer's chosen order. The client editor enforces
+// the same thing; this is the server-side guarantee.
+var SYSTEM_STATUSES_ = ['Booked', 'Completed', 'Lost', 'Referral', 'Referred'];
+function normalizeStatusConfig_(str) {
+  var lines = String(str == null ? '' : str).split(/\r?\n/);
+  var seen = {}, out = [];
+  function canonical(key) {
+    for (var i = 0; i < SYSTEM_STATUSES_.length; i++) {
+      if (SYSTEM_STATUSES_[i].toLowerCase() === key) return SYSTEM_STATUSES_[i];
+    }
+    return null;
+  }
+  lines.forEach(function (raw) {
+    var name = String(raw || '').trim();
+    if (!name) return;
+    var key = name.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = 1;
+    out.push(canonical(key) || name);
+  });
+  SYSTEM_STATUSES_.forEach(function (s) {
+    if (!seen[s.toLowerCase()]) { seen[s.toLowerCase()] = 1; out.push(s); }
+  });
+  return out.join('\n');
+}
+
 function saveSettings(values) {
   var sh = settingsSheet_();
   var last = sh.getLastRow();
@@ -173,6 +204,7 @@ function saveSettings(values) {
     if (!(k in CONFIG_DEFAULTS_)) return; // ignore unknown keys
     var v = values[k];
     if (v === null || typeof v === 'undefined') v = '';
+    if (k === 'LEAD_STATUSES') v = normalizeStatusConfig_(v);
     if (keyRow[k]) {
       sh.getRange(keyRow[k], 2).setValue(v);
     } else {
@@ -204,7 +236,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.2.1';
+var APP_VERSION = '1.3.0';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
