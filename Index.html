@@ -1058,6 +1058,7 @@ var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
 function ingest(json){
   var o=JSON.parse(json);
   if('leads' in o) LEADS=o.leads||[];
+  if('customFields' in o){ CUSTOM_LEAD_FIELDS = Array.isArray(o.customFields)?o.customFields:[]; mergeCustomFieldsIntoKVF_(); }
   if('tasks' in o) TASKS=o.tasks||[];
   if('logs' in o) LOGS=o.logs||[];
   if('templates' in o) TPL=o.templates||[];
@@ -2918,6 +2919,16 @@ var KVF=[
   {label:'Phone', col:C.phone, type:'tel'},
   {label:'Email', col:C.email, type:'email'}
 ];
+var CUSTOM_LEAD_FIELDS = [];
+// Custom fields created during a CSV import (server-tracked) are appended to
+// KVF as plain text fields so they appear in the lead editor — editable and
+// hide/reorder-able like any other field. Idempotent: de-dupes by column.
+function mergeCustomFieldsIntoKVF_(){
+  var known={}; KVF.forEach(function(F){ known[F.col]=1; });
+  CUSTOM_LEAD_FIELDS.forEach(function(col){
+    if(col && !known[col]){ KVF.push({label:col, col:col, type:'text', custom:true}); known[col]=1; }
+  });
+}
 function kvDisplay(F){
   var v=CURRENT? CURRENT[F.col] : '';
   if(F.type==='date') return fmtDateY(v);
@@ -5884,29 +5895,41 @@ var LEAD_IMPORT_TARGETS = [
   {key:C.eventType, label:'Event type'},
   {key:C.service, label:'Service'},
   {key:C.eventDate, label:'Date of event'},
+  {key:C.start, label:'Event time (start)'},
   {key:C.location, label:'Event location'},
   {key:C.companyAddress, label:'Company address'},
   {key:C.price, label:'Quoted price'},
   {key:C.audience, label:'Audience size'},
   {key:C.source, label:'Lead source'},
+  {key:C.status, label:'Status'},
+  {key:C.followup, label:'Follow-up date'},
+  {key:C.contractSigned, label:'Contract signed'},
+  {key:C.depositReceived, label:'Deposit paid?'},
+  {key:C.balancePaid, label:'Balance paid?'},
   {key:C.notes, label:'Notes'}
 ];
 // Header synonyms for auto-mapping, compared after normalising a header to
 // lowercase alphanumerics (so "E-mail", "Event Date", "Phone #" collapse to
 // email / eventdate / phone).
 var LEAD_IMPORT_AUTOMAP = [
-  [C.name, ['name','customername','clientname','fullname','contactname','customer','client','contact']],
+  [C.name, ['name','customername','clientname','fullname','contactname','customer','client','firstname']],
   [C.email, ['email','emailaddress','mail']],
   [C.phone, ['phone','phonenumber','mobile','cell','cellphone','tel','telephone','contactnumber']],
   [C.company, ['company','organization','organisation','org','business','businessname','companyname','employer']],
   [C.eventType, ['eventtype','typeofevent','occasion','eventkind']],
   [C.service, ['service','services','package','showtype','offering']],
   [C.eventDate, ['dateofevent','eventdate','showdate','performancedate','bookingdate','eventday','date']],
+  [C.start, ['eventtime','starttime','showtime']],
   [C.location, ['eventlocation','location','venue','venueaddress','city','place']],
-  [C.price, ['quotedprice','pricequoted','price','quote','fee','amount','total','cost','rate','value']],
-  [C.audience, ['audiencesize','audience','headcount','guestcount','guests','attendees','pax','size']],
+  [C.price, ['quotedprice','pricequoted','price','quote','fee','amount','total','cost','rate','value','budget','eventbudget']],
+  [C.audience, ['audiencesize','audience','headcount','guestcount','guests','attendees','pax','size','howmany','howmanyattendees']],
   [C.source, ['leadsource','source','referral','referredby','howheard','howdidyouhear','marketing']],
-  [C.notes, ['notes','note','comments','comment','description','details','memo','remarks']]
+  [C.status, ['leadstatus','status','stage','leadstage']],
+  [C.followup, ['nextcontact','followup','followupdate','nextfollowup']],
+  [C.contractSigned, ['contractsigned']],
+  [C.depositReceived, ['depositpaid','depositreceived']],
+  [C.balancePaid, ['balancepaid','balancereceived']],
+  [C.notes, ['notes','note','comments','comment','description','details','memo','remarks','callnotes','tellusaboutyourevent','eventdetails']]
 ];
 function liNormHead_(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 function liAutoMapField_(header){
@@ -5956,6 +5979,8 @@ function liNormDate_(v){
   var d=new Date(s); return isNaN(d.getTime())?'':ymd(d);
 }
 function liDupKey_(name,email){ return String(name||'').trim().toLowerCase()+'|'+String(email||'').trim().toLowerCase(); }
+// Sanitizes a spreadsheet header into a safe new-field (column) name.
+function liCleanFieldName_(h){ h=String(h||'').trim(); if(!h) return ''; if(h==='_row' || h.toLowerCase()==='timestamp') return ''; return h; }
 var LI_GRID=null, LI_MAP={}, LI_ROWS=[];
 function openLeadImport(){
   LI_GRID=null; LI_MAP={}; LI_ROWS=[];
@@ -5985,6 +6010,7 @@ function renderLeadMap(){
     for(var r=0;r<LI_GRID.rows.length && r<4;r++){ var c=LI_GRID.rows[r][idx]; if(c && String(c).trim()){ sample=String(c).trim(); break; } }
     var sel='<select style="width:100%;font-size:13px;margin-top:4px" onchange="setLeadMap('+idx+',this.value)">'
       + LEAD_IMPORT_TARGETS.map(function(o){ return '<option value="'+esc(o.key)+'"'+(o.key===LI_MAP[idx]?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
+      + '<option value="__new__"'+(LI_MAP[idx]==='__new__'?' selected':'')+'>➕ Add as a new field</option>'
       + '</select>';
     return '<div style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:8px">'
       + '<div style="font-weight:600;color:var(--cream);font-size:13px;word-break:break-word">'+esc(h||'(unnamed column)')+'</div>'
@@ -6004,12 +6030,13 @@ function liBuildRows_(grid, map, status, existingLeads){
   grid.rows.forEach(function(cells){
     var f={}, key;
     for(key in map){ var tgt=map[key]; if(!tgt) continue; var val=cells[Number(key)]; if(val===undefined) continue; val=String(val).trim();
-      if(tgt===C.eventDate) val=liNormDate_(val);
+      if(tgt==='__new__'){ tgt=liCleanFieldName_(grid.header[Number(key)]); if(!tgt) continue; }
+      else if(tgt===C.eventDate) val=liNormDate_(val);
       if(val==='') continue;
       f[tgt]=val;
     }
     var nm=String(f[C.name]||'').trim(); if(!nm) return;
-    f[C.status]=status;
+    if(!f[C.status]) f[C.status]=status;
     var dk=liDupKey_(nm, f[C.email]);
     var isDup=!!existing[dk] || !!seen[dk]; seen[dk]=1;
     out.push({fields:f, name:nm, email:String(f[C.email]||''), phone:String(f[C.phone]||''), eventDate:String(f[C.eventDate]||''), dup:isDup, included:!isDup});

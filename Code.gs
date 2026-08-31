@@ -204,7 +204,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.1.0';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -2699,7 +2699,19 @@ function markOracleTipShown(){
 // contact history). Returns just {leads, logs} instead of rebuilding every
 // sheet in the app — the client already holds everything else in memory.
 function getLeadsScoped_() {
-  return JSON.stringify({ leads: buildLeadsArray_(), logs: getLog_(), trash: getTrash() });
+  return JSON.stringify({ leads: buildLeadsArray_(), logs: getLog_(), trash: getTrash(), customFields: customLeadFields_() });
+}
+
+// Custom fields the buyer created during a CSV import (tracked explicitly in a
+// Script Property, filtered to those still present as columns). The app adds
+// these to the lead editor so imported custom data is visible and editable.
+function customLeadFields_() {
+  try {
+    var tracked = JSON.parse(PropertiesService.getScriptProperties().getProperty('CUSTOM_LEAD_FIELDS') || '[]');
+    if (!Array.isArray(tracked) || !tracked.length) return [];
+    var present = {}; headers_(sheet_()).forEach(function (h) { present[String(h).trim()] = 1; });
+    return tracked.filter(function (c) { return c && present[c]; });
+  } catch (e) { return []; }
 }
 
 // Even lighter — for contact-history-only operations that never touch the
@@ -3101,8 +3113,30 @@ function addLead(fields) {
 // addLead's `fields`.
 function importLeadsBatch(rowsJson) {
   const sh = sheet_();
-  const heads = headers_(sh);
   const rows = JSON.parse(rowsJson);
+  var heads = headers_(sh);
+  // Any field key that isn't already a column becomes a NEW column — a custom
+  // field the buyer chose to create during import. Track the names in a Script
+  // Property so the app can surface them in the lead editor.
+  var known = {}; heads.forEach(function (h) { known[h] = 1; });
+  var newCols = [];
+  rows.forEach(function (f) {
+    Object.keys(f).forEach(function (k) {
+      if (k && k !== '_row' && !known[k] && newCols.indexOf(k) === -1) newCols.push(k);
+    });
+  });
+  if (newCols.length) {
+    sh.getRange(1, heads.length + 1, 1, newCols.length).setValues([newCols]);
+    heads = headers_(sh); // re-read so the new columns are included below
+    try {
+      var props = PropertiesService.getScriptProperties();
+      var tracked = [];
+      try { tracked = JSON.parse(props.getProperty('CUSTOM_LEAD_FIELDS') || '[]'); } catch (e) {}
+      if (!Array.isArray(tracked)) tracked = [];
+      newCols.forEach(function (c) { if (tracked.indexOf(c) === -1) tracked.push(c); });
+      props.setProperty('CUSTOM_LEAD_FIELDS', JSON.stringify(tracked));
+    } catch (e) {}
+  }
   const now = new Date();
   const out = rows.map(function (fields) {
     return heads.map(function (h) {
