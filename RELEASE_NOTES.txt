@@ -1,1 +1,1 @@
-Flexible client import — map your columns to existing fields or create new ones; imported custom fields now show in the lead editor. Contracts and receipts now use your own logo and governing-law location.
+Custom lead statuses on import — your spreadsheet's own status labels (Qualified, Contacted, Won…) now stay selectable on each lead and in the Add Lead form. The import screen explains which statuses count toward revenue, and "No response" was removed from the picker.

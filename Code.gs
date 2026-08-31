@@ -204,7 +204,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.2.0';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}

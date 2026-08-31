@@ -839,6 +839,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="field" style="margin-top:14px"><label>Status for all imported clients</label>
       <select id="li_status"><option>Completed</option><option>Booked</option><option>New</option><option>Pending</option></select></div>
     <p class="note" style="text-align:left;margin:6px 0 0">Most people import past clients as <b>Completed</b>. Pick New/Pending if these are fresh leads you're still working. (Booked/Completed count toward revenue in Insights.)</p>
+    <div style="margin:12px 0 0;padding:11px 13px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;color:var(--cream);text-align:left">
+      <b style="color:var(--gold-bright)">If you map a column to Status:</b> only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights (and trigger the booking automations). Any other label &mdash; <i>Won, Confirmed, Contacted, Qualified&hellip;</i> &mdash; imports exactly as written and becomes a selectable pipeline stage, but <b>won't</b> count toward revenue. If a value in your sheet really means <i>booked</i>, rename it to <b>Booked</b> in your spreadsheet before importing (or update those leads afterward).
+    </div>
     <button class="save" style="margin-top:14px" onclick="leadImportReview()">Continue to review &rarr;</button>
   </div>
   <div id="li_stage_review" style="display:none">
@@ -968,7 +971,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <div class="field"><label>Status</label>
     <select id="d_status" onchange="refToggle(true);queueAutoSave()">
-      <option>New</option><option>Pending</option><option>No response</option><option>Booked</option><option>Completed</option><option>Lost</option><option>Referral</option><option>Referred</option>
+      <option>New</option><option>Pending</option><option>Booked</option><option>Completed</option><option>Lost</option><option>Referral</option><option>Referred</option>
     </select>
   </div>
   <div class="field"><label>Lead created</label>
@@ -2342,6 +2345,31 @@ function dismissShowtime(){
 
 /* ---------- Leads list ---------- */
 function isBookedLike(L){ var s=String(L[C.status]); return s==='Booked'||s==='Completed'; }
+// Status values the app offers by default, in dropdown order. Booked/Completed are the
+// only ones that count toward revenue in Insights (isBookedLike) and drive the booking
+// automations; the rest are neutral pipeline stages. Keep in sync with the static
+// <option>s in #d_status.
+var STATUS_BUILTINS = ['New','Pending','Booked','Completed','Lost','Referral','Referred'];
+// The Add-Lead quick form offers a curated subset (a brand-new lead is realistically only
+// one of these), still with any custom statuses appended below.
+var STATUS_ADD_BUILTINS = ['New','Pending','Booked'];
+// Rebuild a status <select> to list `builtins` (default STATUS_BUILTINS) plus any status
+// values already present in the data (an imported client list can carry its own labels),
+// then select `current`. De-duped by exact string so `current` always has a matching
+// <option> — an imported custom status therefore displays and stays selectable instead of
+// being silently lost.
+function fillStatusSelect(sel, current, builtins){
+  if(!sel) return;
+  builtins = builtins || STATUS_BUILTINS;
+  current = String(current==null?'':current).trim();
+  var seen={}, opts=[];
+  function add(s){ s=String(s==null?'':s).trim(); if(s && !seen[s]){ seen[s]=1; opts.push(s); } }
+  builtins.forEach(add);
+  (LEADS||[]).forEach(function(L){ add(L[C.status]); });
+  add(current);
+  sel.innerHTML = opts.map(function(s){ return '<option>'+esc(s)+'</option>'; }).join('');
+  sel.value = current || builtins[0] || 'New';
+}
 function isPastEvent(L){
   var e=pd(L[C.eventDate]); if(!e) return false;
   var e0=new Date(e); e0.setHours(0,0,0,0); return e0<today0();
@@ -2869,7 +2897,7 @@ function openSheet(row){
   buildActions();
   var f=pd(L[C.followup]); $('d_followup').value = f? ymd(f):'';
   $('d_followtime').value = (f && (f.getHours()||f.getMinutes())) ? hm(f) : '';
-  $('d_status').value = String(L[C.status]||'New');
+  fillStatusSelect($('d_status'), String(L[C.status]||'New'));
   $('d_created').textContent = fmtDateY(L[C.timestamp]);
   buildFollowupDoneBtn();
   renderDConflict(L);
@@ -4130,7 +4158,7 @@ function doAutoSave(){
         var f=pd(CURRENT[C.followup]);
         $('d_followup').value = f? ymd(f) : '';
         $('d_followtime').value = (f && (f.getHours()||f.getMinutes())) ? hm(f) : '';
-        $('d_status').value = String(CURRENT[C.status]||'New');
+        fillStatusSelect($('d_status'), String(CURRENT[C.status]||'New'));
         refToggle();
         buildFollowupDoneBtn();
         renderDConflict(CURRENT);
@@ -6097,6 +6125,7 @@ function go(v, btn){
   if(btn) btn.classList.add('on');
   $('pageTitle').textContent = v==='leads'?'Magic Manager':(v==='insights'?'Insights':(v==='expenses'?'Expenses':(v==='add'?'New Lead':'Settings')));
   if(v==='expenses') renderExpenses();
+  if(v==='add') fillStatusSelect($('a_status'), ($('a_status')&&$('a_status').value)||'New', STATUS_ADD_BUILTINS);
   if(v==='settings') renderSettings();
   window.scrollTo(0,0);
 }
