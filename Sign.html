@@ -1,0 +1,456 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0B10; --panel:#15151E; --panel2:#1C1C27;
+    --gold:#C9A050; --gold-bright:#E4C179; --gold-deep:#6E5730;
+    --cream:#F4EBD3; --muted:#928A75; --crimson:#C05236;
+    --line:rgba(201,160,80,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--ink);color:var(--cream);font-family:'Archivo',sans-serif;font-size:15px;margin:0;line-height:1.5}
+  .wrap{max-width:480px;margin:0 auto;padding:28px 20px 60px}
+  h1{font-family:'Playfair Display',serif;font-size:26px;margin:0 0 2px;text-align:center;color:var(--cream)}
+  .logo{display:block;margin:0 auto 20px;width:190px;height:190px}
+  .portal-label{text-align:center;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:-14px 0 22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}
+  .k{color:var(--muted);font-size:13px}
+  .v{color:var(--cream);font-weight:600;font-size:13.5px;text-align:right}
+  a.pdf{display:block;text-align:center;margin-top:14px;color:var(--gold-bright);font-size:13.5px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+  label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:16px 0 6px}
+  input[type="text"]{width:100%;font-family:'Archivo',sans-serif;font-size:16px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;outline:none}
+  input[type="text"]:focus{border-color:var(--gold)}
+  select{width:100%;font-family:'Archivo',sans-serif;font-size:16px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;outline:none;color-scheme:dark}
+  select:focus{border-color:var(--gold)}
+  .feenote{font-size:11.5px;color:var(--gold-bright);margin-top:6px}
+  .paybtn{display:block;text-align:center;text-decoration:none;background:var(--gold);color:#141008;font-weight:700;font-size:15px;border-radius:8px;padding:12px;margin-top:12px}
+  .paynote{font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+  .paydetails{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:12px;font-size:13px;line-height:1.7;color:var(--cream)}
+  .paydetails-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px}
+  .paidbanner{background:rgba(201,160,80,.14);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13.5px;color:var(--gold-bright);text-align:center}
+  .bookingid{text-align:center;margin:0 0 18px}
+  .bookingid .lead{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+  .bookingid .name{font-family:'Playfair Display',serif;font-size:19px;color:var(--cream);font-weight:700}
+  .agree{display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:13px;color:var(--muted)}
+  .agree input{margin-top:3px}
+  button{width:100%;font-family:'Archivo',sans-serif;font-size:16px;font-weight:700;padding:14px;border-radius:10px;border:none;background:var(--gold);color:#141008;margin-top:18px;cursor:pointer}
+  button:disabled{opacity:.5}
+  .note{color:var(--muted);font-size:12px;text-align:center;margin-top:12px}
+  .signed{text-align:center;padding:30px 10px}
+  .signed .big{font-size:40px;margin-bottom:10px}
+  .err{color:#E9927B;text-align:center;padding:30px 10px}
+  #loading{text-align:center;color:var(--muted);padding:40px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <? if (cfg.LOGO_URL) { ?><img class="logo" src="<?= cfg.LOGO_URL ?>" alt="<?= cfg.BUSINESS_NAME ?>"><? } ?>
+  <div class="portal-label">Your Event Portal</div>
+  <div id="loading">Loading your agreement&#8230;</div>
+  <div id="content" style="display:none"></div>
+</div>
+
+<script>
+var TOKEN='<?= token ?>';
+var PAID='<?= paid ?>';
+var CFG=<?!= JSON.stringify(cfg) ?>;
+
+function renderError(){
+  document.getElementById('loading').style.display='none';
+  var c=document.getElementById('content');
+  c.style.display='';
+  c.innerHTML='<div class="err">We couldn\u2019t find this agreement. Please check the link or contact us directly.</div>';
+}
+function paidBannerHtml(){
+  if(PAID!=='1') return '';
+  return '<div class="paidbanner">Your card payment was submitted \u2014 We will confirm once it\u2019s received.</div>';
+}
+// Reuses the logo already on the page rather than embedding a second copy
+// of the same large base64 image a second time in this file.
+function signatureBlockHtml(){
+  var existingLogo = document.querySelector('.logo');
+  var logoSrc = (existingLogo && existingLogo.src) ? existingLogo.src : (CFG.LOGO_URL||'');
+  var webHref = CFG.WEBSITE ? (/^https?:\/\//.test(CFG.WEBSITE)?CFG.WEBSITE:'https://'+CFG.WEBSITE) : '';
+  var webDisp = CFG.WEBSITE ? CFG.WEBSITE.replace(/^https?:\/\//,'') : '';
+  var bits=[];
+  if(CFG.PHONE) bits.push(CFG.PHONE);
+  if(CFG.WEBSITE) bits.push('<a href="'+webHref+'" target="_blank" style="color:var(--gold-bright)">'+webDisp+'</a>');
+  return '<div style="display:flex;gap:14px;align-items:center;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)">'
+    +(logoSrc?'<img src="'+logoSrc+'" alt="'+CFG.BUSINESS_NAME+'" style="width:64px;height:64px;border-radius:8px;flex-shrink:0;object-fit:cover">':'')
+    +'<div style="border-left:1px solid var(--line);padding-left:14px">'
+      +'<div style="font-weight:700;color:var(--cream);font-size:14px">'+CFG.OWNER_NAME+'</div>'
+      +'<div style="font-weight:700;color:var(--gold-bright);font-size:12.5px;margin-bottom:4px">'+CFG.BUSINESS_NAME+'</div>'
+      +(bits.length?'<div style="font-size:12px;color:var(--muted)">'+bits.join(' &nbsp;|&nbsp; ')+'</div>':'')
+      +(CFG.EMAIL?'<div style="font-size:12px;color:var(--muted)"><a href="mailto:'+CFG.EMAIL+'" style="color:var(--gold-bright)">'+CFG.EMAIL+'</a></div>':'')
+    +'</div>'
+    +'</div>';
+}
+function receiptCardHtml(label, url){
+  if(!url) return '<div class="paydetails"><div class="paydetails-title">'+label+'</div><div>Payment recorded \u2014 your receipt is on its way.</div></div>';
+  return '<div class="paydetails"><div class="paydetails-title">'+label+' Receipt</div>'
+    +'<a href="'+url+'" target="_blank" style="color:var(--gold-bright);text-decoration:underline">View / download PDF &rarr;</a></div>';
+}
+// The one page a signed client keeps coming back to — it just shows
+// whatever's relevant right now: pay the deposit, see the deposit
+// receipt, pay the balance once it's actually due, or see the balance
+// receipt. Same link the whole way through, nothing new to send later.
+function bookingIdHtml(d){
+  var line2 = [d.client, d.eventDate].filter(Boolean).join(' \u2014 ');
+  if(!line2) return '';
+  var invLine = d.invoiceNumber ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">Invoice '+d.invoiceNumber+'</div>' : '';
+  return '<div class="bookingid"><div class="lead">Your booking with '+CFG.OWNER_NAME+'</div><div class="name">'+line2+'</div>'+invLine+'</div>';
+}
+function renderStatusPage(d){
+  document.getElementById('loading').style.display='none';
+  var c=document.getElementById('content');
+  c.style.display='';
+
+  var html = paidBannerHtml() + bookingIdHtml(d);
+  html += '<div class="signed"><div class="big">&#10038;</div><div>This agreement was signed'
+    +(d.signedName?' by <b>'+d.signedName+'</b>':'')+'. Thank you!</div></div>';
+
+  html += '<div class="card">'
+    +row('Services', d.services)
+    +'</div>';
+  if(d.pdfUrl) html += '<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>';
+
+  var showDepositPrompt = !d.depositPaid;
+  var balanceDue = d.daysUntilEvent!==null && d.daysUntilEvent<=d.balanceDueDays;
+  // No longer gated on balanceDue — once the deposit's handled, the client
+  // can pay the balance whenever they're ready rather than being blocked
+  // until it's officially due. The due date still gets shown as context
+  // right above the prompt when it's not yet due, just not used to
+  // prevent paying early.
+  var showBalancePrompt = d.depositPaid && !d.balancePaid;
+
+  if(d.depositPaid) html += receiptCardHtml('Deposit', d.depositReceiptUrl);
+  if(d.balancePaid){
+    html += receiptCardHtml('Final Balance', d.balanceReceiptUrl);
+  } else if(!d.depositPaid){
+    html += '<div class="paydetails"><div class="paydetails-title">Balance</div><div>Your remaining balance of '+fmtMoney(d.balanceBase)+' will be due once your deposit is received.</div></div>';
+  }
+
+  var kind = showDepositPrompt ? 'deposit' : 'balance';
+  if(showDepositPrompt || showBalancePrompt){
+    var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
+    var initAmt = computeAmounts(d.depositBase, d.balanceBase, initialMethod);
+    var baseShown = kind==='balance' ? initAmt.balance : initAmt.deposit;
+    if(kind==='balance' && !balanceDue){
+      html += '<p class="note" style="margin:0 0 6px">Feel free to pay early \u2014 officially due '+(d.balanceDueDateFmt||'a date closer to your event')+'.</p>';
+    }
+    html += '<label>How will you be paying your '+(kind==='balance'?'balance':'deposit')+'?</label>'
+      +'<select id="paymentMethod">'+PAYMENT_METHODS.map(function(m){
+        return '<option value="'+m+'"'+(m===initialMethod?' selected':'')+'>'+m+'</option>';
+      }).join('')+'</select>'
+      +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
+  }
+
+  // After the deposit, show the owner's custom "event prep" note, if they set one.
+  if(d.depositPaid && CFG.EVENT_PREP_NOTE){
+    var prep = String(CFG.EVENT_PREP_NOTE).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    html += '<div class="paydetails"><div class="paydetails-title">Event Prep</div>'
+      +'<p style="margin:6px 0 10px">'+prep+'</p>'
+      +(CFG.EMAIL?'<p style="margin:0;font-size:12px;color:var(--muted)">Questions? <a href="mailto:'+CFG.EMAIL+'" style="color:var(--gold-bright)">'+CFG.EMAIL+'</a></p>':'')
+      +'</div>';
+  }
+  html += signatureBlockHtml();
+
+  c.innerHTML = html;
+
+  if(showDepositPrompt || showBalancePrompt){
+    var pmSel=document.getElementById('paymentMethod');
+    pmSel.onchange=function(){
+      var a=computeAmounts(d.depositBase, d.balanceBase, pmSel.value);
+      var amt2 = kind==='balance' ? a.balance : a.deposit;
+      document.getElementById('paymentExtra').innerHTML=renderExtrasHtml(pmSel.value, amt2, kind);
+      // The deposit's payment method is already locked in at signing time —
+      // this only matters for the balance, which can genuinely end up paid
+      // a different way, and needs its own real record so the balance
+      // receipt (and the owner's own view of this lead) reflect what actually
+      // happened instead of assuming it matches the deposit.
+      if(kind==='balance'){
+        google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).saveBalancePaymentMethod(TOKEN, pmSel.value);
+      }
+    };
+  }
+}
+var FEE_RATE=0.0325;
+var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');return m;})();
+// The owner's Venmo username and Cash App cashtag — update these here if
+// either ever changes. The Venmo link format is a long-standing pattern
+// many businesses rely on, though it's not something Venmo officially
+// documents or guarantees; the Cash App format is their own stable,
+// supported link style.
+var VENMO_USERNAME=CFG.VENMO_USERNAME||'';
+var CASHAPP_CASHTAG=CFG.CASHAPP_CASHTAG||'';
+function fmtMoney(n){
+  return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function computeAmounts(depositBase, balanceBase, method){
+  var isCard = method==='Credit Card';
+  return {
+    deposit: isCard ? depositBase*(1+FEE_RATE) : depositBase,
+    balance: isCard ? balanceBase*(1+FEE_RATE) : balanceBase
+  };
+}
+function payLinkFor(method, amount){
+  // Venmo genuinely supports a pre-filled amount via URL (a long-standing,
+  // if unofficial, pattern). Cash App does not \u2014 despite a commonly
+  // repeated trick online, there's no reliable, supported way to embed an
+  // amount in a Cash App link, so that one gets handled separately below
+  // with the amount shown as plain text instead of pretending it's pre-filled.
+  if(method==='Venmo'){
+    var amt=amount.toFixed(2);
+    return 'https://venmo.com/'+VENMO_USERNAME+'?txn=pay&amount='+amt+'&note='+encodeURIComponent(CFG.BUSINESS_NAME+' deposit');
+  }
+  return null;
+}
+// Static bank details for methods that need them shown, rather than a
+// click-to-pay link — there's no such thing as a "pay" link for a wire or
+// a mailed check, so these just tell the client exactly where to send it.
+function paymentInstructionsFor(method){
+  if(method==='ACH'){
+    return {title:'Bank Transfer (ACH)', lines:[CFG.ACH_BANK,'Account: '+CFG.ACH_ACCOUNT,'Routing: '+CFG.ACH_ROUTING]};
+  }
+  if(method==='Check'){
+    return {title:'Mail a Check', lines:['Payable to \u201c'+(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME)+'\u201d',(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME),(CFG.CHECK_ADDRESS||CFG.ADDRESS)]};
+  }
+  if(method==='Wire Transfer'){
+    return {title:'Wire Transfer', lines:['Account: '+CFG.WIRE_ACCOUNT,'Routing: '+CFG.WIRE_ROUTING,CFG.WIRE_BANK,CFG.WIRE_BANK_ADDRESS,'Beneficiary: '+CFG.BUSINESS_LEGAL_NAME,CFG.ADDRESS]};
+  }
+  return null;
+}
+function renderExtrasHtml(method, amt, kind){
+  kind = kind || 'deposit';
+  var kindLabel = kind==='balance' ? 'Balance' : 'Deposit';
+  if(method==='Credit Card'){
+    return '<p class="feenote">A 3.25% card processing fee is included in the amounts above.</p>'
+      +'<button type="button" class="paybtn" id="cardPayBtn" onclick="payWithStripe(\''+kind+'\')" style="border:none;width:100%">Pay '+kindLabel+' \u2014 '+fmtMoney(amt)+'</button>'
+      +'<p class="paynote">Opens a secure Stripe checkout page. We will confirm once it\u2019s received.</p>';
+  }
+  if(method==='Venmo'){
+    var link=payLinkFor(method, amt);
+    return '<a class="paybtn" target="_top" href="'+link+'">Pay '+kindLabel+' \u2014 '+fmtMoney(amt)+'</a>'
+      +'<p class="paynote">Opens Venmo with the amount ready to send. We will confirm once it\u2019s received.</p>';
+  }
+  if(method==='Cash App'){
+    return '<div class="paydetails"><div class="paydetails-title">Cash App</div>'
+      +'<div>Send to: $'+CASHAPP_CASHTAG+'</div>'
+      +'<div>Amount: '+fmtMoney(amt)+'</div></div>'
+      +'<a class="paybtn" target="_top" href="https://cash.app/$'+CASHAPP_CASHTAG+'">Open Cash App</a>'
+      +'<p class="paynote">Cash App doesn\u2019t support pre-filling the amount, so please enter '+fmtMoney(amt)+' once the app opens. We will confirm once it\u2019s received.</p>';
+  }
+  var info=paymentInstructionsFor(method);
+  if(info){
+    return '<div class="paydetails"><div class="paydetails-title">'+info.title+'</div>'
+      +'<div>Amount: '+fmtMoney(amt)+'</div>'
+      +info.lines.map(function(l){ return '<div>'+l+'</div>'; }).join('')+'</div>';
+  }
+  return '';
+}
+// A direct window.top.location assignment is blocked by the browser when
+// the page content is running in a cross-origin sandboxed frame (which is
+// exactly how Apps Script serves this page) — browsers only allow an
+// actual link click to navigate the real top-level tab in that situation,
+// so this simulates one instead of touching window.top directly.
+function navigateTopLevel(url){
+  try{
+    var a=document.createElement('a');
+    a.href=url;
+    a.target='_top';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(e){}
+}
+function payWithStripe(kind){
+  kind = kind || 'deposit';
+  var btn=document.getElementById('cardPayBtn');
+  if(!btn) return;
+  btn.disabled=true;
+  var originalText=btn.textContent;
+  btn.textContent='Preparing checkout\u2026';
+  var status=document.getElementById('payStatus');
+  if(!status){
+    status=document.createElement('p');
+    status.id='payStatus';
+    status.className='paynote';
+    btn.parentNode.insertBefore(status, btn.nextSibling);
+  }
+  var seconds=0;
+  status.textContent='Contacting Magic Manager\u2026 (0s)';
+  var tickId=setInterval(function(){
+    seconds++;
+    status.textContent='Waiting for a response\u2026 ('+seconds+'s) \u2014 if this counter is moving, the page is still working normally.';
+  }, 1000);
+  var settled=false;
+  var timeoutId=setTimeout(function(){
+    if(settled) return;
+    settled=true; clearInterval(tickId);
+    btn.disabled=false; btn.textContent=originalText;
+    status.textContent='Timed out after 20 seconds with no response from the server. Nothing was charged.';
+    alert('This is taking longer than expected. Nothing was charged \u2014 please try again, or use another payment method if this keeps happening.');
+  }, 20000);
+  google.script.run.withSuccessHandler(function(json){
+    if(settled) return;
+    settled=true; clearTimeout(timeoutId); clearInterval(tickId);
+    var r=JSON.parse(json);
+    if(r.ok && r.url){
+      status.textContent='Got a response \u2014 opening Stripe\u2026';
+      navigateTopLevel(r.url);
+      // A visible fallback in case the automatic jump is blocked for any
+      // reason \u2014 this should never leave someone stuck with no way through.
+      status.innerHTML='If nothing happened, <a href="'+r.url+'" target="_top" style="color:var(--gold-bright);text-decoration:underline">tap here to continue to Stripe</a>.';
+    } else {
+      btn.disabled=false; btn.textContent=originalText;
+      status.textContent='Server said: '+(r.error||'unknown error');
+      alert(r.error || 'Something went wrong \u2014 please try again.');
+    }
+  }).withFailureHandler(function(err){
+    if(settled) return;
+    settled=true; clearTimeout(timeoutId); clearInterval(tickId);
+    btn.disabled=false; btn.textContent=originalText;
+    status.textContent='Request failed: '+(err && err.message ? err.message : 'unknown error');
+    alert('Something went wrong: ' + (err && err.message ? err.message : 'please try again.'));
+  }).createStripeCheckoutSession(TOKEN, kind);
+}
+function renderForm(d){
+  document.getElementById('loading').style.display='none';
+  var c=document.getElementById('content');
+  c.style.display='';
+  var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
+  var amt=computeAmounts(d.depositBase, d.balanceBase, initialMethod);
+  var depositLabel = d.depositPaid ? 'Deposit' : 'Deposit due today';
+  var html=paidBannerHtml()+bookingIdHtml(d)+'<div class="card">'
+    +row('Services', d.services)
+    +addressRow('Location', d.location)
+    +'<div class="row"><span class="k">'+depositLabel+'</span><span class="v" id="depositOut">'+fmtMoney(amt.deposit)+'</span></div>'
+    +'<div class="row"><span class="k">Balance due on event date</span><span class="v" id="balanceOut">'+fmtMoney(amt.balance)+'</span></div>'
+    +'</div>'
+    +(d.pdfUrl?'<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>':'');
+
+  if(d.depositPaid){
+    // Already received before this contract link was ever opened — paid
+    // another way, in advance of signing — so there's nothing to ask for
+    // here. Show what's already on record instead of a payment prompt.
+    html += receiptCardHtml('Deposit', d.depositReceiptUrl);
+  } else {
+    html += '<label>How will you be paying?</label>'
+      +'<select id="paymentMethod">'+PAYMENT_METHODS.map(function(m){
+        return '<option value="'+m+'"'+(m===initialMethod?' selected':'')+'>'+m+'</option>';
+      }).join('')+'</select>'
+      +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, amt.deposit, 'deposit')+'</div>';
+  }
+
+  html += '<label>Type your full name to sign</label>'
+    +'<input type="text" id="signName" placeholder="Your full name" autocomplete="name">'
+    +'<div class="agree"><input type="checkbox" id="agreeBox"><span>I have read the full agreement and accept its terms.</span></div>'
+    +'<button id="signBtn" disabled onclick="doSign()">Sign &amp; Accept</button>'
+    +'<p class="note">Typing your name above and tapping Sign &amp; Accept serves as your electronic signature on this agreement.</p>'
+    +signatureBlockHtml();
+  c.innerHTML=html;
+  var nameInp=document.getElementById('signName'), agreeBox=document.getElementById('agreeBox'), btn=document.getElementById('signBtn'), pmSel=document.getElementById('paymentMethod');
+  function sync(){ btn.disabled = !(nameInp.value.trim() && agreeBox.checked); }
+  nameInp.oninput=sync; agreeBox.onchange=sync;
+  // pmSel only exists in the DOM when a payment prompt was actually shown
+  // — guarded here so an already-paid deposit (no dropdown rendered at
+  // all) can't throw and break the rest of the signing form.
+  if(pmSel){
+    pmSel.onchange=function(){
+      var a=computeAmounts(d.depositBase, d.balanceBase, pmSel.value);
+      document.getElementById('depositOut').textContent=fmtMoney(a.deposit);
+      document.getElementById('balanceOut').textContent=fmtMoney(a.balance);
+      document.getElementById('paymentExtra').innerHTML=renderExtrasHtml(pmSel.value, a.deposit, 'deposit');
+    };
+  }
+}
+function row(k,v){
+  return '<div class="row"><span class="k">'+k+'</span><span class="v">'+(v||'\u2014')+'</span></div>';
+}
+// Keeps the tail of an address (the word right before the last comma,
+// plus everything after it — typically "City, ST 12345") from ever being
+// torn apart across a line break. Doesn't force a break where there's
+// room for the whole address on one line — it only changes how the
+// wrap falls when one's actually needed.
+function addressRow(k,v){
+  var addr=String(v||'');
+  if(!addr) return row(k,v);
+  var lastComma=addr.lastIndexOf(',');
+  if(lastComma===-1) return row(k,v);
+  var wordStart=addr.lastIndexOf(' ', lastComma-1)+1;
+  var head=addr.slice(0,wordStart);
+  var tail=addr.slice(wordStart);
+  return '<div class="row"><span class="k">'+k+'</span><span class="v">'+head+'<span style="white-space:nowrap">'+tail+'</span></span></div>';
+}
+function doSign(){
+  var name=document.getElementById('signName').value.trim();
+  var pmEl=document.getElementById('paymentMethod');
+  var method=pmEl ? pmEl.value : '';
+  if(!name) return;
+  var btn=document.getElementById('signBtn');
+  btn.disabled=true;
+  var originalText=btn.textContent;
+  btn.textContent='Signing\u2026';
+  var status=document.getElementById('signStatus');
+  if(!status){
+    status=document.createElement('p');
+    status.id='signStatus';
+    status.className='note';
+    btn.parentNode.insertBefore(status, btn.nextSibling);
+  }
+  var seconds=0;
+  status.textContent='Preparing your signed agreement\u2026 this takes a few seconds, since a real signed PDF is being built just for you.';
+  var tickId=setInterval(function(){
+    seconds++;
+    status.textContent='Still working\u2026 ('+seconds+'s) \u2014 building your signed PDF.';
+  }, 1000);
+  function stopTicking(){ clearInterval(tickId); }
+  google.script.run.withSuccessHandler(function(json){
+    var r=JSON.parse(json);
+    if(r.ok){
+      status.textContent='Signed \u2014 loading your booking page\u2026';
+      // Move straight into the same status page a returning visitor sees —
+      // right after signing that means prompting for the deposit next,
+      // rather than leaving them at a dead-end "thanks" message.
+      google.script.run.withSuccessHandler(function(json2){
+        stopTicking();
+        var d2=JSON.parse(json2);
+        if(d2.ok) renderStatusPage(d2); else renderSuccess(name);
+      }).withFailureHandler(function(){ stopTicking(); renderSuccess(name); }).getContractForSigning(TOKEN);
+    } else {
+      stopTicking();
+      btn.disabled=false; btn.textContent=originalText; status.textContent='';
+      alert('Something went wrong \u2014 please try again.');
+    }
+  }).withFailureHandler(function(){
+    stopTicking();
+    btn.disabled=false; btn.textContent=originalText; status.textContent='';
+    alert('Something went wrong \u2014 please try again.');
+  }).submitContractSignature(TOKEN, name, method);
+}
+function renderSuccess(name){
+  var c=document.getElementById('content');
+  c.innerHTML='<div class="signed"><div class="big">&#10038;</div><div>Thank you, <b>'+name+'</b> \u2014 your signature has been recorded. We will be in touch.</div></div>';
+}
+
+if(!TOKEN){
+  renderError();
+} else {
+  google.script.run.withSuccessHandler(function(json){
+    var d=JSON.parse(json);
+    if(!d.ok) renderError();
+    else if(d.alreadySigned) renderStatusPage(d);
+    else renderForm(d);
+  }).withFailureHandler(renderError).getContractForSigning(TOKEN);
+}
+</script>
+</body>
+</html>
