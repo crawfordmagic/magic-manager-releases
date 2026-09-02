@@ -39,6 +39,8 @@ var CONFIG_DEFAULTS_ = {
   RECEIPTS_FOLDER: '',
   CAL_NAME: '',
   CONTACT_GROUP: '',
+  CALL_LINK: '',
+  TEXT_LINK: '',
   SERVICES: 'Strolling\nStage\nStage & Strolling',
   EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nOther',
   LEAD_STATUSES: 'New\nPending\nBooked\nCompleted\nLost\nReferral\nReferred',
@@ -110,6 +112,9 @@ var CONFIG_FIELDS_ = [
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'EVENT_PREP_NOTE', label: 'Event prep note', help: 'Shown to clients after they pay their deposit (e.g. setup needs, what to prepare). Leave blank to hide.', section: 'services' },
+  // Calls & texts
+  { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To dial through another app, paste its link and use {number} (the number as stored) or {digits} (digits only). Examples — Google Voice: googlevoice://  ·  Skype: skype:{number}?call', section: 'comms' },
+  { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Add {body} to pass the message if the app supports it (otherwise it\'s copied to your clipboard so you can paste it). Example — Google Voice: googlevoice://', section: 'comms' },
   // Advanced (optional)
   { key: 'CONTRACTS_FOLDER', label: 'Contracts folder', help: 'Optional. Blank = "[Business name] Contracts".', section: 'advanced' },
   { key: 'RECEIPTS_FOLDER', label: 'Receipts folder', help: 'Optional. Blank = "[Business name] Receipts".', section: 'advanced' },
@@ -124,6 +129,7 @@ var SETTINGS_SECTIONS_ = [
   { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client sign & pay page.', open: true },
   { id: 'payments', title: 'Getting paid', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
   { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
+  { id: 'comms', title: 'Calls & texts', desc: 'Tapping Call or Text opens your phone\'s built-in apps by default. To route through another app (like Google Voice), set it up here — most people can leave this alone.', open: false },
   { id: 'advanced', title: 'Advanced (optional)', desc: 'Names for the Drive folders and calendar the app creates. The defaults work great — most people never change these.', open: false }
 ];
 

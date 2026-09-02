@@ -656,7 +656,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- SETTINGS VIEW -->
   <div id="view-settings" style="display:none">
-    <div class="sec-title"><span class="t">Business Setup</span><span class="rule"></span></div>
+    <div class="sec-title"><span class="t">Settings</span><span class="rule"></span></div>
     <p class="note" style="text-align:left;margin:0 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> — the rest is optional and can wait. Save anytime; blank fields use the sensible defaults shown.</p>
     <div id="settingsBody">Loading&#8230;</div>
     <div class="card" id="setupImportCard" style="margin-top:22px;border-color:var(--line);display:none">
@@ -1022,7 +1022,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g">&#9680;</span>Insights</button>
   <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g">&#164;</span>Expenses</button>
   <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>Add</button>
-  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g">&#9881;</span>Setup</button>
+  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g">&#9881;</span>Settings</button>
 </nav>
 
 <div id="toast"></div>
@@ -1199,9 +1199,26 @@ function openExternal_(url){
   a.href=url; a.target='_top'; a.rel='noopener';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
-function telHref_(num){ var n=String(num||'').replace(/[^\d+]/g,''); return n ? 'tel:'+n : ''; }
+// Build a custom call/text link from the buyer's own template (Settings → Calls & texts),
+// so they can route through an app like Google Voice or Skype instead of the phone default.
+// {number} = the number as stored (may include +); {digits} = digits only; {body} = the
+// message text, URL-encoded (texts only).
+function applyCommsTemplate_(tpl, n, body){
+  var digits=String(n).replace(/\D/g,'');
+  return String(tpl)
+    .replace(/\{number\}/gi, n)
+    .replace(/\{digits\}/gi, digits)
+    .replace(/\{body\}/gi, encodeURIComponent(body||''));
+}
+function telHref_(num){
+  var n=String(num||'').replace(/[^\d+]/g,''); if(!n) return '';
+  var tpl=(typeof CFG!=='undefined' && CFG && CFG.CALL_LINK) ? String(CFG.CALL_LINK).trim() : '';
+  return tpl ? applyCommsTemplate_(tpl, n) : 'tel:'+n;
+}
 function smsHref_(num, body, ua){
-  var n=String(num||'').replace(/[^\d+]/g,'');
+  var n=String(num||'').replace(/[^\d+]/g,''); if(!n) return '';
+  var tpl=(typeof CFG!=='undefined' && CFG && CFG.TEXT_LINK) ? String(CFG.TEXT_LINK).trim() : '';
+  if(tpl) return applyCommsTemplate_(tpl, n, body);
   // iOS expects "&body="; Android and most others expect "?body=".
   var sep=/iphone|ipad|ipod/i.test(ua||navigator.userAgent) ? '&' : '?';
   return 'sms:'+n+(body ? sep+'body='+encodeURIComponent(body) : '');
@@ -1211,7 +1228,12 @@ function dialNumber(num){
   if(!href){ toast('No phone number on file'); return; }
   openExternal_(href);
 }
-function openSms(num, body){ openExternal_(smsHref_(num, body)); }
+function openSms(num, body){
+  var tpl=(typeof CFG!=='undefined' && CFG && CFG.TEXT_LINK) ? String(CFG.TEXT_LINK).trim() : '';
+  // A custom texting app whose link can't carry the message: copy it so they can paste.
+  if(tpl && body && !/\{body\}/i.test(tpl)){ copyToClipboard(body); toast('Message copied — paste it into your texting app'); }
+  openExternal_(smsHref_(num, body));
+}
 
 /* ---------- Load ---------- */
 var ORACLE_SEED = Math.floor(Math.random()*1e9);
