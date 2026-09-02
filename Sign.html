@@ -76,7 +76,7 @@ function paidBannerHtml(){
 // of the same large base64 image a second time in this file.
 function signatureBlockHtml(){
   var existingLogo = document.querySelector('.logo');
-  var logoSrc = (existingLogo && existingLogo.src) ? existingLogo.src : (CFG.LOGO_URL||'');
+  var logoSrc = (existingLogo && existingLogo.src) ? existingLogo.src : (CFG.logoDataUri||'');
   var webHref = CFG.WEBSITE ? (/^https?:\/\//.test(CFG.WEBSITE)?CFG.WEBSITE:'https://'+CFG.WEBSITE) : '';
   var webDisp = CFG.WEBSITE ? CFG.WEBSITE.replace(/^https?:\/\//,'') : '';
   var bits=[];

@@ -241,7 +241,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.4.2';
+var APP_VERSION = '1.4.3';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -531,9 +531,12 @@ function doGet(e) {
     var template = HtmlService.createTemplateFromFile('Sign');
     template.token = e.parameter.sign;
     template.paid = e.parameter.paid || '';
-    template.cfg = getConfig_();
-    // Embed the logo as a data: URI so it shows for the client (see getLogoDataUri_).
-    template.logoDataUri = getLogoDataUri_();
+    var _cfg = getConfig_();
+    // Embed the logo as a data: URI so it shows for the client (see getLogoDataUri_) — in cfg
+    // too, so the footer/signature block reuses it instead of the raw (unloadable) LOGO_URL.
+    _cfg.logoDataUri = getLogoDataUri_();
+    template.cfg = _cfg;
+    template.logoDataUri = _cfg.logoDataUri;
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Sign Agreement')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -649,13 +652,23 @@ function getLogoBlob_() {
 function getLogoDataUri_() {
   var url = (getConfig_().LOGO_URL || '').trim();
   if (!url) return '';
-  if (/^data:/i.test(url)) return url;
+  // A stored data: URI near the sheet's ~50k-per-cell limit is almost certainly truncated —
+  // an incomplete image still renders (partially) in the Doc contract but shows as a broken
+  // image in a browser <img>. Don't serve it. (A valid uploaded logo is well under this.)
+  if (/^data:/i.test(url) && url.length > 49000) return '';
   var cache = null, ckey = 'logoDataUri_' + url.length + '_' + url.slice(-32);
   try { cache = CacheService.getScriptCache(); var hit = cache.get(ckey); if (hit != null) return hit; } catch (e) {}
   var out = '';
   try {
     var b = getLogoBlob_();
-    if (b) out = 'data:' + (b.getContentType() || 'image/png') + ';base64,' + Utilities.base64Encode(b.getBytes());
+    if (b) {
+      var ct = String(b.getContentType() || ''), bytes = b.getBytes();
+      // Only embed a real, non-trivial image — never an HTML page (a Drive/Dropbox "view" link
+      // returns HTML, not the file) or an empty/tiny blob, both of which break the <img>.
+      if (/^image\//i.test(ct) && bytes && bytes.length > 200) {
+        out = 'data:' + ct + ';base64,' + Utilities.base64Encode(bytes);
+      }
+    }
   } catch (e) {}
   if (cache && out) { try { cache.put(ckey, out, 21600); } catch (e) {} }
   return out;
