@@ -1224,14 +1224,23 @@ function smsHref_(num, body, ua){
   return 'sms:'+n+(body ? sep+'body='+encodeURIComponent(body) : '');
 }
 function dialNumber(num){
-  var href=telHref_(num);
-  if(!href){ toast('No phone number on file'); return; }
-  openExternal_(href);
+  var n=String(num||'').replace(/[^\d+]/g,'');
+  if(!n){ toast('No phone number on file'); return; }
+  var tpl=(typeof CFG!=='undefined' && CFG && CFG.CALL_LINK) ? String(CFG.CALL_LINK).trim() : '';
+  // A custom calling app whose link can't carry the number (e.g. googlevoice://) just opens —
+  // copy the CLIENT'S number so they can paste it into the dialer.
+  if(tpl && !/\{number\}|\{digits\}/i.test(tpl)){ copyToClipboard(n); toast('Client’s number copied — paste it into your calling app'); }
+  openExternal_(telHref_(num));
 }
 function openSms(num, body){
+  var n=String(num||'').replace(/[^\d+]/g,'');
   var tpl=(typeof CFG!=='undefined' && CFG && CFG.TEXT_LINK) ? String(CFG.TEXT_LINK).trim() : '';
-  // A custom texting app whose link can't carry the message: copy it so they can paste.
-  if(tpl && body && !/\{body\}/i.test(tpl)){ copyToClipboard(body); toast('Message copied — paste it into your texting app'); }
+  if(tpl && n){
+    // If the link can't carry the number, the client's number is what they need to paste first;
+    // otherwise, if it can't carry the message, copy that instead.
+    if(!/\{number\}|\{digits\}/i.test(tpl)){ copyToClipboard(n); toast('Client’s number copied — paste it into your texting app'); }
+    else if(body && !/\{body\}/i.test(tpl)){ copyToClipboard(body); toast('Message copied — paste it into your texting app'); }
+  }
   openExternal_(smsHref_(num, body));
 }
 
