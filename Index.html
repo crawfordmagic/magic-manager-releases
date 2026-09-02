@@ -1233,14 +1233,10 @@ function dialNumber(num){
   openExternal_(telHref_(num));
 }
 function openSms(num, body){
-  var n=String(num||'').replace(/[^\d+]/g,'');
   var tpl=(typeof CFG!=='undefined' && CFG && CFG.TEXT_LINK) ? String(CFG.TEXT_LINK).trim() : '';
-  if(tpl && n){
-    // If the link can't carry the number, the client's number is what they need to paste first;
-    // otherwise, if it can't carry the message, copy that instead.
-    if(!/\{number\}|\{digits\}/i.test(tpl)){ copyToClipboard(n); toast('Client’s number copied — paste it into your texting app'); }
-    else if(body && !/\{body\}/i.test(tpl)){ copyToClipboard(body); toast('Message copied — paste it into your texting app'); }
-  }
+  // A custom texting app (e.g. Google Voice) usually can't pre-fill the message from its link,
+  // so copy the message text for the buyer to paste — they pick the contact in the app itself.
+  if(tpl && body && !/\{body\}/i.test(tpl)){ copyToClipboard(body); toast('Message copied — paste it into your texting app'); }
   openExternal_(smsHref_(num, body));
 }
 

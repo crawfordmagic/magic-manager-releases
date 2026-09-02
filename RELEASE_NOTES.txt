@@ -1,1 +1,1 @@
-Calls & texts fix: if you route calls or texts through an app that opens without the number (like Google Voice), the app now copies the client's number to your clipboard so you can paste it in — instead of leaving whatever was there before. Also clearer setup guidance for Google Voice and Skype.
+Calls & texts refinement: when you send a text through an app like Google Voice, the app now copies your message to the clipboard (so you can paste it after picking the contact). Calls still copy the client's number. Nothing changes if you use your phone's default apps.
