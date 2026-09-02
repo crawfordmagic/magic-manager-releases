@@ -51,7 +51,6 @@
 </head>
 <body>
 <div class="wrap">
-  <? if (logoDataUri) { ?><img class="logo" src="<?= logoDataUri ?>" alt="<?= cfg.BUSINESS_NAME ?>"><? } ?>
   <div class="portal-label">Your Event Portal</div>
   <div id="loading">Loading your agreement&#8230;</div>
   <div id="content" style="display:none"></div>
@@ -72,19 +71,14 @@ function paidBannerHtml(){
   if(PAID!=='1') return '';
   return '<div class="paidbanner">Your card payment was submitted \u2014 We will confirm once it\u2019s received.</div>';
 }
-// Reuses the logo already on the page rather than embedding a second copy
-// of the same large base64 image a second time in this file.
 function signatureBlockHtml(){
-  var existingLogo = document.querySelector('.logo');
-  var logoSrc = (existingLogo && existingLogo.src) ? existingLogo.src : (CFG.logoDataUri||'');
   var webHref = CFG.WEBSITE ? (/^https?:\/\//.test(CFG.WEBSITE)?CFG.WEBSITE:'https://'+CFG.WEBSITE) : '';
   var webDisp = CFG.WEBSITE ? CFG.WEBSITE.replace(/^https?:\/\//,'') : '';
   var bits=[];
   if(CFG.PHONE) bits.push(CFG.PHONE);
   if(CFG.WEBSITE) bits.push('<a href="'+webHref+'" target="_blank" style="color:var(--gold-bright)">'+webDisp+'</a>');
-  return '<div style="display:flex;gap:14px;align-items:center;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)">'
-    +(logoSrc?'<img src="'+logoSrc+'" alt="'+CFG.BUSINESS_NAME+'" style="width:64px;height:64px;border-radius:8px;flex-shrink:0;object-fit:cover">':'')
-    +'<div style="border-left:1px solid var(--line);padding-left:14px">'
+  return '<div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--line)">'
+    +'<div>'
       +'<div style="font-weight:700;color:var(--cream);font-size:14px">'+CFG.OWNER_NAME+'</div>'
       +'<div style="font-weight:700;color:var(--gold-bright);font-size:12.5px;margin-bottom:4px">'+CFG.BUSINESS_NAME+'</div>'
       +(bits.length?'<div style="font-size:12px;color:var(--muted)">'+bits.join(' &nbsp;|&nbsp; ')+'</div>':'')

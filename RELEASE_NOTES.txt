@@ -1,1 +1,1 @@
-Logo reliability on the client Sign & Pay page: it now verifies your logo is a complete, valid image before showing it, so a too-large or unreachable logo hides cleanly instead of appearing broken (the footer logo too). Tip: a direct, public image link is the most reliable logo — it works on your contracts and the client page alike.
+The client Sign & Pay page no longer shows a logo — it leads straight into the booking. Your logo still appears on your contracts and receipts as before.
