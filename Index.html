@@ -375,21 +375,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 .spin{display:inline-block;animation:tw 1.4s linear infinite}
 @keyframes tw{0%{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(.7)}100%{transform:rotate(360deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-/* Lead-status editor (Settings) */
-.se-list{display:flex;flex-direction:column;gap:6px}
-.se-row{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
-.se-name{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:15px;color:var(--cream);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.se-lock{opacity:.75;font-size:12px}
-.se-badge{flex:0 0 auto;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 7px}
-.se-badge-income{color:#8FA876;border-color:rgba(143,168,118,.5)}
-.se-name-input{flex:1;min-width:0;font-size:15px;color:var(--cream);background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;outline:none}
-.se-actions{flex:0 0 auto;display:flex;gap:4px}
-.se-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--gold-bright);font-size:12px;line-height:1;cursor:pointer;padding:0}
-.se-btn:disabled{opacity:.3;cursor:default}
-.se-btn.se-danger{color:var(--crimson);font-size:16px}
-.se-add{display:flex;gap:8px;margin-top:8px}
-.se-add input{flex:1;min-width:0}
-.se-addbtn{flex:0 0 auto;background:transparent;border:1px solid var(--gold);color:var(--gold-bright);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+/* Event-messages-by-service editor */
+.smg-list{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.smg-row{display:flex;flex-direction:column;gap:4px}
+.smg-label{font-size:12px;font-weight:600;color:var(--gold-bright);letter-spacing:.02em}
+.smg-input{width:100%;font-family:inherit;font-size:14px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;outline:none;resize:vertical}
+.smg-input:focus{border-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -588,6 +579,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
     <div id="expenseSummary"></div>
     <div id="expenseReceiptNudge"></div>
+    <div id="expenseRecurring"></div>
     <button class="save" onclick="openAddExpense()">+ Add Expense</button>
     <div style="display:flex;gap:10px;margin:10px 0 14px">
       <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openImportExpenses()">Import CSV</button>
@@ -824,6 +816,19 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <select id="exp_adsource_sel" onchange="onAdSourceSelChange()"></select>
     <input type="text" id="exp_adsource_other" placeholder="Source name" style="display:none;margin-top:8px">
   </div>
+  <div id="exp_repeat_wrap">
+    <label>Repeat</label>
+    <select id="exp_repeat" onchange="onExpenseRepeatChange()">
+      <option value="">One-time (not recurring)</option>
+      <option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Quarterly</option><option>Annually</option>
+    </select>
+    <div id="exp_repeat_dates" style="display:none">
+      <label>Starts <span style="font-weight:400;color:var(--muted)">(can be backdated)</span></label>
+      <input type="date" id="exp_repeat_start">
+      <label>Ends <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+      <input type="date" id="exp_repeat_end">
+    </div>
+  </div>
   <label>Notes</label>
   <textarea id="exp_notes" rows="2" placeholder="Optional"></textarea>
   <label>Receipt</label>
@@ -853,7 +858,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <p class="note" style="text-align:left;margin:0 0 10px">We guessed these from your headers &mdash; fix any that are wrong, and choose <b>&mdash; Ignore &mdash;</b> for columns you don't want.</p>
     <div id="li_map"></div>
     <div style="margin:14px 0 0;padding:11px 13px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;color:var(--cream);text-align:left">
-      <b style="color:var(--gold-bright)">Status comes from your data.</b> Map a column to <b>Status</b> and each client keeps their own; anyone with a blank status &mdash; or if you don't map a Status column &mdash; comes in as <b>New</b>. Only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights (and trigger the booking automations); other labels import as neutral pipeline stages. If a value in your sheet means <i>booked</i>, name it <b>Booked</b> before importing.
+      <b style="color:var(--gold-bright)">Status maps to a fixed set.</b> Magic Manager uses seven statuses &mdash; New, Pending, Booked, Completed, Lost, Referral, Referred. A mapped <b>Status</b> column is matched to these (case-insensitive), so &ldquo;booked&rdquo; becomes Booked; anything that doesn't match &mdash; or a blank, or no Status column &mdash; comes in as <b>New</b>. Only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights.
     </div>
     <button class="save" style="margin-top:14px" onclick="leadImportReview()">Continue to review &rarr;</button>
   </div>
@@ -1000,7 +1005,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <label style="color:#E9927B">Why was this lead lost?</label>
     <select id="d_lostreason" onchange="onLostReasonChange()">
       <option value="">Choose a reason&#8230;</option>
-      <option>Budget</option><option>Non-responsive</option><option>Postponed</option><option>Booked elsewhere</option>
       <option value="__other__">Other&#8230;</option>
     </select>
     <input id="d_lostreason_other" placeholder="Describe the reason" style="margin-top:8px;display:none" onchange="queueAutoSave()">
@@ -1067,7 +1071,7 @@ function populateLeadDropdowns(){
   fillSelect('a_source', cfgList('LEAD_SOURCES', ['Bark','Gigsalad','Website','Current Client','Referral','Other']));
 }
 
-var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [];
+var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [];
 var RBIN_PURGE_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
 var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
@@ -1088,6 +1092,7 @@ function ingest(json){
   if('kvfOrder' in o) KVF_ORDER=Array.isArray(o.kvfOrder)?o.kvfOrder:[];
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
   if('expenses' in o) EXPENSES=o.expenses||[];
+  if('recurring' in o) RECURRING=o.recurring||[];
   if('customExpenseCategories' in o) CUSTOM_EXPENSE_CATEGORIES=Array.isArray(o.customExpenseCategories)?o.customExpenseCategories:[];
   if('taxRate' in o) TAX_RATE=Number(o.taxRate)||25;
   if('vendorCategoryMemory' in o) VENDOR_CATEGORY_MEMORY=(o.vendorCategoryMemory && typeof o.vendorCategoryMemory==='object') ? o.vendorCategoryMemory : {};
@@ -2501,35 +2506,29 @@ function dismissShowtime(){
 
 /* ---------- Leads list ---------- */
 function isBookedLike(L){ var s=String(L[C.status]); return s==='Booked'||s==='Completed'; }
-// Statuses the app's own logic keys on by exact string — Booked/Completed count as income
-// (isBookedLike), Lost/Referral/Referred drive automations — so the Settings editor locks
-// these and they are always kept in the list.
-var SYSTEM_STATUSES = ['Booked','Completed','Lost','Referral','Referred'];
-function isSystemStatus(s){
-  s=String(s==null?'':s).trim().toLowerCase();
-  return SYSTEM_STATUSES.some(function(x){ return x.toLowerCase()===s; });
+// The lead statuses, locked to this fixed set. Booked/Completed count as income (isBookedLike)
+// and Lost/Referral/Referred drive automations, so the whole set is intentionally not editable.
+var LEAD_STATUSES_FIXED = ['New','Pending','Booked','Completed','Lost','Referral','Referred'];
+function configuredStatuses(){ return LEAD_STATUSES_FIXED.slice(); }
+// Map any status value to one of the fixed statuses (case-insensitive); anything that doesn't
+// match — including blank — becomes New. Used on import so imported data stays within the set.
+function canonicalLeadStatus_(s){
+  s=String(s==null?'':s).trim(); if(!s) return 'New';
+  var found=null; LEAD_STATUSES_FIXED.forEach(function(x){ if(x.toLowerCase()===s.toLowerCase()) found=x; });
+  return found || 'New';
 }
-// Parse a newline-delimited status list; keep order, drop blanks.
+// Parse a newline-delimited list; keep order, drop blanks. (Shared by the configurable lists.)
 function parseStatusList(str){
   return String(str==null?'':str).split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
 }
-// De-dupe (case-insensitively), force canonical case on the system ones, and guarantee every
-// system status is present (appended if missing) — so a bad config can never drop Booked et al.
-function normalizeStatusList(list){
-  var seen={}, out=[];
-  (list||[]).forEach(function(name){
-    var key=String(name==null?'':name).trim().toLowerCase(); if(!key||seen[key]) return;
-    var sys=null; SYSTEM_STATUSES.forEach(function(x){ if(x.toLowerCase()===key) sys=x; });
-    seen[key]=1; out.push(sys || String(name).trim());
-  });
-  SYSTEM_STATUSES.forEach(function(x){ if(!seen[x.toLowerCase()]){ seen[x.toLowerCase()]=1; out.push(x); } });
-  return out;
-}
-// The buyer's configured statuses (Settings → Lead statuses), always system-safe.
-function configuredStatuses(){
-  var raw = (typeof CFG!=='undefined' && CFG && CFG.LEAD_STATUSES!=null) ? CFG.LEAD_STATUSES : '';
-  var list = normalizeStatusList(parseStatusList(raw));
-  return list.length ? list : normalizeStatusList(['New','Pending'].concat(SYSTEM_STATUSES));
+// Populate the "why was this lead lost?" picker from the buyer's configured LOST_REASONS,
+// with a fixed "Choose…" first and an "Other…" free-text option last.
+function fillLostReasons(){
+  var sel=$('d_lostreason'); if(!sel) return;
+  var reasons = parseStatusList((typeof CFG!=='undefined'&&CFG&&CFG.LOST_REASONS)||'');
+  sel.innerHTML = '<option value="">Choose a reason&#8230;</option>'
+    + reasons.map(function(r){ return '<option>'+esc(r)+'</option>'; }).join('')
+    + '<option value="__other__">Other&#8230;</option>';
 }
 // Rebuild a status <select> to list `statuses` (default = the buyer's configured statuses)
 // plus any status values already present in the data (an imported client list can carry its
@@ -3082,8 +3081,9 @@ function openSheet(row){
   fillReferralOptions(String(L[C.referral]||''));
   $('d_referral').value = String(L[C.referral]||'');
   $('d_referral_new').style.display='none'; $('d_referral_new').value='';
+  fillLostReasons();
   var savedReason=String(L[C.lostReason]||'');
-  var presetReasons=['Budget','Non-responsive','Postponed','Booked elsewhere'];
+  var presetReasons=parseStatusList((typeof CFG!=='undefined'&&CFG&&CFG.LOST_REASONS)||'');
   if(presetReasons.indexOf(savedReason)>-1){ $('d_lostreason').value=savedReason; $('d_lostreason_other').style.display='none'; $('d_lostreason_other').value=''; }
   else if(savedReason){ $('d_lostreason').value='__other__'; $('d_lostreason_other').style.display=''; $('d_lostreason_other').value=savedReason; }
   else { $('d_lostreason').value=''; $('d_lostreason_other').style.display='none'; $('d_lostreason_other').value=''; }
@@ -5561,6 +5561,7 @@ function renderExpenses(){
     $('expenseReceiptNudge').innerHTML = '';
     if(EXPENSE_LIST_FILTER==='receipt') EXPENSE_LIST_FILTER='none';
   }
+  renderRecurringList();
 
   // Year dropdown is the fiscal-year view control — selecting a year here
   // scopes everything below it to that year, same as the This Month/This
@@ -5744,6 +5745,10 @@ function openAddExpense(row){
   fillAdSourceSelect($('exp_adsource_sel'), E ? E.adSource : '');
   updateAdSourceVisibility();
   $('exp_notes').value = E ? E.notes : '';
+  // "Repeat" only applies to a brand-new expense; editing one existing row is never recurring.
+  var _rw=$('exp_repeat_wrap'); if(_rw) _rw.style.display = E ? 'none' : '';
+  if(!E){ if($('exp_repeat')) $('exp_repeat').value=''; if($('exp_repeat_dates')) $('exp_repeat_dates').style.display='none';
+    if($('exp_repeat_start')) $('exp_repeat_start').value=''; if($('exp_repeat_end')) $('exp_repeat_end').value=''; }
   $('expenseDelBtn').style.display = E ? '' : 'none';
   EXPENSE_DEL_ARM = false;
   PENDING_RECEIPT = null;
@@ -5882,8 +5887,45 @@ function saveExpenseUI(){
   if(row){
     google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(row); }).withFailureHandler(failHandler).updateExpense(row, date, vendor, amount, category, notes, adSource);
   } else {
-    google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
+    var repeat = ($('exp_repeat') && $('exp_repeat').value) || '';
+    if(repeat){
+      var rstart = ($('exp_repeat_start') && $('exp_repeat_start').value) || todayYmd_();
+      var rend = ($('exp_repeat_end') && $('exp_repeat_end').value) || '';
+      google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up ✦'); })
+        .withFailureHandler(failHandler).addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart, rend);
+    } else {
+      google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
+    }
   }
+}
+function todayYmd_(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function onExpenseRepeatChange(){
+  var on = !!($('exp_repeat') && $('exp_repeat').value);
+  var box=$('exp_repeat_dates'); if(box) box.style.display = on ? '' : 'none';
+  if(on){ var s=$('exp_repeat_start'); if(s && !s.value) s.value = todayYmd_(); }
+}
+function stopRecurring(row){
+  toast('Stopping…');
+  google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
+    .withFailureHandler(function(){ toast('Couldn’t stop — try again'); })
+    .stopRecurringExpense(row);
+}
+function renderRecurringList(){
+  var box=$('expenseRecurring'); if(!box) return;
+  if(!RECURRING || !RECURRING.length){ box.innerHTML=''; return; }
+  var items = RECURRING.map(function(r){
+    var when = String(r.frequency||'') + (r.end?(' · until '+r.end):'');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0">'
+        +'<div style="font-weight:600;color:var(--cream);font-size:13.5px;word-break:break-word">'+esc(r.vendor||'Expense')+' · '+fmtMoney(r.amount)+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:1px">'+esc(when)+(r.category?(' · '+esc(r.category)):'')+'</div>'
+      +'</div>'
+      +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--crimson);color:#E9927B;flex-shrink:0" onclick="stopRecurring('+r.row+')">Stop</button>'
+    +'</div>';
+  }).join('');
+  box.innerHTML = '<div class="gfu-card" style="margin-top:12px"><div class="gfu-title">Recurring &#8635;</div>'
+    +'<p class="note" style="text-align:left;margin:0 0 2px">These post to your expenses automatically. Stop keeps everything already logged.</p>'
+    + items + '</div>';
 }
 var EXPENSE_DEL_ARM = false;
 function deleteExpenseUI(){
@@ -6242,7 +6284,7 @@ function liBuildRows_(grid, map, existingLeads){
       f[tgt]=val;
     }
     var nm=String(f[C.name]||'').trim(); if(!nm) return;
-    if(!f[C.status]) f[C.status]='New';
+    f[C.status]=canonicalLeadStatus_(f[C.status]);
     var dk=liDupKey_(nm, f[C.email]);
     var isDup=!!existing[dk] || !!seen[dk]; seen[dk]=1;
     out.push({fields:f, name:nm, email:String(f[C.email]||''), phone:String(f[C.phone]||''), eventDate:String(f[C.eventDate]||''), status:String(f[C.status]||'New'), dup:isDup, included:!isDup});
@@ -6333,7 +6375,7 @@ function renderSettings(){
     function filled(f){ var v=raw[f.key]; return v!=null && String(v).trim()!==''; }
     function fieldHtml(f){
       var val = (raw[f.key]!=null?raw[f.key]:'');
-      if(f.editor==='statuses') return statusEditorHtml(f, val, cfg);
+      if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
       var ph = (cfg[f.key]!=null?cfg[f.key]:'');
       var ctrl = f.multiline
         ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -6434,60 +6476,32 @@ function saveSettingsFromForm(){
     .saveSettings(obj);
 }
 
-/* ---------- Lead-status editor (Settings → Lead statuses) ---------- */
-var STATUS_EDIT = [];
-function statusEditorHtml(f, val, cfg){
-  var initial = (val!=null && String(val).trim()!=='') ? val : ((cfg&&cfg.LEAD_STATUSES)||'');
-  STATUS_EDIT = normalizeStatusList(parseStatusList(initial));
+/* ---------- Event-messages-by-service editor (Settings) ---------- */
+// One optional message per Service; shown to a booked client on their event hub after they
+// sign, matched to their booking's service. Stored as a JSON {service: message} map.
+function serviceMsgEditorHtml(f, val, cfg){
+  var services = parseStatusList((cfg&&cfg.SERVICES)||'');
+  var map = {};
+  try { var src = (val && String(val).trim()) ? val : ((cfg&&cfg.SERVICE_MESSAGES)||''); if(src) map = JSON.parse(src)||{}; } catch(e){ map={}; }
+  var rows = services.length
+    ? services.map(function(s){
+        var v = map[s] || '';
+        return '<div class="smg-row"><label class="smg-label">'+esc(s)+'</label>'
+          + '<textarea class="smg-input" data-svc="'+esc(s)+'" rows="3" placeholder="Optional message for '+esc(s)+' clients…" oninput="serviceMsgSync()">'+esc(v)+'</textarea></div>';
+      }).join('')
+    : '<div class="note" style="text-align:left;color:var(--muted)">Add your Services above and Save, then a message box appears here for each one.</div>';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
-    + '<input type="hidden" id="set_'+f.key+'" value="'+esc(STATUS_EDIT.join('\n'))+'">'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+esc(JSON.stringify(map))+'">'
     + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
-    + '<div id="statusEditorRows" class="se-list">'+statusRowsHtml()+'</div>'
-    + '<div class="se-add"><input id="statusAddInput" placeholder="Add a status…" '
-    +   'onkeydown="if(event.key===\'Enter\'){event.preventDefault();statusEditAdd();}">'
-    +   '<button type="button" class="se-addbtn" onclick="statusEditAdd()">Add</button></div>'
-    + '</div>';
+    + '<div class="smg-list">'+rows+'</div></div>';
 }
-function statusRowsHtml(){
-  return STATUS_EDIT.map(function(name, i){
-    var sys = isSystemStatus(name);
-    var revenue = (name==='Booked'||name==='Completed');
-    var cell = sys
-      ? '<span class="se-name"><span class="se-lock">&#128274;</span>'+esc(name)
-        + '<span class="se-badge'+(revenue?' se-badge-income':'')+'">'+(revenue?'counts as income':'system')+'</span></span>'
-      : '<input class="se-name-input" value="'+esc(name)+'" aria-label="Status name" '
-        + 'onchange="statusEditRename('+i+',this.value)" onkeydown="if(event.key===\'Enter\'){this.blur();}">';
-    var up   = '<button type="button" class="se-btn"'+(i===0?' disabled':'')+' title="Move up" onclick="statusEditMove('+i+',-1)">&#9650;</button>';
-    var down = '<button type="button" class="se-btn"'+(i===STATUS_EDIT.length-1?' disabled':'')+' title="Move down" onclick="statusEditMove('+i+',1)">&#9660;</button>';
-    var rm   = sys ? '' : '<button type="button" class="se-btn se-danger" title="Remove" onclick="statusEditRemove('+i+')">&#215;</button>';
-    return '<div class="se-row">'+cell+'<span class="se-actions">'+up+down+rm+'</span></div>';
-  }).join('');
-}
-function renderStatusEditorRows(){ var b=$('statusEditorRows'); if(b) b.innerHTML=statusRowsHtml(); syncStatusHidden(); }
-function syncStatusHidden(){ var h=$('set_LEAD_STATUSES'); if(h) h.value=STATUS_EDIT.join('\n'); }
-function statusExists(name, exceptIdx){
-  var key=String(name==null?'':name).trim().toLowerCase();
-  return STATUS_EDIT.some(function(s,idx){ return idx!==exceptIdx && String(s).trim().toLowerCase()===key; });
-}
-function statusEditMove(i, dir){
-  var j=i+dir; if(j<0||j>=STATUS_EDIT.length) return;
-  var t=STATUS_EDIT[i]; STATUS_EDIT[i]=STATUS_EDIT[j]; STATUS_EDIT[j]=t; renderStatusEditorRows();
-}
-function statusEditRemove(i){ if(isSystemStatus(STATUS_EDIT[i])) return; STATUS_EDIT.splice(i,1); renderStatusEditorRows(); }
-function statusEditRename(i, val){
-  if(isSystemStatus(STATUS_EDIT[i])) return;
-  var nn=String(val==null?'':val).trim();
-  if(!nn){ toast('Status name can’t be empty'); renderStatusEditorRows(); return; }
-  if(isSystemStatus(nn)){ toast('“'+nn+'” is a reserved built-in status'); renderStatusEditorRows(); return; }
-  if(statusExists(nn,i)){ toast('“'+nn+'” already exists'); renderStatusEditorRows(); return; }
-  STATUS_EDIT[i]=nn; renderStatusEditorRows();
-}
-function statusEditAdd(){
-  var inp=$('statusAddInput'); if(!inp) return;
-  var nn=String(inp.value||'').trim(); if(!nn) return;
-  if(isSystemStatus(nn)){ toast('“'+nn+'” is already a built-in status'); return; }
-  if(statusExists(nn,-1)){ toast('“'+nn+'” already exists'); return; }
-  STATUS_EDIT.push(nn); inp.value=''; renderStatusEditorRows(); inp.focus();
+function serviceMsgSync(){
+  var map={};
+  document.querySelectorAll('.smg-input').forEach(function(t){
+    var s=t.getAttribute('data-svc'), v=String(t.value||'').trim();
+    if(s && v) map[s]=v;
+  });
+  var h=$('set_SERVICE_MESSAGES'); if(h) h.value=JSON.stringify(map);
 }
 
 /* ---------- Update-available banner (version check via the license hub) ---------- */

@@ -28,6 +28,7 @@ var CONFIG_DEFAULTS_ = {
   TAGLINE: 'Professional Services',
   ADDRESS: '',
   EVENT_PREP_NOTE: '',
+  SERVICE_MESSAGES: '',
   VENMO_USERNAME: '',
   CASHAPP_CASHTAG: '',
   ACH_BANK: '', ACH_ACCOUNT: '', ACH_ROUTING: '',
@@ -43,9 +44,9 @@ var CONFIG_DEFAULTS_ = {
   TEXT_LINK: '',
   SERVICES: 'Strolling\nStage\nStage & Strolling',
   EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nOther',
-  LEAD_STATUSES: 'New\nPending\nBooked\nCompleted\nLost\nReferral\nReferred',
   LEAD_SOURCES: 'Bark\nGigsalad\nWebsite\nCurrent Client\nReferral\nOther',
-  AD_SOURCES: 'Bark\nGigsalad\nWebsite'
+  AD_SOURCES: 'Bark\nGigsalad\nWebsite',
+  LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere'
 };
 
 function getConfig_() {
@@ -108,10 +109,11 @@ var CONFIG_FIELDS_ = [
   // Services & client page
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
-  { key: 'LEAD_STATUSES', label: 'Lead statuses', help: 'Your pipeline stages, in order. Booked, Completed, Lost, Referral and Referred are built in and locked — Booked and Completed are the two that count as income in Insights. Add, rename, remove or reorder the rest.', editor: 'statuses', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
+  { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
   { key: 'EVENT_PREP_NOTE', label: 'Event prep note', help: 'Shown to clients after they pay their deposit (e.g. setup needs, what to prepare). Leave blank to hide.', section: 'services' },
+  { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
   // Calls & texts
   { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', section: 'comms' },
   { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', section: 'comms' },
@@ -163,35 +165,6 @@ function getSettings() {
   return { config: getConfig_(), raw: getRawSettings_(), fields: CONFIG_FIELDS_, sections: SETTINGS_SECTIONS_ };
 }
 
-// Statuses the app's own logic keys on by exact string: Booked/Completed count as
-// income (isBookedLike), Lost/Referral/Referred drive automations. They can never be
-// removed or renamed away, so normalize any saved status list to keep them present
-// (canonical case), de-duped, in the buyer's chosen order. The client editor enforces
-// the same thing; this is the server-side guarantee.
-var SYSTEM_STATUSES_ = ['Booked', 'Completed', 'Lost', 'Referral', 'Referred'];
-function normalizeStatusConfig_(str) {
-  var lines = String(str == null ? '' : str).split(/\r?\n/);
-  var seen = {}, out = [];
-  function canonical(key) {
-    for (var i = 0; i < SYSTEM_STATUSES_.length; i++) {
-      if (SYSTEM_STATUSES_[i].toLowerCase() === key) return SYSTEM_STATUSES_[i];
-    }
-    return null;
-  }
-  lines.forEach(function (raw) {
-    var name = String(raw || '').trim();
-    if (!name) return;
-    var key = name.toLowerCase();
-    if (seen[key]) return;
-    seen[key] = 1;
-    out.push(canonical(key) || name);
-  });
-  SYSTEM_STATUSES_.forEach(function (s) {
-    if (!seen[s.toLowerCase()]) { seen[s.toLowerCase()] = 1; out.push(s); }
-  });
-  return out.join('\n');
-}
-
 function saveSettings(values) {
   var sh = settingsSheet_();
   var last = sh.getLastRow();
@@ -209,7 +182,6 @@ function saveSettings(values) {
     if (!(k in CONFIG_DEFAULTS_)) return; // ignore unknown keys
     var v = values[k];
     if (v === null || typeof v === 'undefined') v = '';
-    if (k === 'LEAD_STATUSES') v = normalizeStatusConfig_(v);
     if (keyRow[k]) {
       sh.getRange(keyRow[k], 2).setValue(v);
     } else {
@@ -241,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.4.4';
+var APP_VERSION = '1.5.0';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1700,6 +1672,104 @@ function addExpense(date, vendor, amount, category, notes, adSource) {
   return JSON.stringify({ expenses: getExpenses_(), newRow: sh.getLastRow() });
 }
 
+/* ---------- Recurring expenses ----------
+ * A rule in the "Recurring Expenses" tab spawns real rows in the Expenses sheet (Source =
+ * "Recurring"), backfilled from the start date up to today and then extended each day. De-dup
+ * is by the rule's "Last Generated" date, so re-running the generator never double-posts. */
+var RECURRING_SHEET = 'Recurring Expenses';
+var RECUR_HEADERS = ['ID', 'Active', 'Vendor', 'Amount', 'Category', 'Notes', 'Ad Source', 'Frequency', 'Start Date', 'End Date', 'Last Generated'];
+
+function recurringSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(RECURRING_SHEET);
+  if (!sh) { sh = ss.insertSheet(RECURRING_SHEET); sh.appendRow(RECUR_HEADERS); try { sh.setFrozenRows(1); } catch (e) {} }
+  return sh;
+}
+function daysInMonth_(y, m) { return new Date(y, m + 1, 0).getDate(); }
+// The Nth occurrence (n = 0,1,2,…) counting from `start`, anchored to the start's day-of-month
+// so monthly/quarterly/annual rules never drift — a rule on the 31st clamps to each month's last
+// day. Weekly / Bi-weekly are simple day steps.
+function addPeriods_(start, n, freq) {
+  freq = String(freq);
+  if (freq === 'Weekly' || freq === 'Bi-weekly') {
+    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    d.setDate(d.getDate() + (freq === 'Weekly' ? 7 : 14) * n);
+    return d;
+  }
+  var per = freq === 'Quarterly' ? 3 : freq === 'Annually' ? 12 : 1; // default Monthly
+  var tm = start.getMonth() + per * n;
+  var y = start.getFullYear() + Math.floor(tm / 12);
+  var m = ((tm % 12) + 12) % 12;
+  return new Date(y, m, Math.min(start.getDate(), daysInMonth_(y, m)));
+}
+function toDate0_(v) {
+  if (!v) return null;
+  var d = v instanceof Date ? new Date(v.getTime()) : new Date(v);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0); return d;
+}
+// Post any occurrences that are now due for every active rule. Safe to run repeatedly.
+function generateRecurringExpenses_() {
+  var sh = recurringSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return 0;
+  var rows = sh.getRange(2, 1, last - 1, RECUR_HEADERS.length).getValues();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var exp = expensesSheet_();
+  var toAppend = [], now = new Date(), generated = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (!(String(r[1]).toLowerCase() === 'true' || r[1] === true)) continue; // Active only
+    var start = toDate0_(r[8]); if (!start) continue;
+    var freq = String(r[7]), end = toDate0_(r[9]), lastGen = toDate0_(r[10]);
+    var horizon = (end && end < today) ? end : today;
+    var newLast = lastGen;
+    for (var n = 0; n < 5000; n++) {
+      var occ = addPeriods_(start, n, freq);
+      if (occ > horizon) break;
+      if (lastGen && occ <= lastGen) continue; // already posted
+      toAppend.push([occ, r[2] || '', Number(r[3]) || 0, r[4] || 'Other', r[5] || '', 'Recurring', now, '', '', r[6] || '']);
+      newLast = occ; generated++;
+    }
+    if (newLast && (!lastGen || newLast > lastGen)) sh.getRange(i + 2, 11).setValue(newLast);
+  }
+  if (toAppend.length) exp.getRange(exp.getLastRow() + 1, 1, toAppend.length, 10).setValues(toAppend);
+  return generated;
+}
+function addRecurringExpense(vendor, amount, category, notes, adSource, freq, startYmd, endYmd) {
+  var sh = recurringSheet_();
+  var id = 'RX-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  var start = startYmd ? parseYMD_(startYmd) : new Date();
+  var end = endYmd ? parseYMD_(endYmd) : '';
+  sh.appendRow([id, true, vendor || '', Number(amount) || 0, category || 'Other', notes || '', adSource || '', freq || 'Monthly', start, end, '']);
+  rememberVendorCategory_(vendor, category);
+  generateRecurringExpenses_(); // backfill now
+  return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
+}
+function getRecurring_() {
+  var sh = recurringSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  var rows = sh.getRange(2, 1, last - 1, RECUR_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (!(String(r[1]).toLowerCase() === 'true' || r[1] === true)) continue;
+    out.push({
+      row: i + 2, id: r[0], vendor: r[2], amount: Number(r[3]) || 0, category: r[4], notes: r[5], adSource: r[6],
+      frequency: r[7],
+      start: r[8] instanceof Date ? fmtCell_(r[8], tz) : String(r[8] || ''),
+      end: r[9] instanceof Date ? fmtCell_(r[9], tz) : String(r[9] || '')
+    });
+  }
+  return out;
+}
+function stopRecurringExpense(row) {
+  recurringSheet_().getRange(Number(row), 2).setValue(false); // Active = false
+  return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
+}
+
 // Bulk insert for CSV import — the client already did the parsing,
 // category-guessing, and duplicate review before this ever gets called,
 // so this just trusts the reviewed batch and writes it in one shot
@@ -2768,7 +2838,7 @@ function getLeads() {
     partners: getPartners_(), partnerLogs: getPartnerLog_(),
     textTemplates: getTextTemplates_(), partnerTemplates: getPartnerTemplates_(),
     partnerTextTemplates: getPartnerTextTemplates_(), oracleGate: oracleGateCheck_(),
-    trash: getTrash(),
+    trash: getTrash(), recurring: getRecurring_(),
     topClientThreshold: Number(PropertiesService.getScriptProperties().getProperty('TOP_CLIENT_THRESHOLD')) || 2000,
     kvfOrder: getKvfOrder_(),
     kvfHidden: getKvfHidden_(),
@@ -3893,6 +3963,7 @@ function syncFollowUps() {
 }
 
 function syncFollowUps_() {
+  try { generateRecurringExpenses_(); } catch (e) {}
   const cal = calendar_();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yearEnd = new Date(today.getFullYear() + 1, 0, 1);

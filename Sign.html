@@ -115,6 +115,16 @@ function renderStatusPage(d){
     +'</div>';
   if(d.pdfUrl) html += '<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>';
 
+  // A booked client's per-service message (Settings -> Event messages by service), matched to
+  // this booking's service. Shown once signed; separate from the after-deposit prep note below.
+  var svcMsg='';
+  try{ var _sm = CFG.SERVICE_MESSAGES ? JSON.parse(CFG.SERVICE_MESSAGES) : null; if(_sm && d.services) svcMsg = _sm[d.services] || ''; }catch(e){}
+  if(svcMsg){
+    var smh = String(svcMsg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    html += '<div class="paydetails"><div class="paydetails-title">A Note From '+CFG.OWNER_NAME+'</div>'
+      +'<p style="margin:6px 0 0">'+smh+'</p></div>';
+  }
+
   var showDepositPrompt = !d.depositPaid;
   var balanceDue = d.daysUntilEvent!==null && d.daysUntilEvent<=d.balanceDueDays;
   // No longer gated on balanceDue — once the deposit's handled, the client
