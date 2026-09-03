@@ -365,6 +365,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 .tab{flex:1;text-align:center;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;padding:6px 0}
 .tab .g{display:block;font-size:17px;margin-bottom:3px;font-family:'Playfair Display',serif}
+.tab .g svg{width:17px;height:17px;vertical-align:-2px;fill:currentColor}
 .tab.on{color:var(--gold-bright)}
 /* toast + loader */
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));
@@ -1027,7 +1028,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g">&#9680;</span>Insights</button>
   <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g">&#164;</span>Expenses</button>
   <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>Add</button>
-  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g">&#9881;</span>Settings</button>
+  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span>Settings</button>
 </nav>
 
 <div id="toast"></div>
