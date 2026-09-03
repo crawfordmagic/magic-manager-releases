@@ -1,1 +1,1 @@
-Another pass at the Sign-page logo: it now loads directly from your logo's public image link, which renders reliably across browsers and devices. Set it under Settings → Logo with a direct, public image URL.
+Clearer logo setup. The Logo setting now walks you through pasting a direct, public link to your image — the reliable way to get it showing everywhere, including the client Sign page. Open your logo on your website, right-click it, choose "Copy image address," and paste it in; a live preview confirms it's working before you save.

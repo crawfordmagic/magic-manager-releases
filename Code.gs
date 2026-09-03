@@ -88,7 +88,7 @@ var CONFIG_FIELDS_ = [
   { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: 'Full legal entity name used on contracts.', section: 'business' },
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the sign page.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
-  { key: 'LOGO_URL', label: 'Logo', help: 'Upload a PNG or JPG — square works best (it gets embedded into your app). Avoid SVG and iPhone HEIC files. Pasting a link works only if it is a direct, public image URL (Drive/Dropbox share links will not).', section: 'business' },
+  { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
   // How clients reach you
   { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the sign page and contract.', section: 'contact' },
   { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional).', section: 'contact' },
@@ -213,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.6';
+var APP_VERSION = '1.5.7';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -523,29 +523,6 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(
       '<div style="font-family:sans-serif;padding:60px 20px;text-align:center;color:#888">This page isn\u2019t available.</div>'
     ).setTitle('Not Found');
-  }
-
-  // TEMP logo diagnostic — open <app url>&logotest=1 to see whether the direct
-  // URL and/or the server-embedded data URI actually render on the real Apps
-  // Script page. Remove once the Sign-page logo is confirmed.
-  if (e.parameter.logotest) {
-    var cfgD = getConfig_(), rawUrl = (cfgD.LOGO_URL || '').trim(), du = '', blobInfo;
-    try { var bb = getLogoBlob_(); blobInfo = bb ? ((bb.getContentType() || '?') + ' / ' + bb.getBytes().length + ' bytes') : 'null'; } catch (ex) { blobInfo = 'ERROR ' + ex; }
-    try { du = getLogoDataUri_(); } catch (ex) { du = ''; }
-    var escD = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
-    var brk = ' onerror="this.insertAdjacentHTML(\'afterend\',\'&nbsp;<b style=color:#f77>BROKEN</b>\');this.style.display=\'none\'"';
-    var hh = '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">'
-      + '<body style="font-family:sans-serif;background:#111;color:#ddd;padding:16px;line-height:1.6">'
-      + '<h3>Logo diagnostic</h3>'
-      + '<p><b>LOGO_URL</b> (' + rawUrl.length + ' chars):<br><span style="word-break:break-all;font-size:12px;color:#9cf">' + escD(rawUrl) + '</span></p>'
-      + '<p><b>getLogoBlob_:</b> ' + escD(blobInfo) + '</p>'
-      + '<p><b>data URI:</b> ' + du.length + ' chars, starts <code style="font-size:11px">' + escD(du.slice(0, 32)) + '</code></p>'
-      + '<hr><p><b>A &mdash; direct URL:</b></p>'
-      + (rawUrl ? '<img src="' + escD(rawUrl) + '" style="width:150px;height:auto;border:1px solid #555;background:#000"' + brk + '>' : '<i>none set</i>')
-      + '<hr><p><b>B &mdash; embedded data URI:</b></p>'
-      + (du ? '<img src="' + du + '" style="width:150px;height:auto;border:1px solid #555;background:#000"' + brk + '>' : '<i>empty</i>')
-      + '<hr><p style="font-size:12px;color:#999">Screenshot this &mdash; which shows the logo: A, B, both, or neither?</p></body>';
-    return HtmlService.createHtmlOutput(hh).setTitle('Logo diagnostic').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   var lic = getLicenseState_();

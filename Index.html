@@ -6465,9 +6465,7 @@ function renderSettings(){
       var h = '<div class="field"><label>'+esc(f.label)+'</label>' + ctrl
         + (f.help?'<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'');
       if(f.key==='LOGO_URL'){
-        h += '<input type="file" id="logoFile" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">'
-          + '<button type="button" onclick="document.getElementById(\'logoFile\').click()" style="margin-top:8px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">Upload an image instead</button>'
-          + '<div id="logoPreview" style="margin-top:8px"></div>';
+        h += '<div id="logoPreview" style="margin-top:8px"></div>';
       }
       return h + '</div>';
     }
@@ -6515,7 +6513,7 @@ function updateLogoPreview(val){
   box.innerHTML = '<img src="'+safe+'" alt="Logo preview" style="max-width:96px;max-height:96px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:4px" '
     + 'onload="var w=document.getElementById(\'logoWarn\');if(w)w.style.display=\'none\'" '
     + 'onerror="this.style.display=\'none\';var w=document.getElementById(\'logoWarn\');if(w)w.style.display=\'\'">'
-    + '<div id="logoWarn" style="display:none;font-size:11px;color:#E9927B;margin-top:4px">This image link isn’t loading — your customers won’t see it. Upload a PNG/JPG, or use a direct, public image link.</div>';
+    + '<div id="logoWarn" style="display:none;font-size:11px;color:#E9927B;margin-top:4px">This image link isn’t loading — your customers won’t see it. Make sure it’s a direct, public image link (on your site, right-click the logo → “Copy image address”).</div>';
 }
 function handleLogoUpload(input){
   var file = input.files && input.files[0]; if(!file) return;
