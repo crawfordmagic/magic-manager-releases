@@ -213,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.2';
+var APP_VERSION = '1.5.3';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -2440,6 +2440,10 @@ function getTrash() {
     const o = { _trashId: trashId, _deletedAt: fmtCell_(deletedAt, tz) };
     var daysLeft = TRASH_RETENTION_DAYS - Math.floor((Date.now() - deletedAt.getTime()) / 86400000);
     o._daysRemaining = Math.max(0, daysLeft);
+    // Month the lead was deleted, for the Recycle Bin's per-month grouping +
+    // "empty this month" action. Key sorts; label displays.
+    o._deletedMonthKey = Utilities.formatDate(deletedAt, tz, 'yyyy-MM');
+    o._deletedMonthLabel = Utilities.formatDate(deletedAt, tz, 'MMMM yyyy');
     heads.forEach(function (h, i) {
       var v = values[i];
       o[h] = (v instanceof Date) ? fmtCell_(v, tz) : v;
@@ -2487,6 +2491,25 @@ function permanentlyDeleteTrash(trashId) {
   const trash = trashSheet_();
   const trashRow = findTrashRow_(trash, trashId);
   if (trashRow) trash.deleteRow(trashRow);
+  return getTrashScoped_();
+}
+
+// Empty a whole batch at once (used by the Recycle Bin's per-month "Empty").
+// Resolve every id to its current row first, then delete bottom-up so the
+// shifting row numbers never invalidate a pending deletion.
+function permanentlyDeleteTrashBatch(trashIds) {
+  const trash = trashSheet_();
+  const want = {};
+  (trashIds || []).forEach(function (id) { want[String(id)] = true; });
+  const last = trash.getLastRow();
+  if (last < 2) return getTrashScoped_();
+  const ids = trash.getRange(2, 1, last - 1, 1).getValues();
+  const rows = [];
+  for (var i = 0; i < ids.length; i++) {
+    if (want[String(ids[i][0])]) rows.push(i + 2);
+  }
+  rows.sort(function (a, b) { return b - a; });
+  rows.forEach(function (r) { trash.deleteRow(r); });
   return getTrashScoped_();
 }
 

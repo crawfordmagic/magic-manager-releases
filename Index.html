@@ -415,18 +415,23 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
 
-    <div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:18px">
-      <button class="save" id="syncBtn" onclick="syncContacts()">Sync to Google Contacts</button>
-      <p class="note" id="syncStat" style="margin-bottom:0">Pushes every named lead into a "<?= cfg.CONTACT_GROUP ?>" group in your Google Contacts.</p>
-    </div>
+    <div id="manageWrap" style="display:none">
+    <div class="sec-title"><span class="t">Manage</span><span class="rule"></span></div>
 
-    <button class="htoggle hstack" id="rbin_toggle" style="margin-top:18px;display:none" onclick="toggleRecycleBin()">
+    <button class="htoggle hstack" id="rbin_toggle" onclick="toggleRecycleBin()">
       <span class="httitle">Recycle Bin</span>
       <span class="htright"><span id="rbin_badge"></span><span id="rbin_chev">&#9662;</span></span>
     </button>
     <div id="rbin_wrap" style="display:none;margin-top:10px">
       <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
       <div id="rbin_list"></div>
+    </div>
+
+    <div class="htoggle hstack" style="margin-top:12px">
+      <span class="httitle">Google Contacts</span>
+      <button class="save" id="syncBtn" style="margin-top:8px;width:100%" onclick="syncContacts()">Sync now</button>
+      <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+    </div>
     </div>
   </div>
 
@@ -576,21 +581,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
     <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
+    <label style="font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;color:var(--gold);display:block;margin:0 2px 6px">Period</label>
+    <select id="exportYearSel" onchange="setExpenseViewYear(this.value)" style="margin-bottom:14px"></select>
     <div id="expenseSummary"></div>
-    <div id="expenseReceiptNudge"></div>
-    <div id="expenseRecurring"></div>
-    <button class="save" onclick="openAddExpense()">+ Add Expense</button>
-    <div style="display:flex;gap:10px;margin:10px 0 14px">
-      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openImportExpenses()">Import CSV</button>
-      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="exportExpensesCsv()">Export CSV</button>
-    </div>
-    <button class="htoggle hstack" onclick="toggleExpenseFiltersDrawer()">
-      <span class="httitle">Filters</span>
-      <span class="htright"><span id="expfilt_badge"></span><span id="expfilt_chev">&#9662;</span></span>
-    </button>
-    <div id="expfilt_wrap" style="display:none;margin-top:10px;margin-bottom:14px">
-      <div class="field"><label>Year</label><select id="exportYearSel" onchange="setExpenseViewYear(this.value)"></select></div>
-      <div class="field" id="expenseMonthField" style="display:none"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    <div class="field" id="expenseMonthField" style="display:none;margin-top:12px"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    <div class="grid2" style="margin:12px 0 14px">
       <div class="field"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
       <div class="field"><label>Receipt</label>
         <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
@@ -599,6 +594,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
           <option value="has">Has receipt</option>
         </select>
       </div>
+    </div>
+    <div id="expenseRecurring"></div>
+    <button class="save" onclick="openAddExpense()">+ Add Expense</button>
+    <div style="display:flex;gap:10px;margin:10px 0 14px">
+      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openImportExpenses()">Import CSV</button>
+      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="exportExpensesCsv()">Export CSV</button>
     </div>
     <div id="expenseList"></div>
   </div>
@@ -1060,20 +1061,23 @@ function cfgList(key, fallback){
   var arr = raw.split(/[\n,]+/).map(function(x){ return x.trim(); }).filter(Boolean);
   return arr.length ? arr : (fallback || []);
 }
-function fillSelect(id, items){
+function fillSelect(id, items, placeholder){
   var el = document.getElementById(id); if(!el) return;
   var cur = el.value;
-  el.innerHTML = items.map(function(o){ return '<option>'+esc(o)+'</option>'; }).join('');
+  var opts = items.map(function(o){ return '<option>'+esc(o)+'</option>'; });
+  if(placeholder) opts.unshift('<option value="">'+esc(placeholder)+'</option>');
+  el.innerHTML = opts.join('');
   if(cur) el.value = cur;
 }
 function populateLeadDropdowns(){
-  fillSelect('a_service', cfgList('SERVICES', ['Strolling','Stage','Stage & Strolling']));
-  fillSelect('a_eventType', cfgList('EVENT_TYPES', ['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other']));
-  fillSelect('a_source', cfgList('LEAD_SOURCES', ['Bark','Gigsalad','Website','Current Client','Referral','Other']));
+  fillSelect('a_service', cfgList('SERVICES', ['Strolling','Stage','Stage & Strolling']), 'Choose…');
+  fillSelect('a_eventType', cfgList('EVENT_TYPES', ['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other']), 'Choose…');
+  fillSelect('a_source', cfgList('LEAD_SOURCES', ['Bark','Gigsalad','Website','Current Client','Referral','Other']), 'Choose…');
 }
 
 var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [];
 var RBIN_PURGE_ARM = {};
+var RBIN_EMPTY_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
 var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
 function ingest(json){
@@ -1302,7 +1306,10 @@ function load(){
       }
     }
     $('loader').style.display='none';
-    $('rbin_toggle').style.display='flex';
+    // Reveal the Recycle Bin + Google Contacts section only once the leads
+    // are in — it stays hidden during "Raising the curtain" so both load in
+    // together after the main page, rather than sitting there mid-load.
+    $('manageWrap').style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge();
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
     checkShowtimePopup();
@@ -2596,9 +2603,8 @@ function renderChips(){
 }
 function archiveScopeRowHtml(){
   var opts = insightsScopeOptions();
-  return '<div style="grid-column:1/-1;display:flex;align-items:center;gap:7px;margin:1px 2px 3px">'
-    +'<span style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap">Archive Year</span>'
-    +'<select onchange="setMainArchiveScope(this.value)" style="flex:1;font-size:12px;padding:5px 8px">'
+  return '<div style="grid-column:1/-1;margin-top:2px">'
+    +'<select onchange="setMainArchiveScope(this.value)">'
     +opts.map(function(o){ return '<option value="'+o.v+'"'+(o.v===MAIN_ARCHIVE_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
     +'</select>'
     +'</div>';
@@ -4221,18 +4227,35 @@ function renderRecycleBin(){
     ? '<span class="pill gold">'+TRASH.length+'</span>'
     : '<span class="pill gold">Empty</span>';
   if(!TRASH.length){ list.innerHTML='<p class="note" style="text-align:left">Nothing in the bin.</p>'; return; }
-  var h='';
+  // Group by the month each lead was deleted, keeping the server's
+  // newest-first order so the most recent month leads.
+  var groups=[], byKey={};
   TRASH.forEach(function(T){
-    var name=T[C.name]||'(no name)';
-    var days=T._daysRemaining;
-    var dayLabel=days===1?'1 day left':(days+' days left');
-    h+='<div class="card">'
-      +'<div><div style="font-weight:600">'+esc(name)+'</div>'
-      +'<div class="note" style="text-align:left;margin:2px 0 0">Deleted '+esc(T._deletedAt)+' \u00b7 '+esc(dayLabel)+'</div></div>'
-      +'<div style="display:flex;gap:8px;margin-top:10px">'
-      +'<button class="save" style="flex:1;margin-top:0" onclick="restoreLeadUI(\''+T._trashId+'\')">Restore</button>'
-      +'<button class="save" id="rbin_del_'+T._trashId+'" style="flex:1;margin-top:0;background:transparent;border:1px solid #C05236;color:#E9927B" onclick="purgeTrashForeverUI(\''+T._trashId+'\')">Delete forever</button>'
-      +'</div></div>';
+    var key=T._deletedMonthKey||'', label=T._deletedMonthLabel||'Earlier';
+    if(!byKey[key]){ byKey[key]={key:key,label:label,items:[]}; groups.push(byKey[key]); }
+    byKey[key].items.push(T);
+  });
+  var h='';
+  groups.forEach(function(g,gi){
+    var headStyle = gi===0
+      ? 'margin:4px 2px 10px'
+      : 'margin:22px 2px 10px;padding-top:14px;border-top:1px solid var(--line)';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;'+headStyle+'">'
+      +'<span style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)">'+esc(g.label)+' \u00b7 '+g.items.length+'</span>'
+      +'<button class="save" id="rbin_empty_'+esc(g.key)+'" style="width:auto;margin-top:0;padding:5px 11px;font-size:11.5px;letter-spacing:.04em;background:transparent;border:1px solid var(--crimson);color:#E9927B" onclick="emptyTrashMonthUI(\''+esc(g.key)+'\')">Empty</button>'
+      +'</div>';
+    g.items.forEach(function(T){
+      var name=T[C.name]||'(no name)';
+      var days=T._daysRemaining;
+      var dayLabel=days===1?'1 day left':(days+' days left');
+      h+='<div class="card">'
+        +'<div><div style="font-weight:600">'+esc(name)+'</div>'
+        +'<div class="note" style="text-align:left;margin:2px 0 0">Deleted '+esc(T._deletedAt)+' \u00b7 '+esc(dayLabel)+'</div></div>'
+        +'<div style="display:flex;gap:8px;margin-top:10px">'
+        +'<button class="save" style="flex:1;margin-top:0" onclick="restoreLeadUI(\''+T._trashId+'\')">Restore</button>'
+        +'<button class="save" id="rbin_del_'+T._trashId+'" style="flex:1;margin-top:0;background:transparent;border:1px solid #C05236;color:#E9927B" onclick="purgeTrashForeverUI(\''+T._trashId+'\')">Delete forever</button>'
+        +'</div></div>';
+    });
   });
   list.innerHTML=h;
 }
@@ -4265,6 +4288,32 @@ function purgeTrashForeverUI(trashId){
     ingest(json);
   }).withFailureHandler(function(){ toast('Could not delete \u2014 refreshing'); refreshQuiet(); })
   .permanentlyDeleteTrash(trashId);
+}
+// Permanently empty every lead deleted in one month, in a single call.
+// Same arm-then-confirm double-tap as the per-lead purge.
+function emptyTrashMonthUI(key){
+  var b=$('rbin_empty_'+key);
+  if(!b) return;
+  if(!RBIN_EMPTY_ARM[key]){
+    RBIN_EMPTY_ARM[key]=true;
+    b.textContent='Tap again to empty';
+    setTimeout(function(){
+      RBIN_EMPTY_ARM[key]=false;
+      var x=$('rbin_empty_'+key); if(x) x.textContent='Empty';
+    }, 3500);
+    return;
+  }
+  RBIN_EMPTY_ARM[key]=false;
+  var ids=TRASH.filter(function(T){ return (T._deletedMonthKey||'')===key; })
+               .map(function(T){ return T._trashId; });
+  if(!ids.length) return;
+  TRASH=TRASH.filter(function(T){ return (T._deletedMonthKey||'')!==key; });
+  renderRecycleBin();
+  toast(ids.length+(ids.length===1?' lead':' leads')+' permanently deleted');
+  google.script.run.withSuccessHandler(function(json){
+    ingest(json);
+  }).withFailureHandler(function(){ toast('Could not delete \u2014 refreshing'); refreshQuiet(); })
+  .permanentlyDeleteTrashBatch(ids);
 }
 /* ---------- Tap-to-edit lead name ---------- */
 function editName(){
@@ -4434,6 +4483,7 @@ function submitLead(){
     btn.disabled=false; btn.textContent='Add lead';
     ['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_price','a_location','a_followup','a_followtime','a_notes']
       .forEach(function(id){ $(id).value=''; });
+    ['a_service','a_eventType','a_source'].forEach(function(id){ var el=$(id); if(el) el.value=''; });
     renderChips(); renderLeads(); renderInsights(); go('leads', document.querySelector('.tab[data-v="leads"]'));
     toast('Lead added \u2726');
   }).withFailureHandler(function(){ btn.disabled=false; btn.textContent='Add lead'; toast('Could not add \u2014 try again'); })
@@ -5393,15 +5443,16 @@ function insightService(svc){ showInsight('Service \u00b7 '+svc, function(L){ re
 function insightEvent(evt){ showInsight('Event type \u00b7 '+evt, function(L){ return String(L[C.eventType]||'').trim()===evt; }); }
 function syncContacts(){
   var btn=$('syncBtn'), stat=$('syncStat');
+  if(stat) stat.style.display='block';
   btn.disabled=true; btn.textContent='Starting\u2026';
   google.script.run.withSuccessHandler(function(r){
-    btn.disabled=false; btn.textContent='Sync to Google Contacts';
+    btn.disabled=false; btn.textContent='Sync now';
     stat.innerHTML = r.alreadyRunning
       ? 'A sync is already running in the background \u2014 keep using the app, this updates automatically when it finishes.'
       : 'Started in the background \u2726 keep using the app \u2014 this updates automatically when it\u2019s done.';
     startSyncPolling();
   }).withFailureHandler(function(err){
-    btn.disabled=false; btn.textContent='Sync to Google Contacts';
+    btn.disabled=false; btn.textContent='Sync now';
     stat.innerHTML='Could not start the sync \u2014 check that the People API service is enabled in Apps Script, then try again.';
   }).startContactSync();
 }
@@ -5414,6 +5465,7 @@ function startSyncPolling(){
 function checkSyncStatus(){
   google.script.run.withSuccessHandler(function(r){
     var stat=$('syncStat'); if(!stat) return;
+    stat.style.display='block';
     if(r.status==='running'){
       stat.innerHTML='Syncing in the background\u2026 '+(r.created||0)+' added, '+(r.updated||0)+' updated so far. Feel free to keep using the app.';
     } else if(r.status==='done'){
@@ -5539,54 +5591,29 @@ function removeExpenseCategory(name){
     renderManageCategories();
   }).deleteExpenseCategory(name);
 }
-var EXPENSE_LIST_FILTER = 'none'; // 'none' | 'receipt' | 'month' | 'week' — the "current" quick filters
 var EXPENSE_CATEGORY_FILTER = 'all'; // category name, or 'all' — combines with whichever time scope is active
 var EXPENSE_RECEIPT_FILTER = 'all'; // 'all' | 'missing' | 'has' — combines with year/month/category, independent of them
-var EXPENSE_VIEW_YEAR = 'all'; // 'all' or a specific year — the fiscal-year view, mutually exclusive with the quick filters above
+var EXPENSE_VIEW_YEAR = new Date().getFullYear(); // this year by default; a past year or 'all' scopes the whole page (the period control)
 var EXPENSE_VIEW_MONTH = 'all'; // 'all' or a 0-11 month index — only meaningful once a specific year is chosen
 function renderExpenses(){
-  var today=today0();
-  var moStart=monthStart(), wkStart=weekStart();
-  var thisMonth = EXPENSES.filter(function(E){ var d=pd(E.date); return d && d>=moStart; });
-  var thisWeek = EXPENSES.filter(function(E){ var d=pd(E.date); return d && d>=wkStart; });
-  var monthTotal = thisMonth.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
-  var weekTotal = thisWeek.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
-  $('expenseSummary').innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    +'<div class="stat'+(EXPENSE_LIST_FILTER==='month'?' on':'')+'" onclick="toggleExpenseListFilter(\'month\')"><div class="v">'+fmtMoney(monthTotal)+'</div><div class="l">This month</div></div>'
-    +'<div class="stat'+(EXPENSE_LIST_FILTER==='week'?' on':'')+'" onclick="toggleExpenseListFilter(\'week\')"><div class="v">'+fmtMoney(weekTotal)+'</div><div class="l">This week</div></div>'
-    +'</div>';
-
-  var missingThisMonth = thisMonth.filter(function(E){ return !E.receiptUrl; });
-  if(missingThisMonth.length){
-    $('expenseReceiptNudge').innerHTML = '<div class="htoggle" style="cursor:pointer;margin-top:10px'+(EXPENSE_LIST_FILTER==='receipt'?';border-color:var(--gold)':'')+'" onclick="toggleExpenseListFilter(\'receipt\')">'
-      +'<span>&#128206; '+missingThisMonth.length+' expense'+(missingThisMonth.length===1?'':'s')+' this month '+(missingThisMonth.length===1?'has':'have')+' no receipt attached</span>'
-      +'<span style="color:var(--gold-bright);font-size:12px;flex-shrink:0">'+(EXPENSE_LIST_FILTER==='receipt'?'Showing these \u2014 tap to clear':'Tap to view')+'</span>'
-      +'</div>';
-  } else {
-    $('expenseReceiptNudge').innerHTML = '';
-    if(EXPENSE_LIST_FILTER==='receipt') EXPENSE_LIST_FILTER='none';
-  }
-  renderRecurringList();
-
-  // Year dropdown is the fiscal-year view control — selecting a year here
-  // scopes everything below it to that year, same as the This Month/This
-  // Week tiles do for the current period. It's mutually exclusive with
-  // those tiles: picking a year clears whichever quick filter was active,
-  // and vice versa, so there's always exactly one clear "what period am I
-  // looking at" answer.
-  var years = {}; EXPENSES.forEach(function(E){ var d=pd(E.date); if(d) years[d.getFullYear()]=1; });
-  years[new Date().getFullYear()] = 1;
-  var yearList = Object.keys(years).map(Number).sort(function(a,b){ return b-a; });
-  $('exportYearSel').innerHTML = '<option value="all">All time</option>' + yearList.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('');
-  $('exportYearSel').value = EXPENSE_VIEW_YEAR;
-
-  // Month dropdown only makes sense once a specific year is chosen — "March
-  // of all time" isn't a real period — so it stays hidden the rest of the
-  // time. Like the category dropdown, it only lists months that actually
-  // have something logged in the selected year, so there's never a choice
-  // guaranteed to land on an empty screen.
+  var now = new Date();
+  var curYear = now.getFullYear();
   var monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // ---- Period selector (This Year / Last Year / older / All Time) — the one
+  // scope control for this page, same idea as the Insights archive year.
+  var years = {}; EXPENSES.forEach(function(E){ var d=pd(E.date); if(d) years[d.getFullYear()]=1; });
+  years[curYear]=1; years[curYear-1]=1;
+  var older = Object.keys(years).map(Number).filter(function(y){ return y!==curYear && y!==curYear-1; }).sort(function(a,b){ return b-a; });
+  $('exportYearSel').innerHTML =
+    '<option value="'+curYear+'">This Year ('+curYear+')</option>'
+    + '<option value="'+(curYear-1)+'">Last Year ('+(curYear-1)+')</option>'
+    + older.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('')
+    + '<option value="all">All Time</option>';
+  $('exportYearSel').value = String(EXPENSE_VIEW_YEAR);
+
+  // ---- Month sub-filter: only when a specific year is in view; lists just the
+  // months actually used that year so no choice lands on an empty screen.
   var monthSel = $('expenseMonthFilterSel');
   if(EXPENSE_VIEW_YEAR!=='all'){
     var usedMonths = {};
@@ -5601,10 +5628,79 @@ function renderExpenses(){
     EXPENSE_VIEW_MONTH = 'all';
   }
 
-  // Category dropdown lists every category actually in use (not the full
-  // built-in + custom list) so there's never a choice that's guaranteed to
-  // show an empty result.
-  var usedCats = {}; EXPENSES.forEach(function(E){ usedCats[E.category||'Other']=1; });
+  // ---- The period-scoped set drives the badges (year + month only; the
+  // category/receipt sub-filters refine the list below, not the headline).
+  var period = EXPENSES.filter(function(E){
+    if(EXPENSE_VIEW_YEAR==='all') return true;
+    var d=pd(E.date); if(!d || d.getFullYear()!==Number(EXPENSE_VIEW_YEAR)) return false;
+    if(EXPENSE_VIEW_MONTH!=='all' && d.getMonth()!==Number(EXPENSE_VIEW_MONTH)) return false;
+    return true;
+  });
+
+  // ---- Badge math ----
+  var total = period.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
+  var count = period.length;
+  var missing = period.filter(function(E){ return !E.receiptUrl; }).length;
+
+  // Avg / month: divide by however many months the period actually spans.
+  var months;
+  if(EXPENSE_VIEW_MONTH!=='all') months = 1;
+  else if(EXPENSE_VIEW_YEAR==='all'){
+    var earliest=null; EXPENSES.forEach(function(E){ var d=pd(E.date); if(d && (!earliest||d<earliest)) earliest=d; });
+    months = earliest ? ((now.getFullYear()-earliest.getFullYear())*12 + (now.getMonth()-earliest.getMonth()) + 1) : 1;
+  } else if(Number(EXPENSE_VIEW_YEAR)===curYear){
+    months = now.getMonth()+1;
+  } else {
+    months = 12;
+  }
+  months = Math.max(1, months);
+  var avgMonth = Math.round(total/months);
+
+  // Top category by spend within the period.
+  var catTotals={}; period.forEach(function(E){ var c=E.category||'Other'; catTotals[c]=(catTotals[c]||0)+(Number(E.amount)||0); });
+  var topCat=null, topAmt=-1; Object.keys(catTotals).forEach(function(c){ if(catTotals[c]>topAmt){ topAmt=catTotals[c]; topCat=c; } });
+
+  // vs last year: like-for-like — a completed year vs the whole prior year,
+  // the current year vs the same months-to-date last year, a single month vs
+  // that month a year earlier. Blank when there is no prior-year spend.
+  var vsPct=null;
+  if(EXPENSE_VIEW_YEAR!=='all'){
+    var Y=Number(EXPENSE_VIEW_YEAR), thisT, priorT;
+    if(EXPENSE_VIEW_MONTH!=='all'){
+      var M=Number(EXPENSE_VIEW_MONTH);
+      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y && d.getMonth()===M; });
+      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1 && d.getMonth()===M; });
+    } else if(Y===curYear){
+      var cut=now.getMonth();
+      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y && d.getMonth()<=cut; });
+      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1 && d.getMonth()<=cut; });
+    } else {
+      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y; });
+      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1; });
+    }
+    if(priorT>0) vsPct = Math.round((thisT-priorT)/priorT*100);
+  }
+  var vsHtml = (vsPct===null)
+    ? '<span style="color:var(--muted)">&#8212;</span>'
+    : (vsPct>=0?'&#8593;':'&#8595;')+Math.abs(vsPct)+'%';
+
+  var recOn = EXPENSE_RECEIPT_FILTER==='missing';
+  var catOn = topCat && EXPENSE_CATEGORY_FILTER===topCat;
+  $('expenseSummary').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    + expStatHtml_(fmtMoney(total)||'$0','Total spent')
+    + expStatHtml_(vsHtml,'vs last year')
+    + expStatHtml_(fmtMoney(avgMonth)||'$0','Avg / month')
+    + expStatHtml_(String(count),count===1?'Expense':'Expenses')
+    + expStatHtml_(String(missing),'Missing receipts',{click:'toggleExpenseReceiptBadge()',crimson:missing>0,on:recOn})
+    + (topCat ? expStatHtml_(esc(topCat),'Top category',{click:'toggleExpenseTopCat(this)',dataCat:topCat,on:catOn,vsize:'17px'})
+              : expStatHtml_('&#8212;','Top category'))
+    + '</div>';
+
+  renderRecurringList();
+
+  // ---- Category sub-filter lists only categories used in the period ----
+  var usedCats = {}; period.forEach(function(E){ usedCats[E.category||'Other']=1; });
   var catList = Object.keys(usedCats).sort(function(a,b){ return a.localeCompare(b); });
   var catSel = $('expenseCategoryFilterSel');
   catSel.innerHTML = '<option value="all">All categories</option>' + catList.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
@@ -5612,54 +5708,44 @@ function renderExpenses(){
   else { EXPENSE_CATEGORY_FILTER='all'; catSel.value='all'; }
   $('expenseReceiptStatusSel').value = EXPENSE_RECEIPT_FILTER;
 
-  // Collapsed-drawer badge summarizes whatever's actually active, so the
-  // page doesn't need three permanently-visible dropdowns just to show
-  // that nothing's currently filtered.
-  var filterParts = [];
-  if(EXPENSE_VIEW_YEAR!=='all'){
-    filterParts.push(EXPENSE_VIEW_MONTH!=='all' ? (monthNames[Number(EXPENSE_VIEW_MONTH)]+' '+EXPENSE_VIEW_YEAR) : String(EXPENSE_VIEW_YEAR));
-  }
-  if(EXPENSE_CATEGORY_FILTER!=='all') filterParts.push(EXPENSE_CATEGORY_FILTER);
-  if(EXPENSE_RECEIPT_FILTER==='missing') filterParts.push('Missing receipt');
-  else if(EXPENSE_RECEIPT_FILTER==='has') filterParts.push('Has receipt');
-  $('expfilt_badge').innerHTML = filterParts.length
-    ? '<span class="pill gold">'+esc(filterParts.join(' \u00b7 '))+'</span>'
-    : '<span style="color:var(--muted);font-size:12px">All time</span>';
-
-  var base = EXPENSES, emptyMsg = 'No expenses logged yet.';
-  if(EXPENSE_LIST_FILTER==='receipt'){ base = missingThisMonth; emptyMsg = 'Nothing missing a receipt.'; }
-  else if(EXPENSE_LIST_FILTER==='month'){ base = thisMonth; emptyMsg = 'No expenses logged this month.'; }
-  else if(EXPENSE_LIST_FILTER==='week'){ base = thisWeek; emptyMsg = 'No expenses logged this week.'; }
-  else if(EXPENSE_VIEW_YEAR!=='all'){
-    var y = Number(EXPENSE_VIEW_YEAR);
-    if(EXPENSE_VIEW_MONTH!=='all'){
-      var m = Number(EXPENSE_VIEW_MONTH);
-      base = EXPENSES.filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y && d.getMonth()===m; });
-      emptyMsg = 'No expenses logged in '+monthNames[m]+' '+y+'.';
-    } else {
-      base = EXPENSES.filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y; });
-      emptyMsg = 'No expenses logged in '+y+'.';
-    }
-  }
-  if(EXPENSE_CATEGORY_FILTER!=='all'){
-    base = base.filter(function(E){ return (E.category||'Other')===EXPENSE_CATEGORY_FILTER; });
-    emptyMsg = 'No '+EXPENSE_CATEGORY_FILTER+' expenses'+(EXPENSE_LIST_FILTER!=='none'||EXPENSE_VIEW_YEAR!=='all'?' in this period':'')+'.';
-  }
-  if(EXPENSE_RECEIPT_FILTER!=='all'){
-    base = base.filter(function(E){ return EXPENSE_RECEIPT_FILTER==='missing' ? !E.receiptUrl : !!E.receiptUrl; });
-    emptyMsg = EXPENSE_RECEIPT_FILTER==='missing' ? 'Nothing missing a receipt here.' : 'Nothing with a receipt attached here.';
-  }
+  // ---- List = period, refined by the category + receipt sub-filters ----
+  var base = period.slice();
+  if(EXPENSE_CATEGORY_FILTER!=='all') base = base.filter(function(E){ return (E.category||'Other')===EXPENSE_CATEGORY_FILTER; });
+  if(EXPENSE_RECEIPT_FILTER!=='all') base = base.filter(function(E){ return EXPENSE_RECEIPT_FILTER==='missing' ? !E.receiptUrl : !!E.receiptUrl; });
   var sorted = base.slice().sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+
+  var periodLabel = EXPENSE_VIEW_YEAR==='all' ? '' : (EXPENSE_VIEW_MONTH!=='all' ? monthNames[Number(EXPENSE_VIEW_MONTH)]+' '+EXPENSE_VIEW_YEAR : String(EXPENSE_VIEW_YEAR));
+  var emptyMsg;
+  if(EXPENSE_CATEGORY_FILTER!=='all' || EXPENSE_RECEIPT_FILTER!=='all') emptyMsg = 'No expenses match those filters'+(periodLabel?' in '+periodLabel:'')+'.';
+  else emptyMsg = periodLabel ? 'No expenses logged in '+periodLabel+'.' : 'No expenses logged yet.';
   $('expenseList').innerHTML = sorted.length
     ? sorted.map(expenseRowHtml).join('')
     : '<div class="empty"><span class="star">&#10038;</span>'+emptyMsg+'</div>';
 }
-function toggleExpenseFiltersDrawer(){
-  var w=$('expfilt_wrap'), open=w.style.display==='none';
-  w.style.display = open ? '' : 'none';
-  $('expfilt_chev').innerHTML = open ? '&#9652;' : '&#9662;';
+// Shared helpers for the Expenses badges.
+function sumExpensesWhere_(pred){
+  return EXPENSES.reduce(function(s,E){ var d=pd(E.date); return (d && pred(d)) ? s+(Number(E.amount)||0) : s; }, 0);
 }
-// Deterministic per-category color, stable everywhere the category shows
+function expStatHtml_(v,l,o){
+  o=o||{};
+  var style='', vstyle='', attrs='';
+  if(o.click){ style+='cursor:pointer;'; attrs+=' onclick="'+o.click+'"'; }
+  if(o.crimson && !o.on){ style+='border-color:var(--crimson);'; vstyle+='color:var(--crimson);'; }
+  if(o.vsize) vstyle+='font-size:'+o.vsize+';';
+  if(o.dataCat!=null) attrs+=' data-cat="'+esc(o.dataCat)+'"';
+  return '<div class="stat'+(o.on?' on':'')+'"'+(style?' style="'+style+'"':'')+attrs+'>'
+    +'<div class="v"'+(vstyle?' style="'+vstyle+'"':'')+'>'+v+'</div>'
+    +'<div class="l">'+l+'</div></div>';
+}
+function toggleExpenseReceiptBadge(){
+  EXPENSE_RECEIPT_FILTER = (EXPENSE_RECEIPT_FILTER==='missing') ? 'all' : 'missing';
+  renderExpenses();
+}
+function toggleExpenseTopCat(el){
+  var c = el && el.getAttribute('data-cat'); if(!c) return;
+  EXPENSE_CATEGORY_FILTER = (EXPENSE_CATEGORY_FILTER===c) ? 'all' : c;
+  renderExpenses();
+}// Deterministic per-category color, stable everywhere the category shows
 // up (not rank-based like the Insights donut, whose colors intentionally
 // shift with that period's relative spending — a persistent list needs a
 // category to always read as the same color, not one that changes
@@ -5669,22 +5755,13 @@ function categoryColor(cat){
   var hash = 0;
   for(var i=0;i<str.length;i++){ hash = (hash*31 + str.charCodeAt(i)) % 997; }
   return DONUT_PALETTE[hash % DONUT_PALETTE.length];
-}
-function toggleExpenseListFilter(which){
-  EXPENSE_LIST_FILTER = (EXPENSE_LIST_FILTER===which) ? 'none' : which;
-  EXPENSE_VIEW_YEAR = 'all'; // "this month/week" and "a specific year/month" are mutually exclusive time scopes
-  EXPENSE_VIEW_MONTH = 'all';
-  renderExpenses();
-}
-function setExpenseViewYear(v){
+}function setExpenseViewYear(v){
   EXPENSE_VIEW_YEAR = v || 'all';
   EXPENSE_VIEW_MONTH = 'all'; // a new year means whatever month was picked no longer necessarily applies
-  EXPENSE_LIST_FILTER = 'none';
   renderExpenses();
 }
 function setExpenseViewMonth(v){
   EXPENSE_VIEW_MONTH = v || 'all';
-  EXPENSE_LIST_FILTER = 'none';
   renderExpenses();
 }
 function setExpenseCategoryFilter(v){
