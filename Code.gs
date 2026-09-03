@@ -213,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.4';
+var APP_VERSION = '1.5.5';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -504,6 +504,10 @@ function doGet(e) {
     template.token = e.parameter.sign;
     template.paid = e.parameter.paid || '';
     template.cfg = getConfig_();
+    // Embed the logo as inline bytes (data: URI) rather than letting the
+    // client's browser fetch the raw URL — an external <img> fetch can be
+    // blocked by adblockers / file:// contexts, but inline bytes always render.
+    template.logoDataUri = getLogoDataUri_();
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Sign Agreement')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')

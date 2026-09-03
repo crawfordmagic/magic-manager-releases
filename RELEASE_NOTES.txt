@@ -1,1 +1,1 @@
-A small tidy-up on the Expenses screen: the redundant "Period" label above the year selector is gone — the dropdown (This Year, Last Year, All Time…) speaks for itself.
+Your logo is back on the client Sign page. This time the app embeds the image directly into the page, so it renders reliably on any device or browser — no external fetch to fail, no broken image. Set it under Settings → Logo (a direct public image URL or an uploaded image both work).
