@@ -415,6 +415,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
 
+    <div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:18px">
+      <button class="save" id="syncBtn" onclick="syncContacts()">Sync to Google Contacts</button>
+      <p class="note" id="syncStat" style="margin-bottom:0">Pushes every named lead into a "<?= cfg.CONTACT_GROUP ?>" group in your Google Contacts.</p>
+    </div>
+
     <button class="htoggle hstack" id="rbin_toggle" style="margin-top:18px;display:none" onclick="toggleRecycleBin()">
       <span class="httitle">Recycle Bin</span>
       <span class="htright"><span id="rbin_badge"></span><span id="rbin_chev">&#9662;</span></span>
@@ -565,12 +570,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </button>
     <div id="tax_wrap" style="display:none;margin-top:10px">
       <div id="tax_summary"></div>
-    </div>
-
-    <div class="insight-group-label">Tools</div>
-    <div style="border:1px solid var(--line);border-radius:12px;padding:14px">
-      <button class="save" id="syncBtn" onclick="syncContacts()">Sync to Google Contacts</button>
-      <p class="note" id="syncStat">Pushes every named lead into a "<?= cfg.CONTACT_GROUP ?>" group in your Google Contacts.</p>
     </div>
   </div>
 
@@ -728,7 +727,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <p class="note" style="text-align:left;margin-top:6px">Only leads marked Referral show up here. Use <b>{lead_details}</b> or <b>{lead_name}</b>, <b>{lead_eventdate}</b>, etc. in your text.</p>
   </div>
   <div id="tpicker_list"></div>
-  <button class="save" style="background:transparent;border:1px solid var(--line)" onclick="openTextTemplateEditor(null)">+ New template</button>
+  <button class="save" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openTextTemplateEditor(null)">&#43; Create new template</button>
   <a class="act" id="tpicker_plain" href="javascript:void(0)" style="display:block;text-align:center;margin-top:10px" onclick="onPlainTextSent()">Or just open your texting app &rarr;</a>
 </div>
 <div class="sheet" id="tesheet2">
@@ -892,7 +891,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <p class="note" style="text-align:left;margin-top:6px">Only leads marked Referral show up here. Use <b>{lead_details}</b> in your template to drop in everything at once, or individual fields like <b>{lead_name}</b>, <b>{lead_eventdate}</b>.</p>
   </div>
   <div id="epicker_list"></div>
-  <button class="save" style="background:transparent;border:1px solid var(--line)" onclick="openTemplateEditor(null)">+ New template</button>
+  <button class="save" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openTemplateEditor(null)">&#43; Create new template</button>
   <a class="act" id="epicker_plain" href="javascript:void(0)" style="display:block;text-align:center;margin-top:10px" onclick="onEmailSent()">Or write from scratch &rarr;</a>
 </div>
 <div class="sheet" id="tesheet">
@@ -1874,11 +1873,12 @@ function checkInWithPartnerDone(row){
 }
 function renderGenFollowupDue(){
   var box=$('genFollowupCard'); if(!box) return;
-  var todayStr=ymd(new Date());
+  var t=today0();
   var due=LEADS.filter(function(L){
     if(!isWorkingLead(L)) return false;
-    var f=pd(L[C.followup]);
-    return f && ymd(f)===todayStr;
+    var f=pd(L[C.followup]); if(!f) return false;
+    var f0=new Date(f); f0.setHours(0,0,0,0);
+    return f0<=t; // due today OR overdue — keep late follow-ups pinned at the top, not in the list below
   });
   due.sort(function(a,b){ return pd(a[C.followup]) - pd(b[C.followup]); });
   if(!due.length){ box.style.display='none'; box.innerHTML=''; GFU_PROMPT_ROW=null; GFU_SHOW_BUMPS={}; return; }
@@ -1891,14 +1891,18 @@ function renderGenFollowupDue(){
     var soloLabel = soloTime && (soloTime.getHours()||soloTime.getMinutes()) ? hm12(soloTime) : '9:00 AM';
     singleTime='<span id="gfu_time_'+due[0]._row+'" onclick="editGfuTime('+due[0]._row+')" style="margin-left:auto;color:var(--gold-bright);font-weight:700;font-size:14px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(soloLabel)+'</span>';
   }
-  box.innerHTML='<div class="gfu-card"><div class="gfu-title" style="display:flex;align-items:baseline">Follow-Up Due Today'+singleTime+'</div>'
+  box.innerHTML='<div class="gfu-card"><div class="gfu-title" style="display:flex;align-items:baseline">Follow-Ups Due'+singleTime+'</div>'
     + due.map(function(L){
         var metaParts=[];
         if(L[C.eventDate]) metaParts.push('<b>'+esc(fmtDateY(L[C.eventDate]))+'</b>');
         if(L[C.service]) metaParts.push(esc(svcLabel(L[C.service])));
         if(L[C.eventType]) metaParts.push('<b>'+esc(L[C.eventType])+'</b>');
         if(L[C.source]) metaParts.push('<b>'+esc(L[C.source])+'</b>');
+        var _lf=pd(L[C.followup]); if(_lf) _lf.setHours(0,0,0,0);
+        var _late = _lf ? Math.round((t-_lf)/86400000) : 0;
+        var lateChip = _late>0 ? '<span style="color:var(--crimson);font-weight:700">'+_late+(_late===1?' day late':' days late')+'</span>' : '';
         var meta=metaParts.join(' \u00b7 ');
+        if(lateChip) meta = lateChip + (meta ? ' \u00b7 ' : '') + meta;
         var last=lastContactFor(L);
         var lastHtml = last
           ? '<div class="gfu-last">Last contact: '+esc(fmtWhen(last.when))+' \u2014 '+esc(last.type)+(last.note?': '+esc(last.note.length>70?last.note.slice(0,70)+'\u2026':last.note):'')+'</div>'

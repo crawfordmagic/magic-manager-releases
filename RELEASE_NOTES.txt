@@ -1,1 +1,1 @@
-Importing is clearer: the Contacts and Expenses import screens now list the columns to use, so setting up a CSV from scratch is straightforward. Any column layout still works — you map them on import.
+A few refinements: overdue follow-ups now stay pinned at the top of your Leads screen (with a "days late" marker) instead of slipping into the list below; "Sync to Google Contacts" moved to the Leads screen, just above the Recycle Bin, where it's easier to find; and the Email and Text screens now have a clearer, more prominent "Create new template" button.
