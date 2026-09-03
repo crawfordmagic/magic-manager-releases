@@ -1,1 +1,1 @@
-Your logo is back on the client Sign page. This time the app embeds the image directly into the page, so it renders reliably on any device or browser — no external fetch to fail, no broken image. Set it under Settings → Logo (a direct public image URL or an uploaded image both work).
+Another pass at the Sign-page logo: it now loads directly from your logo's public image link, which renders reliably across browsers and devices. Set it under Settings → Logo with a direct, public image URL.

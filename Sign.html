@@ -51,7 +51,7 @@
 </head>
 <body>
 <div class="wrap">
-  <? if (logoDataUri) { ?><img class="logo" src="<?= logoDataUri ?>" alt="<?= cfg.BUSINESS_NAME ?>"><? } ?>
+  <? if (cfg.LOGO_URL) { ?><img class="logo" src="<?= cfg.LOGO_URL ?>" alt="<?= cfg.BUSINESS_NAME ?>"><? } ?>
   <div class="portal-label">Your Event Portal</div>
   <div id="loading">Loading your agreement&#8230;</div>
   <div id="content" style="display:none"></div>

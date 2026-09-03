@@ -213,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.5';
+var APP_VERSION = '1.5.6';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -504,10 +504,6 @@ function doGet(e) {
     template.token = e.parameter.sign;
     template.paid = e.parameter.paid || '';
     template.cfg = getConfig_();
-    // Embed the logo as inline bytes (data: URI) rather than letting the
-    // client's browser fetch the raw URL — an external <img> fetch can be
-    // blocked by adblockers / file:// contexts, but inline bytes always render.
-    template.logoDataUri = getLogoDataUri_();
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Sign Agreement')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -527,6 +523,29 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(
       '<div style="font-family:sans-serif;padding:60px 20px;text-align:center;color:#888">This page isn\u2019t available.</div>'
     ).setTitle('Not Found');
+  }
+
+  // TEMP logo diagnostic — open <app url>&logotest=1 to see whether the direct
+  // URL and/or the server-embedded data URI actually render on the real Apps
+  // Script page. Remove once the Sign-page logo is confirmed.
+  if (e.parameter.logotest) {
+    var cfgD = getConfig_(), rawUrl = (cfgD.LOGO_URL || '').trim(), du = '', blobInfo;
+    try { var bb = getLogoBlob_(); blobInfo = bb ? ((bb.getContentType() || '?') + ' / ' + bb.getBytes().length + ' bytes') : 'null'; } catch (ex) { blobInfo = 'ERROR ' + ex; }
+    try { du = getLogoDataUri_(); } catch (ex) { du = ''; }
+    var escD = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var brk = ' onerror="this.insertAdjacentHTML(\'afterend\',\'&nbsp;<b style=color:#f77>BROKEN</b>\');this.style.display=\'none\'"';
+    var hh = '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<body style="font-family:sans-serif;background:#111;color:#ddd;padding:16px;line-height:1.6">'
+      + '<h3>Logo diagnostic</h3>'
+      + '<p><b>LOGO_URL</b> (' + rawUrl.length + ' chars):<br><span style="word-break:break-all;font-size:12px;color:#9cf">' + escD(rawUrl) + '</span></p>'
+      + '<p><b>getLogoBlob_:</b> ' + escD(blobInfo) + '</p>'
+      + '<p><b>data URI:</b> ' + du.length + ' chars, starts <code style="font-size:11px">' + escD(du.slice(0, 32)) + '</code></p>'
+      + '<hr><p><b>A &mdash; direct URL:</b></p>'
+      + (rawUrl ? '<img src="' + escD(rawUrl) + '" style="width:150px;height:auto;border:1px solid #555;background:#000"' + brk + '>' : '<i>none set</i>')
+      + '<hr><p><b>B &mdash; embedded data URI:</b></p>'
+      + (du ? '<img src="' + du + '" style="width:150px;height:auto;border:1px solid #555;background:#000"' + brk + '>' : '<i>empty</i>')
+      + '<hr><p style="font-size:12px;color:#999">Screenshot this &mdash; which shows the logo: A, B, both, or neither?</p></body>';
+    return HtmlService.createHtmlOutput(hh).setTitle('Logo diagnostic').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   var lic = getLicenseState_();
