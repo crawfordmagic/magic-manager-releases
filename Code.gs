@@ -46,7 +46,8 @@ var CONFIG_DEFAULTS_ = {
   EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nOther',
   LEAD_SOURCES: 'Bark\nGigsalad\nWebsite\nCurrent Client\nReferral\nOther',
   AD_SOURCES: 'Bark\nGigsalad\nWebsite',
-  LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere'
+  LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere',
+  AUDIENCES: ''
 };
 
 function getConfig_() {
@@ -107,6 +108,7 @@ var CONFIG_FIELDS_ = [
   { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'payments' },
   { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'payments' },
   // Services & client page
+  { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
@@ -213,7 +215,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.8';
+var APP_VERSION = '1.5.9';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1736,12 +1738,16 @@ function generateRecurringExpenses_() {
   if (toAppend.length) exp.getRange(exp.getLastRow() + 1, 1, toAppend.length, 10).setValues(toAppend);
   return generated;
 }
-function addRecurringExpense(vendor, amount, category, notes, adSource, freq, startYmd, endYmd) {
+function addRecurringExpense(vendor, amount, category, notes, adSource, freq, startYmd, endYmd, lastGenYmd) {
   var sh = recurringSheet_();
   var id = 'RX-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   var start = startYmd ? parseYMD_(startYmd) : new Date();
   var end = endYmd ? parseYMD_(endYmd) : '';
-  sh.appendRow([id, true, vendor || '', Number(amount) || 0, category || 'Other', notes || '', adSource || '', freq || 'Monthly', start, end, '']);
+  // lastGenYmd is set when converting an already-logged expense into a series:
+  // it's that expense's date, so backfill starts the period AFTER it and never
+  // duplicates the entry that's already sitting in the list.
+  var lastGen = lastGenYmd ? parseYMD_(lastGenYmd) : '';
+  sh.appendRow([id, true, vendor || '', Number(amount) || 0, category || 'Other', notes || '', adSource || '', freq || 'Monthly', start, end, lastGen]);
   rememberVendorCategory_(vendor, category);
   generateRecurringExpenses_(); // backfill now
   return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
@@ -1760,13 +1766,31 @@ function getRecurring_() {
       row: i + 2, id: r[0], vendor: r[2], amount: Number(r[3]) || 0, category: r[4], notes: r[5], adSource: r[6],
       frequency: r[7],
       start: r[8] instanceof Date ? fmtCell_(r[8], tz) : String(r[8] || ''),
-      end: r[9] instanceof Date ? fmtCell_(r[9], tz) : String(r[9] || '')
+      end: r[9] instanceof Date ? fmtCell_(r[9], tz) : String(r[9] || ''),
+      startYmd: r[8] instanceof Date ? Utilities.formatDate(r[8], tz, 'yyyy-MM-dd') : '',
+      endYmd: r[9] instanceof Date ? Utilities.formatDate(r[9], tz, 'yyyy-MM-dd') : ''
     });
   }
   return out;
 }
 function stopRecurringExpense(row) {
   recurringSheet_().getRange(Number(row), 2).setValue(false); // Active = false
+  return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
+}
+
+// Update an existing rule's fields in place. Keeps ID (col 1), Active (2) and
+// Last Generated (11) untouched, so already-posted occurrences are never
+// altered or re-posted — a changed amount/frequency/end takes effect from the
+// next post forward. Re-runs the generator in case the end date was pushed out
+// or the frequency changed and something is now due.
+function editRecurringExpense(row, vendor, amount, category, notes, adSource, freq, startYmd, endYmd) {
+  var sh = recurringSheet_();
+  var r = Number(row);
+  var start = startYmd ? parseYMD_(startYmd) : new Date();
+  var end = endYmd ? parseYMD_(endYmd) : '';
+  sh.getRange(r, 3, 1, 8).setValues([[vendor || '', Number(amount) || 0, category || 'Other', notes || '', adSource || '', freq || 'Monthly', start, end]]);
+  rememberVendorCategory_(vendor, category);
+  generateRecurringExpenses_();
   return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
 }
 

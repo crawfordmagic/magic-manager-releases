@@ -800,8 +800,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeExpenseSheet()">&#8592; Back</a>
   <h2 id="expenseSheet_title">Add Expense</h2>
+  <div id="exp_date_wrap">
   <label>Date</label>
   <input type="date" id="exp_date">
+  </div>
   <label>Vendor</label>
   <div style="position:relative">
     <input type="text" id="exp_vendor" placeholder="e.g. Party City, Shell, Amazon" oninput="renderVendorSuggestions()" onfocus="renderVendorSuggestions()" onblur="onVendorBlur();hideVendorSuggestionsDelayed()">
@@ -817,7 +819,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <input type="text" id="exp_adsource_other" placeholder="Source name" style="display:none;margin-top:8px">
   </div>
   <div id="exp_repeat_wrap">
-    <label>Repeat</label>
+    <label id="exp_repeat_label">Repeat</label>
     <select id="exp_repeat" onchange="onExpenseRepeatChange()">
       <option value="">One-time (not recurring)</option>
       <option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Quarterly</option><option>Annually</option>
@@ -831,10 +833,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   </div>
   <label>Notes</label>
   <textarea id="exp_notes" rows="2" placeholder="Optional"></textarea>
+  <div id="exp_receipt_wrap">
   <label>Receipt</label>
   <div id="exp_receipt_preview" style="margin-bottom:8px"></div>
   <input type="file" id="exp_receipt_input" accept="image/*,.pdf" onchange="onReceiptFileChosen(event)" style="display:none">
   <button class="save" type="button" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_input').click()">Attach Receipt</button>
+  </div>
   <button class="save" onclick="saveExpenseUI()">Save Expense</button>
   <button class="save" id="expenseDelBtn" style="display:none;background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteExpenseUI()">Delete this expense &#10005;</button>
 </div>
@@ -951,7 +955,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
   </div>
 
-  <div class="field"><label>Next follow-up</label>
+  <div class="field" id="d_followwrap"><label>Next follow-up</label>
     <div class="grid2">
       <input type="date" id="d_followup" onchange="onFollowupChange()">
       <input type="time" id="d_followtime" onblur="onFollowupChange()">
@@ -1500,6 +1504,16 @@ function isChildrenAudience(ageText){
   if(m && parseInt(m[0],10) < 15) return true;
   return false;
 }
+// "Who you perform for" (Settings) — the audiences the buyer takes. Drives which
+// "outside what you take" flags show. Empty = undeclared = assume nothing.
+var AUDIENCE_OPTIONS = ["Children's & birthday parties","Family & all-ages events","Corporate & professional","Weddings","Colleges & universities","Trade shows & conventions","Adult / cabaret (18+)","Seniors & retirement communities"];
+var KIDS_AUDIENCES = ["Children's & birthday parties","Family & all-ages events"];
+function buyerAudiences(){ return parseStatusList((CFG && CFG.AUDIENCES) || ''); }
+function audiencesDeclared(){ return buyerAudiences().length > 0; }
+function buyerTakesKids(){ var a=buyerAudiences(); return KIDS_AUDIENCES.some(function(k){ return a.indexOf(k) > -1; }); }
+// Flag a kids lead as out-of-scope only when it IS a kids audience, the buyer has
+// declared their scope, and kids isn't part of it.
+function flagKidsLead_(L){ return isChildrenAudience(L[C.audienceAge]) && audiencesDeclared() && !buyerTakesKids(); }
 /* ---------- Refer This Lead: partner + notes + notify, all in one popup ---------- */
 var REFER_MODAL_ROW=null, REFER_MODAL_PARTNER=null;
 function openReferModal(row){
@@ -1508,7 +1522,7 @@ function openReferModal(row){
   REFER_MODAL_ROW=row;
   $('refm_name').textContent = L[C.name]||'this lead';
   var reasonText='';
-  var isKids=isChildrenAudience(L[C.audienceAge]);
+  var isKids=flagKidsLead_(L);
   var conflict=findDateConflict(L);
   if(isKids){
     reasonText='Children\u2019s audience \u2014 outside what you take.';
@@ -1933,9 +1947,9 @@ function renderGenFollowupDue(){
             +'</div></div>';
         }
 
-        var isKids = isChildrenAudience(L[C.audienceAge]);
+        var showKids = flagKidsLead_(L);
         var kidsHtml='';
-        if(isKids){
+        if(showKids){
           kidsHtml='<div style="margin-bottom:10px;padding:9px 10px;background:rgba(192,82,54,.12);border:1px solid var(--crimson);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
             +'<span style="font-size:12.5px;font-weight:600;color:#E9927B;flex:1;min-width:160px">\ud83e\uddd2 Children\u2019s audience \u2014 you don\u2019t take kids shows</span>'
             +'<button class="followupdue-btn" style="background:var(--crimson);color:var(--cream)" onclick="openReferModal('+L._row+')">Mark as Referral</button>'
@@ -1943,8 +1957,8 @@ function renderGenFollowupDue(){
         }
         // Kids-audience takes priority: suppress the date-conflict banner here so a kids
         // lead only ever shows the kids referral message, never a redundant conflict message too.
-        var hasConflict = !isKids && !!findDateConflict(L);
-        var conflictHtml = isKids ? '' : conflictBadgeHtml(L);
+        var hasConflict = !showKids && !!findDateConflict(L);
+        var conflictHtml = showKids ? '' : conflictBadgeHtml(L);
 
         return '<div class="gfu-item">'
           +kidsHtml
@@ -3606,6 +3620,8 @@ function refToggle(userInitiated){
   var lostVisible = s==='Lost';
   var wasLostVisible = $('d_lostwrap').style.display!=='none';
   $('d_lostwrap').style.display = lostVisible ? '' : 'none';
+  // A lost lead has no follow-up, so hide the reminder field entirely while Lost.
+  $('d_followwrap').style.display = lostVisible ? 'none' : '';
   if(lostVisible && userInitiated && !wasLostVisible){
     setTimeout(function(){
       $('d_lostwrap').scrollIntoView({behavior:'smooth', block:'center'});
@@ -4362,8 +4378,11 @@ function doAutoSave(){
   var updates={};
   var wasReferred = String(CURRENT[C.status])==='Referred';
   var dv=$('d_followup').value, tv=$('d_followtime').value;
-  updates[C.followup]= dv ? (dv + (tv? ' '+tv : '')) : '';
   updates[C.status]=$('d_status').value;
+  // A lost lead needs no follow-up — blank the reminder so it drops out of "Follow-ups due."
+  // Nothing is deleted; the lead still shows under the Lost filter with its reason intact.
+  if(updates[C.status]==='Lost'){ dv=''; tv=''; $('d_followup').value=''; $('d_followtime').value=''; }
+  updates[C.followup]= dv ? (dv + (tv? ' '+tv : '')) : '';
   updates[C.notes]=$('d_notes').value;
   updates[C.referral]= (updates[C.status]==='Referral'||updates[C.status]==='Referred') ? $('d_referral').value : '';
   updates[C.lostReason]= updates[C.status]==='Lost'
@@ -5816,11 +5835,15 @@ function expenseRowHtml(E){
     +'</div>';
 }
 var EXPENSE_EDIT_ROW = null;
+var RECUR_EDIT_ROW = null; // editing a recurring RULE (row in the Recurring sheet), vs an expense
 var PENDING_RECEIPT = null; // {base64, mimeType, fileName} chosen but not yet uploaded to Drive
 function openAddExpense(row){
   EXPENSE_EDIT_ROW = row || null;
+  RECUR_EDIT_ROW = null;
   var E = row ? EXPENSES.find(function(x){ return x._row===row; }) : null;
   $('expenseSheet_title').textContent = E ? 'Edit Expense' : 'Add Expense';
+  if($('exp_date_wrap')) $('exp_date_wrap').style.display='';
+  if($('exp_receipt_wrap')) $('exp_receipt_wrap').style.display='';
   $('exp_date').value = E ? E.date : ymd(new Date());
   $('exp_vendor').value = E ? E.vendor : '';
   $('exp_amount').value = E ? E.amount : '';
@@ -5828,15 +5851,48 @@ function openAddExpense(row){
   fillAdSourceSelect($('exp_adsource_sel'), E ? E.adSource : '');
   updateAdSourceVisibility();
   $('exp_notes').value = E ? E.notes : '';
-  // "Repeat" only applies to a brand-new expense; editing one existing row is never recurring.
-  var _rw=$('exp_repeat_wrap'); if(_rw) _rw.style.display = E ? 'none' : '';
-  if(!E){ if($('exp_repeat')) $('exp_repeat').value=''; if($('exp_repeat_dates')) $('exp_repeat_dates').style.display='none';
-    if($('exp_repeat_start')) $('exp_repeat_start').value=''; if($('exp_repeat_end')) $('exp_repeat_end').value=''; }
+  // Repeat is offered on a new expense AND when editing one you already logged
+  // (turns it into a series going forward from its own date — the existing
+  // entry is never duplicated).
+  var _rw=$('exp_repeat_wrap'); if(_rw) _rw.style.display='';
+  var _rl=$('exp_repeat_label'); if(_rl) _rl.textContent = E ? 'Make this recurring' : 'Repeat';
+  if($('exp_repeat')) $('exp_repeat').value='';
+  if($('exp_repeat_dates')) $('exp_repeat_dates').style.display='none';
+  if($('exp_repeat_start')) $('exp_repeat_start').value = E ? E.date : '';
+  if($('exp_repeat_end')) $('exp_repeat_end').value='';
   $('expenseDelBtn').style.display = E ? '' : 'none';
+  $('expenseDelBtn').textContent = 'Delete this expense ✕';
   EXPENSE_DEL_ARM = false;
   PENDING_RECEIPT = null;
   $('exp_receipt_input').value = '';
   renderReceiptPreview();
+  $('overlay').classList.add('open'); $('expenseSheet').classList.add('open');
+}
+// Edit an existing recurring RULE — reuses the expense sheet, but hides Date and
+// Receipt (a rule has neither) and turns the delete button into "Stop".
+function openRecurringEdit(row){
+  var R = (RECURRING||[]).find(function(x){ return x.row===row; });
+  if(!R) return;
+  EXPENSE_EDIT_ROW = null;
+  RECUR_EDIT_ROW = row;
+  $('expenseSheet_title').textContent = 'Edit Recurring';
+  if($('exp_date_wrap')) $('exp_date_wrap').style.display='none';
+  if($('exp_receipt_wrap')) $('exp_receipt_wrap').style.display='none';
+  $('exp_vendor').value = R.vendor||'';
+  $('exp_amount').value = R.amount||'';
+  fillExpenseCategorySelect($('exp_category'), R.category||'Other');
+  fillAdSourceSelect($('exp_adsource_sel'), R.adSource||'');
+  updateAdSourceVisibility();
+  $('exp_notes').value = R.notes||'';
+  if($('exp_repeat_wrap')) $('exp_repeat_wrap').style.display='';
+  var _rl=$('exp_repeat_label'); if(_rl) _rl.textContent='Repeats';
+  if($('exp_repeat')) $('exp_repeat').value = R.frequency||'Monthly';
+  if($('exp_repeat_dates')) $('exp_repeat_dates').style.display='';
+  if($('exp_repeat_start')) $('exp_repeat_start').value = R.startYmd||'';
+  if($('exp_repeat_end')) $('exp_repeat_end').value = R.endYmd||'';
+  var db=$('expenseDelBtn'); if(db){ db.style.display=''; db.textContent='Stop this recurring ✕'; }
+  EXPENSE_DEL_ARM=false;
+  PENDING_RECEIPT=null;
   $('overlay').classList.add('open'); $('expenseSheet').classList.add('open');
 }
 // Suggests a category based on what this vendor was categorized as before
@@ -5897,6 +5953,7 @@ function hideVendorSuggestionsDelayed(){
 function closeExpenseSheet(){
   $('expenseSheet').classList.remove('open'); syncOverlay();
   EXPENSE_EDIT_ROW = null;
+  RECUR_EDIT_ROW = null;
   PENDING_RECEIPT = null;
 }
 // Receipts are attached in a separate call from saving the expense's own
@@ -5955,6 +6012,23 @@ function saveExpenseUI(){
   var date=$('exp_date').value, vendor=$('exp_vendor').value.trim(), amount=$('exp_amount').value, category=$('exp_category').value, notes=$('exp_notes').value.trim();
   var adSource = getAdSourceValue();
   if(!vendor || !amount){ toast('Vendor and amount are required'); return; }
+  var repeat = ($('exp_repeat') && $('exp_repeat').value) || '';
+  var rstart = ($('exp_repeat_start') && $('exp_repeat_start').value) || '';
+  var rend = ($('exp_repeat_end') && $('exp_repeat_end').value) || '';
+  var failHandler = function(){ toast('Could not save \u2014 try again'); };
+
+  // Mode 1 - editing a recurring RULE.
+  if(RECUR_EDIT_ROW){
+    if(!repeat){ toast('Pick how often it repeats'); return; }
+    var rrow = RECUR_EDIT_ROW;
+    closeExpenseSheet();
+    toast('Updating recurring\u2026');
+    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring updated \u2726'); })
+      .withFailureHandler(failHandler)
+      .editRecurringExpense(rrow, vendor, amount, category, notes, adSource, repeat, rstart||todayYmd_(), rend);
+    return;
+  }
+
   var row = EXPENSE_EDIT_ROW;
   var receipt = PENDING_RECEIPT;
   closeExpenseSheet();
@@ -5966,19 +6040,30 @@ function saveExpenseUI(){
       .withFailureHandler(function(){ renderExpenses(); toast('Saved, but the receipt failed to attach \u2014 try again from Edit'); })
       .uploadExpenseReceipt(targetRow, receipt.base64, receipt.mimeType, receipt.fileName);
   }
-  var failHandler = function(){ toast('Could not save \u2014 try again'); };
+
+  // Mode 2 - editing an existing expense, optionally turning it into a series.
+  // The rule's Last-Generated is set to this expense's date, so the entry that's
+  // already here is never re-posted; occurrences start the next period on.
   if(row){
-    google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(row); }).withFailureHandler(failHandler).updateExpense(row, date, vendor, amount, category, notes, adSource);
+    google.script.run.withSuccessHandler(function(json){
+      ingest(json);
+      if(repeat){
+        google.script.run.withSuccessHandler(function(j2){ ingest(j2); attachReceiptThen(row); toast('Now recurring \u2726'); })
+          .withFailureHandler(failHandler)
+          .addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart||date, rend, date);
+      } else {
+        attachReceiptThen(row);
+      }
+    }).withFailureHandler(failHandler).updateExpense(row, date, vendor, amount, category, notes, adSource);
+    return;
+  }
+
+  // Mode 3 - a brand-new expense, optionally recurring.
+  if(repeat){
+    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up \u2726'); })
+      .withFailureHandler(failHandler).addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart||todayYmd_(), rend);
   } else {
-    var repeat = ($('exp_repeat') && $('exp_repeat').value) || '';
-    if(repeat){
-      var rstart = ($('exp_repeat_start') && $('exp_repeat_start').value) || todayYmd_();
-      var rend = ($('exp_repeat_end') && $('exp_repeat_end').value) || '';
-      google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up ✦'); })
-        .withFailureHandler(failHandler).addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart, rend);
-    } else {
-      google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
-    }
+    google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
   }
 }
 function todayYmd_(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -6003,6 +6088,7 @@ function renderRecurringList(){
         +'<div style="font-weight:600;color:var(--cream);font-size:13.5px;word-break:break-word">'+esc(r.vendor||'Expense')+' · '+fmtMoney(r.amount)+'</div>'
         +'<div style="font-size:11px;color:var(--muted);margin-top:1px">'+esc(when)+(r.category?(' · '+esc(r.category)):'')+'</div>'
       +'</div>'
+      +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);flex-shrink:0;margin-right:6px" onclick="openRecurringEdit('+r.row+')">Edit</button>'
       +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--crimson);color:#E9927B;flex-shrink:0" onclick="stopRecurring('+r.row+')">Stop</button>'
     +'</div>';
   }).join('');
@@ -6013,13 +6099,22 @@ function renderRecurringList(){
 var EXPENSE_DEL_ARM = false;
 function deleteExpenseUI(){
   var btn=$('expenseDelBtn');
+  var recur = RECUR_EDIT_ROW;
   if(!EXPENSE_DEL_ARM){
     EXPENSE_DEL_ARM=true;
-    btn.textContent='Tap again to delete permanently';
-    setTimeout(function(){ if(EXPENSE_DEL_ARM){ EXPENSE_DEL_ARM=false; if($('expenseDelBtn')) $('expenseDelBtn').textContent='Delete this expense \u2715'; } }, 3500);
+    btn.textContent = recur ? 'Tap again to stop' : 'Tap again to delete permanently';
+    setTimeout(function(){ if(EXPENSE_DEL_ARM){ EXPENSE_DEL_ARM=false; var b=$('expenseDelBtn'); if(b) b.textContent = RECUR_EDIT_ROW ? 'Stop this recurring \u2715' : 'Delete this expense \u2715'; } }, 3500);
     return;
   }
   EXPENSE_DEL_ARM=false;
+  if(recur){
+    closeExpenseSheet();
+    toast('Stopping\u2026');
+    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
+      .withFailureHandler(function(){ toast('Couldn\u2019t stop \u2014 try again'); })
+      .stopRecurringExpense(recur);
+    return;
+  }
   var row=EXPENSE_EDIT_ROW;
   if(!row) return;
   closeExpenseSheet();
@@ -6459,6 +6554,7 @@ function renderSettings(){
     function fieldHtml(f){
       var val = (raw[f.key]!=null?raw[f.key]:'');
       if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
+      if(f.editor==='audiences') return audiencesEditorHtml(f, val, cfg);
       var ph = (cfg[f.key]!=null?cfg[f.key]:'');
       var ctrl = f.multiline
         ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -6583,6 +6679,29 @@ function serviceMsgSync(){
     if(s && v) map[s]=v;
   });
   var h=$('set_SERVICE_MESSAGES'); if(h) h.value=JSON.stringify(map);
+}
+
+/* ---------- "Who you perform for" checkboxes (Settings) ---------- */
+// A fixed set of audience/work types the buyer ticks. Stored as a newline list
+// of the ticked labels in the AUDIENCES setting; a hidden input carries the
+// value into the normal save flow (same pattern as the service-messages editor).
+function audiencesEditorHtml(f, val, cfg){
+  var current = parseStatusList(val||''), checked={};
+  current.forEach(function(a){ checked[a]=1; });
+  var boxes = AUDIENCE_OPTIONS.map(function(o){
+    return '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+      + '<input type="checkbox" class="aud-box" value="'+esc(o)+'"'+(checked[o]?' checked':'')+' onchange="audiencesSync()" style="width:auto;flex:0 0 auto;margin:0">'
+      + '<span>'+esc(o)+'</span></label>';
+  }).join('');
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<div>'+boxes+'</div></div>';
+}
+function audiencesSync(){
+  var picked=[];
+  document.querySelectorAll('.aud-box').forEach(function(b){ if(b.checked) picked.push(b.value); });
+  var h=$('set_AUDIENCES'); if(h) h.value=picked.join('\n');
 }
 
 /* ---------- Update-available banner (version check via the license hub) ---------- */
