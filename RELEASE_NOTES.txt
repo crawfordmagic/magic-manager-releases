@@ -1,7 +1,3 @@
 What's new in this update:
 
-• Recurring expenses are now editable. Change a recurring rule anytime, or turn an existing expense into a recurring one — and the entry you started from won't get duplicated.
-
-• New "Who you perform for" setting (Settings → Services). Tick the audiences and events you actually take, and the app tailors itself to your act. If you do children's or family shows, it stops flagging kids leads as "refer out"; leave everything unticked and it assumes nothing.
-
-• Marking a lead "Lost" now automatically clears its follow-up, so lost leads drop out of your Follow-ups Due list instead of lingering. Nothing is deleted — the lead still shows under your Lost filter with its reason.
+• Streamlined the client portal — the standalone "Event prep" note has been removed. Your per-service event messages still appear on the client's portal after they sign, so you can share prep or arrival details there.

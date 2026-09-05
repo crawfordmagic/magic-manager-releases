@@ -27,7 +27,6 @@ var CONFIG_DEFAULTS_ = {
   WEBSITE: '',
   TAGLINE: 'Professional Services',
   ADDRESS: '',
-  EVENT_PREP_NOTE: '',
   SERVICE_MESSAGES: '',
   VENMO_USERNAME: '',
   CASHAPP_CASHTAG: '',
@@ -114,7 +113,6 @@ var CONFIG_FIELDS_ = [
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
-  { key: 'EVENT_PREP_NOTE', label: 'Event prep note', help: 'Shown to clients after they pay their deposit (e.g. setup needs, what to prepare). Leave blank to hide.', section: 'services' },
   { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
   // Calls & texts
   { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', section: 'comms' },
@@ -215,7 +213,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.9';
+var APP_VERSION = '1.5.10';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}

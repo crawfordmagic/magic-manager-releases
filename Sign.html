@@ -117,7 +117,7 @@ function renderStatusPage(d){
   if(d.pdfUrl) html += '<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>';
 
   // A booked client's per-service message (Settings -> Event messages by service), matched to
-  // this booking's service. Shown once signed; separate from the after-deposit prep note below.
+  // this booking's service. Shown once signed.
   var svcMsg='';
   try{ var _sm = CFG.SERVICE_MESSAGES ? JSON.parse(CFG.SERVICE_MESSAGES) : null; if(_sm && d.services) svcMsg = _sm[d.services] || ''; }catch(e){}
   if(svcMsg){
@@ -157,14 +157,6 @@ function renderStatusPage(d){
       +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
   }
 
-  // After the deposit, show the owner's custom "event prep" note, if they set one.
-  if(d.depositPaid && CFG.EVENT_PREP_NOTE){
-    var prep = String(CFG.EVENT_PREP_NOTE).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    html += '<div class="paydetails"><div class="paydetails-title">Event Prep</div>'
-      +'<p style="margin:6px 0 10px">'+prep+'</p>'
-      +(CFG.EMAIL?'<p style="margin:0;font-size:12px;color:var(--muted)">Questions? <a href="mailto:'+CFG.EMAIL+'" style="color:var(--gold-bright)">'+CFG.EMAIL+'</a></p>':'')
-      +'</div>';
-  }
   html += signatureBlockHtml();
 
   c.innerHTML = html;
