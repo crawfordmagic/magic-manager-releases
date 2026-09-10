@@ -595,6 +595,17 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="tax_wrap" style="display:none;margin-top:10px">
       <div id="tax_summary"></div>
     </div>
+
+    <div id="storeSalesSection" style="display:none;margin-top:16px">
+      <div id="storesales_actions"></div>
+      <button class="htoggle hstack" style="margin-top:10px" onclick="toggleStoreSales()">
+        <span class="httitle">Purchases</span>
+        <span class="htright"><span id="storesales_count"></span><span id="storesales_chev">&#9662;</span></span>
+      </button>
+      <div id="storesales_wrap" style="display:none;margin-top:10px">
+        <div id="storesales_list"></div>
+      </div>
+    </div>
   </div>
 
   <!-- EXPENSES VIEW -->
@@ -674,7 +685,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Switching from a spreadsheet or another tool? Import your current client list as leads &mdash; optional, and you can do it anytime.</div>
       <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openLeadImport()">&#8681;&nbsp; Import clients from a spreadsheet</button>
     </div>
-    <div class="card" style="margin-top:16px;border-color:var(--line)">
+    <div class="card" id="feedbackCard" style="margin-top:16px;border-color:var(--line);display:none">
       <div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Send feedback</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Found a bug, or have an idea to make Magic Manager better? Send it to us &mdash; it opens right here in the app.</div>
       <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openFeedback()">&#9998;&nbsp; Send feedback</button>
@@ -1121,7 +1132,7 @@ function populateLeadDropdowns(){
   fillSelect('a_source', cfgList('LEAD_SOURCES', ['Bark','Gigsalad','Website','Current Client','Referral','Other']), 'Choose…');
 }
 
-var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [];
+var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [], STORE_SALES = [], STORE_SALE_PRODUCTS = [];
 var RBIN_PURGE_ARM = {};
 var RBIN_EMPTY_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
@@ -1144,6 +1155,8 @@ function ingest(json){
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
   if('expenses' in o) EXPENSES=o.expenses||[];
   if('recurring' in o) RECURRING=o.recurring||[];
+  if('storeSales' in o) STORE_SALES=o.storeSales||[];
+  if('storeProducts' in o) STORE_SALE_PRODUCTS=o.storeProducts||[];
   if('customExpenseCategories' in o) CUSTOM_EXPENSE_CATEGORIES=Array.isArray(o.customExpenseCategories)?o.customExpenseCategories:[];
   if('taxRate' in o) TAX_RATE=Number(o.taxRate)||25;
   if('vendorCategoryMemory' in o) VENDOR_CATEGORY_MEMORY=(o.vendorCategoryMemory && typeof o.vendorCategoryMemory==='object') ? o.vendorCategoryMemory : {};
@@ -1216,7 +1229,9 @@ function fmtMoney(v){ var n=money(v); return n ? '$'+n.toLocaleString() : ''; }
 // the 3.25% card fee is calculated on top and shown separately, never
 // silently folded into the stored number, so the figures on file always
 // match what was actually typed in.
-var CARD_FEE_RATE=0.0325;
+// 0 when the owner turns the card fee off in Settings (CARD_FEE_ENABLED==='no');
+// enabled unless explicitly 'no' so a blank/unset value keeps the fee on.
+var CARD_FEE_RATE=(String((typeof CFG!=='undefined'&&CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()==='no')?0:0.0325;
 function hasDepositCardFee(L){ var pm=String(L[C.paymentMethod]||''); return pm==='Credit Card' || pm==='Card'; }
 // Falls back to the deposit's method only if the balance payment method
 // was never explicitly set on this lead — same reasoning as the receipt
@@ -3301,7 +3316,7 @@ function buildKV(){
 function renderCardFeeNote(){
   var el=$('d_cardfee_note'); if(!el || !CURRENT) return;
   var depCard=hasDepositCardFee(CURRENT), balCard=hasBalanceCardFee(CURRENT);
-  if((!depCard && !balCard) || !depositBase(CURRENT)){ el.style.display='none'; return; }
+  if(CARD_FEE_RATE<=0 || (!depCard && !balCard) || !depositBase(CURRENT)){ el.style.display='none'; return; }
   el.style.display='';
   if(depCard && balCard){
     el.textContent='Card processing fee (3.25%) applies to both payments: deposit '+fmtMoney(depositFinal(CURRENT))+', balance '+fmtMoney(balanceFinal(CURRENT))+' (before fee: '+fmtMoney(depositBase(CURRENT))+' + '+fmtMoney(balanceBase(CURRENT))+').';
@@ -4679,9 +4694,24 @@ function leadIncomeEvents_(all){
   });
   return out;
 }
+// Received store sales count as cash income too, when the store is enabled —
+// each received sale is an income event dated by its sale date, mirroring the
+// deposit/balance events so the Income total, breakdown and monthly trend all
+// pick them up automatically. Pending sales don't count (same cash basis).
+function storeEnabledClient_(){ return String((typeof CFG!=='undefined'&&CFG&&CFG.STORE_ENABLED)||'').trim().toLowerCase()==='yes'; }
+function storeIncomeEvents_(){
+  if(!storeEnabledClient_()) return [];
+  var out=[];
+  (STORE_SALES||[]).forEach(function(s){
+    if(String(s.status||'').trim().toLowerCase()!=='received') return;
+    var d=pd(s.date); if(!d) return;
+    out.push({date:d, amount:money(s.amount), kind:'Store sale', name:s.name||s.product||'Store sale', row:null});
+  });
+  return out;
+}
 function insightsScopedIncomeEvents(){
   var y = insightsScopeYear();
-  var events = leadIncomeEvents_(LEADS);
+  var events = leadIncomeEvents_(LEADS).concat(storeIncomeEvents_());
   if(y===null) return events;
   return events.filter(function(e){ return e.date.getFullYear()===y; });
 }
@@ -4785,6 +4815,8 @@ function renderInsights(){
   renderExpenseBreakdown($m);
   renderTopVendors($m);
   renderTaxEstimate($m);
+  var _ssSec=$('storeSalesSection'); if(_ssSec) _ssSec.style.display = storeEnabledClient_() ? '' : 'none';
+  if(storeEnabledClient_()) renderStoreSales();
 }
 
 function toggleLeadSource(){ var w=$('lsrc_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lsrc_chev').innerHTML=open?'&#9652;':'&#9662;'; }
@@ -5267,6 +5299,129 @@ function toggleExpenseBreakdown(){ var w=$('exbrk_wrap'), open=w.style.display==
 function toggleTopVendors(){ var w=$('topvendors_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('topvendors_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 function toggleTaxEstimate(){ var w=$('tax_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('tax_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 
+/* ---------- Store Sales (Insights money; owner-facing, only when store enabled) ---------- */
+var STORE_SALE_ADDING=false, STORE_SALE_EDITING=null, STORE_SALE_DEL_ARM=null;
+function ssFmt_(n){ return '$'+Math.round(Number(n)||0).toLocaleString(); }
+function toggleStoreSales(){ var w=$('storesales_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('storesales_chev').innerHTML=open?'&#9652;':'&#9662;'; }
+function refreshMoneyAfterSale_(){ renderStoreSales(); if($('profit_summary')) renderProfitSummary(function(n){ return ssFmt_(n); }); }
+function renderStoreSales(){
+  var box=$('storesales_list'); if(!box) return;
+  var sales=(STORE_SALES||[]).slice().sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var recvTotal=0, pending=0;
+  sales.forEach(function(s){ if(String(s.status||'').toLowerCase()==='received') recvTotal+=money(s.amount); else pending++; });
+  var cnt=$('storesales_count');
+  if(cnt) cnt.textContent = sales.length ? (sales.length===1?'1 purchase':sales.length+' purchases') : 'None yet';
+  var acts=$('storesales_actions');
+  if(acts){
+    var brdr = STORE_SALE_ADDING ? 'var(--gold)' : 'var(--line)';
+    var head = '<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px">'
+      +'<span style="color:var(--gold-bright);font-weight:600;font-size:13px">Store Sales</span>'
+      +'<span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="pill gold">'+ssFmt_(recvTotal)+' received</span>'+(pending?'<span style="font-size:11px;font-weight:600;color:var(--muted)">'+pending+' pending</span>':'')+'</span>'
+      +'</div>';
+    var body = STORE_SALE_ADDING ? storeSaleFormHtml(null, true)
+      : (STORE_SALE_EDITING ? '' : '<button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="recordSaleStart()">+ Record a sale</button>');
+    acts.innerHTML='<div style="background:var(--panel2);border:1px solid '+brdr+';border-radius:10px;padding:12px">'+head+body+'</div>';
+  }
+  var html = sales.length ? sales.map(function(s){ return (STORE_SALE_EDITING===s.row) ? storeSaleFormHtml(s) : storeSaleRowHtml(s); }).join('') : '<div class="empty"><span class="star">&#10038;</span>No sales recorded yet.</div>';
+  html += '<p class="note" style="text-align:left;margin:10px 0 0">Received sales are counted in your Income above, on their sale date. Pending ones aren’t counted until you mark them received.</p>';
+  box.innerHTML=html;
+}
+function storeSaleRowHtml(s){
+  var recd = String(s.status||'').toLowerCase()==='received';
+  var armed = (STORE_SALE_DEL_ARM===s.row);
+  var meta=[]; if(s.product) meta.push(esc(s.product)); if(s.date) meta.push(esc(fmtDateY(s.date))); if(s.method) meta.push(esc(s.method));
+  var btn='width:auto;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;cursor:pointer';
+  return '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin:0 0 8px">'
+    +'<div class="hstack" style="justify-content:space-between;align-items:baseline;gap:8px">'
+      +'<div style="font-weight:700;color:var(--cream);word-break:break-word;min-width:0">'+esc(s.name||'Sale')+'</div>'
+      +'<div style="color:var(--gold-bright);font-weight:700;white-space:nowrap">'+ssFmt_(money(s.amount))+'</div>'
+    +'</div>'
+    +(meta.length?'<div style="font-size:11px;color:var(--muted);margin-top:1px">'+meta.join(' · ')+'</div>':'')
+    +'<div class="hstack" style="gap:6px;flex-wrap:wrap;margin-top:9px">'
+      +'<button type="button" onclick="editStoreSale('+s.row+')" style="'+btn+';background:var(--panel);border:1px solid var(--line);color:var(--cream)">Edit</button>'
+      +'<button type="button" onclick="setStoreSaleReceivedUI('+s.row+',\''+(recd?'Pending':'Received')+'\')" style="'+btn+';background:'+(recd?'rgba(143,168,118,.18)':'var(--panel)')+';border:1px solid '+(recd?'var(--sage)':'var(--line)')+';color:'+(recd?'var(--sage)':'var(--muted)')+'">'+(recd?'✓ Received':'Mark received')+'</button>'
+      +'<button type="button" onclick="deleteStoreSaleUI('+s.row+')" style="'+btn+';background:'+(armed?'rgba(192,82,54,.2)':'var(--panel)')+';border:1px solid '+(armed?'var(--crimson)':'var(--line)')+';color:'+(armed?'#E9927B':'var(--muted)')+'">'+(armed?'Tap again to delete':'Delete')+'</button>'
+    +'</div>'
+  +'</div>';
+}
+// Products for the "What they bought" dropdown: prefer the Settings product
+// manager's list once it has loaded (freshest, incl. anything just added),
+// otherwise the list that came down in the initial payload.
+function storeSaleProducts_(){
+  if(typeof STORE_PRODUCTS!=='undefined' && STORE_PRODUCTS && STORE_PRODUCTS.length) return STORE_PRODUCTS;
+  return STORE_SALE_PRODUCTS||[];
+}
+function storeSaleFormHtml(s, bare){
+  s = s || {name:'',email:'',product:'',amount:'',date:'',method:'',status:''};
+  var editing = !!s.row;
+  var recd = editing ? (String(s.status||'').toLowerCase()==='received') : true;
+  var inp='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:15px;padding:9px 10px;outline:none;margin:0 0 8px';
+  var prod=String(s.product||''), prods=storeSaleProducts_(), prodField;
+  if(prods.length){
+    var opts='<option value="">Select a product</option>', matched=false;
+    prods.forEach(function(p){ var nm=String(p.name||'').trim(); if(!nm) return; var sel=(nm===prod); if(sel) matched=true; opts+='<option value="'+esc(nm)+'"'+(sel?' selected':'')+'>'+esc(nm)+'</option>'; });
+    if(prod && !matched) opts='<option value="'+esc(prod)+'" selected>'+esc(prod)+'</option>'+opts;
+    prodField='<label style="margin:0 0 4px">What they bought</label><select id="ss_product" style="'+inp+'">'+opts+'</select>';
+  } else {
+    prodField='<label style="margin:0 0 4px">What they bought</label><input id="ss_product" value="'+esc(prod)+'" placeholder="e.g. Magic Manager" style="'+inp+'"><div style="font-size:11px;color:var(--muted);margin:-4px 0 8px">Add products under Settings to pick them from a list here.</div>';
+  }
+  var inner = ''
+    +'<label style="margin:0 0 4px">Buyer name</label><input id="ss_name" value="'+esc(s.name||'')+'" style="'+inp+'">'
+    +'<label style="margin:0 0 4px">Email <span style="color:var(--muted);text-transform:none;letter-spacing:normal;font-weight:400">(optional)</span></label><input id="ss_email" type="email" value="'+esc(s.email||'')+'" style="'+inp+'">'
+    +prodField
+    +'<div class="grid2" style="gap:8px">'
+      +'<div><label style="margin:0 0 4px">Amount ($)</label><input id="ss_amount" inputmode="decimal" value="'+esc((s.amount!==''&&s.amount!=null)?String(s.amount):'')+'" placeholder="249" style="'+inp+'"></div>'
+      +'<div><label style="margin:0 0 4px">Date</label><input id="ss_date" type="date" value="'+esc(s.date||ymd(new Date()))+'" style="'+inp+'"></div>'
+    +'</div>'
+    +'<label style="margin:0 0 4px">Method <span style="color:var(--muted);text-transform:none;letter-spacing:normal;font-weight:400">(optional)</span></label><input id="ss_method" value="'+esc(s.method||'')+'" placeholder="e.g. Card, PayPal" style="'+inp+'">'
+    +'<label style="display:flex;align-items:center;gap:10px;padding:2px 0 10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="ss_received"'+(recd?' checked':'')+' style="width:auto;flex:0 0 auto;margin:0"><span>Payment received (count it as income)</span></label>'
+    +'<div class="hstack" style="gap:8px">'
+      +'<button type="button" onclick="recordSaleSave()" style="width:auto;background:var(--gold);border:none;color:#171008;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer">'+(editing?'Save changes':'Save sale')+'</button>'
+      +'<button type="button" onclick="recordSaleCancel()" style="width:auto;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer">Cancel</button>'
+    +'</div>';
+  return bare ? inner : '<div style="background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:12px;margin:0 0 8px">'+inner+'</div>';
+}
+function recordSaleStart(){ STORE_SALE_ADDING=true; STORE_SALE_EDITING=null; STORE_SALE_DEL_ARM=null; renderStoreSales(); var n=$('ss_name'); if(n) n.focus(); }
+function editStoreSale(row){ STORE_SALE_EDITING=row; STORE_SALE_ADDING=false; STORE_SALE_DEL_ARM=null; renderStoreSales(); var n=$('ss_name'); if(n) n.focus(); }
+function recordSaleCancel(){ STORE_SALE_ADDING=false; STORE_SALE_EDITING=null; renderStoreSales(); }
+function recordSaleSave(){
+  var name=$('ss_name').value, email=$('ss_email').value, product=$('ss_product').value, amount=$('ss_amount').value, method=$('ss_method').value, date=$('ss_date').value, received=$('ss_received').checked;
+  if(!String(name).trim() && !money(amount)){ toast('Add a buyer name or an amount'); return; }
+  var editingRow=STORE_SALE_EDITING;
+  toast('Saving…');
+  var cb=google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ toast((d&&d.error)||'Could not save — try again'); return; }
+    STORE_SALES=d.storeSales||[]; STORE_SALE_ADDING=false; STORE_SALE_EDITING=null; STORE_SALE_DEL_ARM=null;
+    refreshMoneyAfterSale_(); toast(editingRow?'Sale updated ✦':'Sale recorded ✦');
+  }).withFailureHandler(function(){ toast('Could not save — try again'); });
+  if(editingRow) cb.updateStoreSale(editingRow, name, email, product, amount, method, date, received);
+  else cb.recordManualStoreSale(name, email, product, amount, method, date, received);
+}
+function setStoreSaleReceivedUI(row, status){
+  STORE_SALE_DEL_ARM=null;
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ toast((d&&d.error)||'Could not update — try again'); return; }
+    STORE_SALES=d.storeSales||[]; refreshMoneyAfterSale_();
+  }).withFailureHandler(function(){ toast('Could not update — try again'); })
+    .setStoreSaleStatus(row, status);
+}
+function deleteStoreSaleUI(row){
+  if(STORE_SALE_DEL_ARM!==row){
+    STORE_SALE_DEL_ARM=row; renderStoreSales();
+    setTimeout(function(){ if(STORE_SALE_DEL_ARM===row){ STORE_SALE_DEL_ARM=null; renderStoreSales(); } }, 3500);
+    return;
+  }
+  STORE_SALE_DEL_ARM=null; toast('Deleting…');
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ toast((d&&d.error)||'Could not delete — try again'); return; }
+    STORE_SALES=d.storeSales||[]; refreshMoneyAfterSale_(); toast('Deleted');
+  }).withFailureHandler(function(){ toast('Could not delete — try again'); })
+    .deleteStoreSale(row);
+}
+
 function renderProfitSummary($m){
   var incomeEvents = insightsScopedIncomeEvents();
   var income = incomeEvents.reduce(function(s,e){ return s+e.amount; },0);
@@ -5279,7 +5434,7 @@ function renderProfitSummary($m){
     +'<div class="stat" style="cursor:pointer" onclick="showIncomeBreakdown()"><div class="v">'+$m(income)+'</div><div class="l">Income</div></div>'
     +'<div class="stat" style="cursor:pointer" onclick="showExpensesBreakdown()"><div class="v">'+$m(expenseTotal)+'</div><div class="l">Expenses</div></div>'
     +'</div>'
-    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances on the day they were actually marked received, not the event date. Tap either tile to see exactly what makes up that total.</p>';
+    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(storeEnabledClient_()?' and received store sales':'')+' on the day they were actually marked received, not the event date. Tap either tile to see exactly what makes up that total.</p>';
   renderMonthlyTrend(incomeEvents, exp, $m);
 }
 function renderMonthlyTrend(incomeEvents, exp, $m){
@@ -6120,6 +6275,7 @@ function stopRecurring(row){
     .withFailureHandler(function(){ toast('Couldn’t stop — try again'); })
     .stopRecurringExpense(row);
 }
+var RECUR_OPEN = false; // Recurring list starts collapsed on the Expenses screen (state persists across re-renders)
 function renderRecurringList(){
   var box=$('expenseRecurring'); if(!box) return;
   if(!RECURRING || !RECURRING.length){ box.innerHTML=''; return; }
@@ -6134,9 +6290,18 @@ function renderRecurringList(){
       +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--crimson);color:#E9927B;flex-shrink:0" onclick="stopRecurring('+r.row+')">Stop</button>'
     +'</div>';
   }).join('');
-  box.innerHTML = '<div class="gfu-card" style="margin-top:12px"><div class="gfu-title">Recurring &#8635;</div>'
+  box.innerHTML = '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleRecurring()">'
+    +'<span class="httitle">Recurring &#8635;</span>'
+    +'<span class="htright"><span style="font-size:11px;font-weight:600;color:var(--muted);margin-right:6px">'+RECURRING.length+'</span><span id="recur_chev">'+(RECUR_OPEN?'&#9652;':'&#9662;')+'</span></span>'
+    +'</button>'
+    +'<div id="recur_wrap" style="'+(RECUR_OPEN?'':'display:none;')+'margin-top:10px">'
     +'<p class="note" style="text-align:left;margin:0 0 2px">These post to your expenses automatically. Stop keeps everything already logged.</p>'
     + items + '</div>';
+}
+function toggleRecurring(){
+  RECUR_OPEN = !RECUR_OPEN;
+  var w=$('recur_wrap'); if(w) w.style.display = RECUR_OPEN ? '' : 'none';
+  var c=$('recur_chev'); if(c) c.innerHTML = RECUR_OPEN ? '&#9652;' : '&#9662;';
 }
 var EXPENSE_DEL_ARM = false;
 function deleteExpenseUI(){
@@ -6596,6 +6761,7 @@ function renderSettings(){
   if(!body) return;
   body.innerHTML = 'Loading…';
   var _ic=$('setupImportCard'); if(_ic) _ic.style.display='none';
+  var _fc=$('feedbackCard'); if(_fc) _fc.style.display='none';
   google.script.run.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
@@ -6609,6 +6775,7 @@ function renderSettings(){
       if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
       if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
       if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
+      if(f.editor==='cardfee') return cardfeeEditorHtml(f, val, cfg);
       var ph = (cfg[f.key]!=null?cfg[f.key]:'');
       var ctrl = f.multiline
         ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -6649,6 +6816,7 @@ function renderSettings(){
     updateLogoPreview((raw.LOGO_URL!=null?raw.LOGO_URL:'') || (cfg.LOGO_URL!=null?cfg.LOGO_URL:''));
     if($('storeProdList')) storeLoadProducts();
     var ic=$('setupImportCard'); if(ic) ic.style.display='';
+    var fc=$('feedbackCard'); if(fc) fc.style.display='';
   }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
     .getSettings();
 }
@@ -6787,6 +6955,24 @@ function storefrontSync(){
   if(h) h.value = (b && b.checked) ? 'yes' : '';
 }
 
+/* ---------- Card processing fee toggle (Settings) ---------- */
+// On by default; a hidden input carries 'yes'/'no' into the normal save flow.
+// Checked = charge the 3.25% fee on card payments; unchecked = absorb it.
+function cardfeeEditorHtml(f, val, cfg){
+  var on = String(val||'').trim().toLowerCase()!=='no';
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'no')+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+    +   '<input type="checkbox" id="cardfee_box"'+(on?' checked':'')+' onchange="cardFeeSync()" style="width:auto;flex:0 0 auto;margin:0">'
+    +   '<span>Add a 3.25% fee to credit-card payments</span></label>'
+    + '</div>';
+}
+function cardFeeSync(){
+  var b=$('cardfee_box'), h=$('set_CARD_FEE_ENABLED');
+  if(h) h.value = (b && b.checked) ? 'yes' : 'no';
+}
+
 /* ---------- Store payment methods filter (Settings) ---------- */
 // This optional filter narrows the store to a subset of its methods. Stored as a
 // newline list of labels in STORE_PAYMENT_METHODS (blank = offer them all); a
@@ -6800,7 +6986,9 @@ function storeConfiguredMethods(cfg){
   if(cfg.CASHAPP_CASHTAG) m.push('Cash App');
   if(cfg.CHECK_PAYEE || cfg.CHECK_ADDRESS || cfg.ADDRESS) m.push('Check');
   m.push('Credit Card');
+  if(cfg.PAYPAL_USERNAME) m.push('PayPal');
   if(cfg.VENMO_USERNAME) m.push('Venmo');
+  if(cfg.ZELLE_HANDLE) m.push('Zelle');
   return m;
 }
 function storemethodsEditorHtml(f, val, cfg){
@@ -6960,7 +7148,9 @@ function loadFeedback(){
   if(typeof navigator!=='undefined' && navigator.onLine===false){ showFeedbackError(); return; }
   frame.onload=function(){ _fbLoaded=true; if(_fbTimer){clearTimeout(_fbTimer);_fbTimer=null;} sp.style.display='none'; frame.style.display='block'; };
   frame.onerror=function(){ showFeedbackError(); };
-  frame.src=FEEDBACK_URL;
+  // transparentBackground lets the (dark-themed) Tally form blend into the app's
+  // dark screen. The "open in browser" fallback link keeps the plain URL.
+  frame.src=FEEDBACK_URL + (FEEDBACK_URL.indexOf('?')>-1?'&':'?') + 'transparentBackground=1';
   // If it never loads (blocked, offline mid-load, very slow) fall back cleanly.
   if(_fbTimer) clearTimeout(_fbTimer);
   _fbTimer=setTimeout(function(){ if(!_fbLoaded) showFeedbackError(); }, 12000);
@@ -7074,7 +7264,8 @@ function storeCopyLink(id){
 function checkForUpdate(){
   google.script.run.withSuccessHandler(function(info){
     if(!info || !info.updateAvailable || !info.latest) return;
-    try { if(localStorage.getItem('mm_update_dismissed')===info.latest) return; } catch(e){}
+    if(info.dismissedVersion && info.dismissedVersion===info.latest) return; // skipped this version
+    if(info.snoozedUntil && Date.now() < Number(info.snoozedUntil)) return;  // snoozed for now
     renderUpdateBanner(info);
   }).withFailureHandler(function(){}).getUpdateInfo();
 }
@@ -7084,16 +7275,32 @@ function renderUpdateBanner(info){
     ? '<a class="save" style="margin:10px 0 0;display:inline-block;width:auto;padding:9px 16px;text-decoration:none" href="'+esc(info.url)+'" target="_blank" rel="noopener">See what’s new &amp; how to update</a>'
     : '';
   var notes = info.notes ? '<div style="font-size:13px;color:var(--cream);margin-top:4px">'+esc(info.notes)+'</div>' : '';
+  var sbtn='background:transparent;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;width:auto';
   box.innerHTML = '<div class="card" style="border-color:var(--gold)">'
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
-      + '<div style="font-weight:700;color:var(--gold-bright)">Update available &#9738; <span style="color:var(--muted);font-weight:400;font-size:12px">v'+esc(info.latest)+'</span></div>'
-      + '<a href="javascript:void(0)" style="color:var(--muted);font-size:12px;flex-shrink:0" onclick="dismissUpdate(\''+esc(info.latest)+'\')">Dismiss</a>'
-    + '</div>'
+    + '<div style="font-weight:700;color:var(--gold-bright)">Update available &#9738; <span style="color:var(--muted);font-weight:400;font-size:12px">v'+esc(info.latest)+'</span></div>'
     + notes + link
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">'
+      + '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-right:2px">Remind me</span>'
+      + '<button type="button" style="'+sbtn+'" onclick="snoozeUpdateBanner(7)">In a week</button>'
+      + '<button type="button" style="'+sbtn+'" onclick="snoozeUpdateBanner(30)">In a month</button>'
+      + '<button type="button" style="'+sbtn+'" onclick="skipUpdateVersion()">Skip this version</button>'
+    + '</div>'
     + '</div>';
   box.style.display='';
 }
-function dismissUpdate(v){ try{ localStorage.setItem('mm_update_dismissed', v); }catch(e){} var b=$('updateBanner'); if(b){ b.style.display='none'; b.innerHTML=''; } }
+// Snooze the update banner for a number of days, or skip the current version
+// until a newer one ships. State lives server-side (Script Properties) so it's
+// remembered across the user's devices — hide optimistically, then persist.
+function snoozeUpdateBanner(days){
+  var b=$('updateBanner'); if(b){ b.style.display='none'; b.innerHTML=''; }
+  toast(Number(days)>=30?'Snoozed — back in a month':'Snoozed — back in a week');
+  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).snoozeUpdate(days);
+}
+function skipUpdateVersion(){
+  var b=$('updateBanner'); if(b){ b.style.display='none'; b.innerHTML=''; }
+  toast('Hidden until the next update');
+  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).dismissUpdateVersion();
+}
 
 populateLeadDropdowns();
 load();

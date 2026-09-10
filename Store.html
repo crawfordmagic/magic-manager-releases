@@ -63,12 +63,13 @@
 
   var VENMO_USERNAME=CFG.VENMO_USERNAME||'';
   var CASHAPP_CASHTAG=CFG.CASHAPP_CASHTAG||'';
+  var PAYPAL_USERNAME=CFG.PAYPAL_USERNAME||'';
   // Which methods to offer — derived from what the owner has configured, like the
-  // sign page. Card is always available; Cash App / Check / Venmo appear only if
-  // their details are filled in. ACH and Wire Transfer are deliberately NOT
+  // sign page. Card is always available; Cash App / Check / PayPal / Venmo / Zelle
+  // appear only if their details are filled in. ACH and Wire Transfer are deliberately NOT
   // offered in the store even when set up for the sign page — they're event-
   // deposit / B2B-invoice methods, not how someone buys a product.
-  var PAYMENT_METHODS=(function(){var m=[];if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.VENMO_USERNAME)m.push('Venmo');return m;})();
+  var PAYMENT_METHODS=(function(){var m=[];if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
   // Optional owner filter (Settings → Store): narrow the store to a subset of
   // the configured methods. Blank = offer them all (mirror the sign page). An
   // empty result falls back to all, so the store is never left unpayable.
@@ -83,11 +84,17 @@
     if(method==='Venmo'){
       return 'https://venmo.com/'+VENMO_USERNAME+'?txn=pay&amount='+amount.toFixed(2)+'&note='+encodeURIComponent((CFG.BUSINESS_NAME||'')+' - '+productName);
     }
+    if(method==='PayPal'){
+      return 'https://paypal.me/'+PAYPAL_USERNAME+'/'+amount.toFixed(2);
+    }
     return null;
   }
   function paymentInstructionsFor(method){
     if(method==='Check'){
       return {title:'Mail a Check', lines:['Payable to “'+(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME||CFG.BUSINESS_NAME)+'”',(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME||CFG.BUSINESS_NAME),(CFG.CHECK_ADDRESS||CFG.ADDRESS)]};
+    }
+    if(method==='Zelle'){
+      return {title:'Zelle', lines:['Send to: '+CFG.ZELLE_HANDLE,'Send with Zelle from your banking app to the address above.']};
     }
     return null;
   }
@@ -99,9 +106,16 @@
   function renderExtras(p, method){
     var amt=Number(p.price)||0;
     if(method==='Credit Card'){
+      var feeOn = String((CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()!=='no';
       return '<button class="pay" id="paybtn">Pay by card &#8212; '+fmtMoney(amt)+'</button>'
-        +'<p class="feenote">A small card-processing fee is added at checkout.</p>'
+        +(feeOn?'<p class="feenote">A small card-processing fee is added at checkout.</p>':'')
         +'<p class="paynote">Secured by Stripe.</p>';
+    }
+    if(method==='PayPal'){
+      var plink=payLinkFor(method, amt, p.name);
+      return '<a class="paybtn" target="_top" href="'+esc(plink)+'">Pay with PayPal &#8212; '+fmtMoney(amt)+'</a>'
+        +'<p class="paynote">Opens PayPal with the amount ready to send.</p>'
+        +confirmBtnHtml();
     }
     if(method==='Venmo'){
       var link=payLinkFor(method, amt, p.name);
@@ -167,12 +181,29 @@
     return {name:name, email:email};
   }
 
+  // A direct window.top.location assignment is blocked when the page runs inside a
+  // cross-origin sandboxed frame (how Apps Script serves this page) — mobile
+  // browsers especially. Browsers only let an actual link click navigate the real
+  // top tab in that case, so simulate one instead of touching window.top directly.
+  function navigateTopLevel(url){
+    try{
+      var a=document.createElement('a');
+      a.href=url; a.target='_top'; a.rel='noopener';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }catch(e){}
+  }
+
   function payCard(p){
     var b=validateBuyer(); if(!b) return;
     var btn=document.getElementById('paybtn'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Starting checkout…';
     google.script.run.withSuccessHandler(function(json){
       var r=JSON.parse(json);
-      if(r.ok&&r.url){ window.top.location.href=r.url; }
+      if(r.ok&&r.url){
+        navigateTopLevel(r.url);
+        // Fallback for browsers that block the auto-jump (some mobile browsers): a
+        // real tappable link the user can click to finish reaching Stripe.
+        document.getElementById('err').innerHTML='If Stripe didn’t open, <a href="'+esc(r.url)+'" target="_top" style="color:var(--gold-bright);text-decoration:underline">tap here to continue &#8594;</a>';
+      }
       else { btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent=r.error||'Could not start checkout.'; }
     }).withFailureHandler(function(){ btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent='Connection error — try again.'; })
       .createStoreCheckoutSession(PRODUCT_ID, b.name, b.email);

@@ -30,6 +30,8 @@ var CONFIG_DEFAULTS_ = {
   SERVICE_MESSAGES: '',
   VENMO_USERNAME: '',
   CASHAPP_CASHTAG: '',
+  PAYPAL_USERNAME: '',
+  ZELLE_HANDLE: '',
   ACH_BANK: '', ACH_ACCOUNT: '', ACH_ROUTING: '',
   WIRE_BANK: '', WIRE_ACCOUNT: '', WIRE_ROUTING: '', WIRE_BANK_ADDRESS: '',
   CHECK_PAYEE: '', CHECK_ADDRESS: '',
@@ -50,6 +52,7 @@ var CONFIG_DEFAULTS_ = {
   AD_SOURCES: 'Bark\nGigsalad\nWebsite',
   LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere',
   AUDIENCES: '',
+  CARD_FEE_ENABLED: 'yes',
   STORE_ENABLED: '',
   STORE_PAYMENT_METHODS: '',
   W9_URL: '', W9_FILE_ID: '',
@@ -81,6 +84,14 @@ function getConfig_() {
   return cfg;
 }
 
+// The credit-card surcharge rate. 3.25% by default; 0 when the owner turns the
+// card fee off in Settings (CARD_FEE_ENABLED === 'no'). Enabled unless explicitly
+// 'no', so a blank/unset value keeps the fee on. Single source of truth for every
+// server-side fee calc (sign-page deposit/balance, receipts, contract, store).
+function cardFeeRate_() {
+  return String(getConfig_().CARD_FEE_ENABLED || '').trim().toLowerCase() === 'no' ? 0 : 0.0325;
+}
+
 /* ---------- Settings (per-install onboarding) ----------
  * CONFIG_FIELDS_ drives the in-app Settings screen (labels + help text) and the
  * "Settings" sheet. getSettings()/saveSettings() are called from the UI so a new
@@ -104,8 +115,11 @@ var CONFIG_FIELDS_ = [
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', section: 'contact' },
   // Getting paid
   { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their booking page goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
+  { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
   { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'payments' },
   { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'payments' },
+  { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', section: 'payments' },
+  { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', section: 'payments' },
   { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', section: 'payments' },
   { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', section: 'payments' },
   { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', section: 'payments' },
@@ -294,7 +308,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.11';
+var APP_VERSION = '1.5.12';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -376,8 +390,29 @@ function getUpdateInfo() {
     latest: latest,
     notes: (props.getProperty('LATEST_NOTES') || '').trim(),
     url: (props.getProperty('UPDATE_URL') || '').trim(),
-    updateAvailable: !!latest && versionLt_(APP_VERSION, latest)
+    updateAvailable: !!latest && versionLt_(APP_VERSION, latest),
+    // Banner-snooze state (remembered server-side so it holds across devices).
+    snoozedUntil: Number(props.getProperty('UPDATE_SNOOZE_UNTIL')) || 0,
+    dismissedVersion: (props.getProperty('UPDATE_DISMISSED_VERSION') || '').trim()
   };
+}
+
+// The update banner is snoozable so it doesn't nag on every open. snoozeUpdate
+// hides it for a number of days (stored as a timestamp in Script Properties, so
+// the choice is remembered across the user's devices for this install).
+// dismissUpdateVersion hides it until a version newer than the skipped one ships.
+function snoozeUpdate(days) {
+  var d = Number(days) || 0;
+  if (d < 1) d = 7;
+  var until = Date.now() + d * 24 * 60 * 60 * 1000;
+  PropertiesService.getScriptProperties().setProperty('UPDATE_SNOOZE_UNTIL', String(until));
+  return JSON.stringify({ ok: true, snoozedUntil: until });
+}
+function dismissUpdateVersion() {
+  var props = PropertiesService.getScriptProperties();
+  var latest = (props.getProperty('LATEST_VERSION') || '').trim();
+  if (latest) props.setProperty('UPDATE_DISMISSED_VERSION', latest);
+  return JSON.stringify({ ok: true, dismissedVersion: latest });
 }
 
 // True if dotted-numeric version a is strictly older than b. Compares parts
@@ -1085,7 +1120,7 @@ function generateReceiptPdf_(kind, get) {
   const paymentMethod = kind === 'deposit' ? depositPaymentMethod : balancePaymentMethod;
   const isDepositCard = depositPaymentMethod === 'Credit Card' || depositPaymentMethod === 'Card';
   const isBalanceCard = balancePaymentMethod === 'Credit Card' || balancePaymentMethod === 'Card';
-  const feeRate = 0.0325;
+  const feeRate = cardFeeRate_();
   const depositFinal = isDepositCard ? deposit * (1 + feeRate) : deposit;
   const balanceFinal = isBalanceCard ? balance * (1 + feeRate) : balance;
   const amount = kind === 'deposit' ? depositFinal : balanceFinal;
@@ -1249,7 +1284,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
   // counts toward the balance fee; otherwise the balance shown on the
   // contract stays at its plain, fee-free amount rather than assuming.
   const isBalanceCard = String(get('Balance Payment Method') || '') === 'Credit Card' || String(get('Balance Payment Method') || '') === 'Card';
-  const feeRate = 0.0325;
+  const feeRate = cardFeeRate_();
   const depositFinal = isCard ? deposit * (1 + feeRate) : deposit;
   const balanceFinal = isBalanceCard ? balance * (1 + feeRate) : balance;
   // Reflects reality for clients being caught up retroactively — someone
@@ -1322,11 +1357,11 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
     body.replaceText('\\{\\{travelfeeline\\}\\}', '\u2014');
     body.replaceText('\\{\\{totalinvestment\\}\\}', '\u2014');
   }
-  if (isCard && isBalanceCard) {
+  if (feeRate > 0 && isCard && isBalanceCard) {
     body.replaceText('\\{\\{cardfeenote\\}\\}', ' \u2014 3.25% card processing fee included in both amounts above.');
-  } else if (isCard) {
+  } else if (feeRate > 0 && isCard) {
     body.replaceText('\\{\\{cardfeenote\\}\\}', ' \u2014 3.25% card processing fee included in the deposit above.');
-  } else if (isBalanceCard) {
+  } else if (feeRate > 0 && isBalanceCard) {
     body.replaceText('\\{\\{cardfeenote\\}\\}', ' \u2014 3.25% card processing fee included in the balance above.');
   } else {
     body.replaceText('\\{\\{cardfeenote\\}\\}', '');
@@ -1554,7 +1589,7 @@ function createStripeCheckoutSession(token, kind) {
         const deposit = amounts.deposit;
         const balanceAmt = amounts.balance;
         const baseAmt = kind === 'balance' ? balanceAmt : deposit;
-        const feeRate = 0.0325;
+        const feeRate = cardFeeRate_();
         const finalAmt = baseAmt * (1 + feeRate); // Card always includes the processing fee
         const cents = Math.round(finalAmt * 100);
         if (cents <= 0) return JSON.stringify({ ok: false, error: kind === 'balance' ? 'No balance is due on this contract.' : 'No deposit amount is set for this contract yet.' });
@@ -1689,6 +1724,119 @@ function storeLogOrder_(productName, buyerName, buyerEmail, amount, method, stat
   } catch (e) {}
 }
 
+// Owner-facing: read the Store Sales sheet into an array the app can display.
+// Each row carries its sheet row number so status/delete can target it.
+function getStoreSales_() {
+  try {
+    var sh = storeSalesSheet_();
+    var last = sh.getLastRow();
+    if (last < 2) return [];
+    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+    var rows = sh.getRange(2, 1, last - 1, STORE_SALES_HEADERS.length).getValues();
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!String(r[2] || '').trim() && !String(r[3] || '').trim() && !(Number(r[4]) > 0)) continue; // skip blank rows
+      out.push({
+        row: i + 2,
+        date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0] || ''),
+        product: String(r[1] || ''),
+        name: String(r[2] || ''),
+        email: String(r[3] || ''),
+        amount: Number(r[4]) || 0,
+        method: String(r[5] || ''),
+        status: String(r[6] || 'Pending')
+      });
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
+// Products for the store-sale "What they bought" dropdown: id + name + active.
+// Gated on the store being enabled, and read-only (never creates the sheet) so
+// installs that don't use the store are left untouched.
+function getStoreProducts_() {
+  try {
+    if (!storeEnabled_()) return [];
+    var sh = SpreadsheetApp.getActive().getSheetByName(STORE_PRODUCTS_SHEET);
+    if (!sh) return [];
+    var last = sh.getLastRow();
+    if (last < 2) return [];
+    var rows = sh.getRange(2, 1, last - 1, STORE_PRODUCTS_HEADERS.length).getValues();
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var id = String(rows[i][0] || '').trim();
+      var name = String(rows[i][1] || '').trim();
+      if (!id && !name) continue;
+      out.push({ id: id, name: name, active: String(rows[i][4] || '').trim().toLowerCase() === 'yes' });
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
+// Owner logs a sale by hand — e.g. a Magic Manager sale via the Stripe Payment
+// Link, which never passes through the in-app store. Returns the fresh list.
+function recordManualStoreSale(name, email, product, amount, method, dateYmd, received) {
+  try {
+    var nm = String(name || '').trim();
+    var amt = Number(String(amount == null ? '' : amount).replace(/[^0-9.]/g, '')) || 0;
+    if (!nm && !amt) return JSON.stringify({ ok: false, error: 'Add at least a name or an amount.' });
+    var d = dateYmd ? parseYMD_(dateYmd) : new Date();
+    if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+    var recd = (received === true || /^(yes|received|true)$/i.test(String(received).trim()));
+    storeSalesSheet_().appendRow([d, String(product || '').trim(), nm, String(email || '').trim(), amt, String(method || '').trim(), recd ? 'Received' : 'Pending']);
+    return JSON.stringify({ ok: true, storeSales: getStoreSales_() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Mark a store sale Received / Pending (Status column). Returns the fresh list.
+function setStoreSaleStatus(row, status) {
+  try {
+    row = Number(row) || 0;
+    var sh = storeSalesSheet_();
+    if (row < 2 || row > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'That sale no longer exists.' });
+    var s = String(status || '').trim().toLowerCase() === 'received' ? 'Received' : 'Pending';
+    sh.getRange(row, 7).setValue(s);
+    return JSON.stringify({ ok: true, storeSales: getStoreSales_() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+function deleteStoreSale(row) {
+  try {
+    row = Number(row) || 0;
+    var sh = storeSalesSheet_();
+    if (row < 2 || row > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'That sale no longer exists.' });
+    sh.deleteRow(row);
+    return JSON.stringify({ ok: true, storeSales: getStoreSales_() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Edit a store sale in place — e.g. adjust the amount after a discount. Rewrites
+// the whole row (keeps its position). Returns the fresh list.
+function updateStoreSale(row, name, email, product, amount, method, dateYmd, received) {
+  try {
+    row = Number(row) || 0;
+    var sh = storeSalesSheet_();
+    if (row < 2 || row > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'That sale no longer exists.' });
+    var nm = String(name || '').trim();
+    var amt = Number(String(amount == null ? '' : amount).replace(/[^0-9.]/g, '')) || 0;
+    if (!nm && !amt) return JSON.stringify({ ok: false, error: 'Add at least a name or an amount.' });
+    var d = dateYmd ? parseYMD_(dateYmd) : new Date();
+    if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+    var recd = (received === true || /^(yes|received|true)$/i.test(String(received).trim()));
+    sh.getRange(row, 1, 1, STORE_SALES_HEADERS.length).setValues([[d, String(product || '').trim(), nm, String(email || '').trim(), amt, String(method || '').trim(), recd ? 'Received' : 'Pending']]);
+    return JSON.stringify({ ok: true, storeSales: getStoreSales_() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
 // Card checkout for a product — mirrors createStripeCheckoutSession.
 function createStoreCheckoutSession(productId, buyerName, buyerEmail) {
   try {
@@ -1697,7 +1845,7 @@ function createStoreCheckoutSession(productId, buyerName, buyerEmail) {
     if (!secretKey) return JSON.stringify({ ok: false, error: 'Card payment isn’t set up yet.' });
     var p = storeGetProduct_(productId);
     if (!p || !p.active) return JSON.stringify({ ok: false, error: 'This product isn’t available.' });
-    var cents = Math.round(p.price * (1 + 0.0325) * 100); // card includes the processing fee, same as the sign page
+    var cents = Math.round(p.price * (1 + cardFeeRate_()) * 100); // card includes the processing fee (unless turned off in Settings), same as the sign page
     if (cents <= 0) return JSON.stringify({ ok: false, error: 'This product has no price set yet.' });
     var cfg = getConfig_();
     var webAppUrl = ScriptApp.getService().getUrl();
@@ -3233,7 +3381,9 @@ function getLeads() {
     expenses: getExpenses_(),
     customExpenseCategories: getCustomExpenseCategories_(),
     taxRate: getTaxRate_(),
-    vendorCategoryMemory: getVendorCategoryMemory_()
+    vendorCategoryMemory: getVendorCategoryMemory_(),
+    storeSales: getStoreSales_(),
+    storeProducts: getStoreProducts_()
   });
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a

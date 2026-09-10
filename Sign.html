@@ -196,8 +196,8 @@ function renderStatusPage(d){
     };
   }
 }
-var FEE_RATE=0.0325;
-var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');return m;})();
+var FEE_RATE=(String((CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()==='no')?0:0.0325;
+var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
 // The owner's Venmo username and Cash App cashtag — update these here if
 // either ever changes. The Venmo link format is a long-standing pattern
 // many businesses rely on, though it's not something Venmo officially
@@ -205,6 +205,7 @@ var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.p
 // supported link style.
 var VENMO_USERNAME=CFG.VENMO_USERNAME||'';
 var CASHAPP_CASHTAG=CFG.CASHAPP_CASHTAG||'';
+var PAYPAL_USERNAME=CFG.PAYPAL_USERNAME||'';
 function fmtMoney(n){
   return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
@@ -225,6 +226,10 @@ function payLinkFor(method, amount){
     var amt=amount.toFixed(2);
     return 'https://venmo.com/'+VENMO_USERNAME+'?txn=pay&amount='+amt+'&note='+encodeURIComponent(CFG.BUSINESS_NAME+' deposit');
   }
+  // PayPal.Me supports a pre-filled amount in the path (paypal.me/<handle>/<amount>).
+  if(method==='PayPal'){
+    return 'https://paypal.me/'+PAYPAL_USERNAME+'/'+amount.toFixed(2);
+  }
   return null;
 }
 // Static bank details for methods that need them shown, rather than a
@@ -240,13 +245,16 @@ function paymentInstructionsFor(method){
   if(method==='Wire Transfer'){
     return {title:'Wire Transfer', lines:['Account: '+CFG.WIRE_ACCOUNT,'Routing: '+CFG.WIRE_ROUTING,CFG.WIRE_BANK,CFG.WIRE_BANK_ADDRESS,'Beneficiary: '+CFG.BUSINESS_LEGAL_NAME,CFG.ADDRESS]};
   }
+  if(method==='Zelle'){
+    return {title:'Zelle', lines:['Send to: '+CFG.ZELLE_HANDLE,'Send with Zelle from your banking app to the address above.']};
+  }
   return null;
 }
 function renderExtrasHtml(method, amt, kind){
   kind = kind || 'deposit';
   var kindLabel = kind==='balance' ? 'Balance' : 'Deposit';
   if(method==='Credit Card'){
-    return '<p class="feenote">A 3.25% card processing fee is included in the amounts above.</p>'
+    return (FEE_RATE>0?'<p class="feenote">A 3.25% card processing fee is included in the amounts above.</p>':'')
       +'<button type="button" class="paybtn" id="cardPayBtn" onclick="payWithStripe(\''+kind+'\')" style="border:none;width:100%">Pay '+kindLabel+' \u2014 '+fmtMoney(amt)+'</button>'
       +'<p class="paynote">Opens a secure Stripe checkout page. We will confirm once it\u2019s received.</p>';
   }
@@ -254,6 +262,11 @@ function renderExtrasHtml(method, amt, kind){
     var link=payLinkFor(method, amt);
     return '<a class="paybtn" target="_top" href="'+link+'">Pay '+kindLabel+' \u2014 '+fmtMoney(amt)+'</a>'
       +'<p class="paynote">Opens Venmo with the amount ready to send. We will confirm once it\u2019s received.</p>';
+  }
+  if(method==='PayPal'){
+    var plink=payLinkFor(method, amt);
+    return '<a class="paybtn" target="_top" href="'+plink+'">Pay '+kindLabel+' — '+fmtMoney(amt)+'</a>'
+      +'<p class="paynote">Opens PayPal with the amount ready to send. We will confirm once it’s received.</p>';
   }
   if(method==='Cash App'){
     return '<div class="paydetails"><div class="paydetails-title">Cash App</div>'
