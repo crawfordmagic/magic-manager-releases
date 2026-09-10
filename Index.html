@@ -317,6 +317,24 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   padding:10px 16px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
   max-width:640px;margin-left:auto;margin-right:auto}
 .sheet.open{transform:translateY(0)}
+/* In-app feedback screen (embedded form) */
+.fbscreen{position:fixed;inset:0;z-index:200;background:var(--ink);display:none;flex-direction:column}
+.fbscreen.open{display:flex}
+.fbbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.fbbar .fbtitle{font-weight:700;color:var(--cream);font-size:15px}
+.fbbar .fbclose{background:transparent;border:none;color:var(--gold-bright);font-size:14px;font-weight:600;cursor:pointer;padding:6px 4px;width:auto}
+.fbbar .fbspacer{width:52px}
+.fbbody{position:relative;flex:1;min-height:0}
+.fbframe{width:100%;height:100%;border:0;display:block;background:var(--ink)}
+.fbspinner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink)}
+.fbdot{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:fbspin .8s linear infinite}
+.fbloadtxt{margin-top:12px;color:var(--muted);font-size:13px}
+@keyframes fbspin{to{transform:rotate(360deg)}}
+.fberror{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--ink)}
+.fberrt{font-size:15px;color:var(--cream);margin-bottom:6px}
+.fberrs{font-size:13px;color:var(--muted);margin-bottom:16px;max-width:280px}
+.fbretry{background:var(--gold);color:#171008;border:none;border-radius:10px;font-weight:700;font-size:15px;padding:12px 22px;cursor:pointer;width:auto}
+.fbopen{margin-top:14px;color:var(--gold-bright);font-size:13px}
 #epicker{z-index:55}
 #topclientsSheet{z-index:56}
 #managefieldsSheet{z-index:56}
@@ -656,8 +674,32 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Switching from a spreadsheet or another tool? Import your current client list as leads &mdash; optional, and you can do it anytime.</div>
       <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openLeadImport()">&#8681;&nbsp; Import clients from a spreadsheet</button>
     </div>
+    <div class="card" style="margin-top:16px;border-color:var(--line)">
+      <div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Send feedback</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Found a bug, or have an idea to make Magic Manager better? Send it to us &mdash; it opens right here in the app.</div>
+      <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openFeedback()">&#9998;&nbsp; Send feedback</button>
+    </div>
   </div>
 </main>
+
+<!-- IN-APP FEEDBACK (embedded form) -->
+<div id="feedbackScreen" class="fbscreen">
+  <div class="fbbar">
+    <button class="fbclose" onclick="closeFeedback()">&#8592; Back</button>
+    <div class="fbtitle">Send Feedback</div>
+    <span class="fbspacer"></span>
+  </div>
+  <div class="fbbody">
+    <div id="fbSpinner" class="fbspinner"><div class="fbdot"></div><div class="fbloadtxt">Loading&#8230;</div></div>
+    <div id="fbError" class="fberror" style="display:none">
+      <div class="fberrt">Couldn&rsquo;t load the feedback form</div>
+      <div class="fberrs">Please check your internet connection and try again.</div>
+      <button class="fbretry" onclick="retryFeedback()">Retry</button>
+      <a class="fbopen" id="fbOpenLink" href="#" target="_blank" rel="noopener">Open in your browser instead &rarr;</a>
+    </div>
+    <iframe id="fbFrame" class="fbframe" title="Magic Manager Feedback" style="display:none"></iframe>
+  </div>
+</div>
 
 <!-- DETAIL SHEET -->
 <div class="overlay" id="overlay" onclick="closeSheet();closeTaskSheet();closeEmailPicker();closeTemplateEditor();closeHistoryDetail();closePartnerSheet();closeTextPicker();closeTextTemplateEditor();closeReferModal();closeExpenseSheet();closeManageCategories();closeImportExpenses()"></div>
@@ -6351,7 +6393,8 @@ var LEAD_IMPORT_AUTOMAP = [
   [C.audience, ['audiencesize','audience','headcount','guestcount','guests','attendees','pax','size','howmany','howmanyattendees']],
   [C.source, ['leadsource','source','referral','referredby','howheard','howdidyouhear','marketing']],
   [C.status, ['leadstatus','status','stage','leadstage']],
-  [C.followup, ['nextcontact','followup','followupdate','nextfollowup']],
+  // Follow-up is intentionally NOT in this table — it's blocked from auto-mapping
+  // in liAutoMapField_ below (see the reasoning there). Still mappable by hand.
   [C.contractSigned, ['contractsigned']],
   [C.depositReceived, ['depositpaid','depositreceived']],
   [C.balancePaid, ['balancepaid','balancereceived']],
@@ -6360,6 +6403,13 @@ var LEAD_IMPORT_AUTOMAP = [
 function liNormHead_(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 function liAutoMapField_(header){
   var h = liNormHead_(header); if(!h) return '';
+  // Never auto-map a follow-up / next-contact column onto ANY field — not even
+  // Event Date via the loose "date" match. Importing an existing client list
+  // shouldn't silently pull in old follow-up dates (they'd flood "Follow-Ups Due"
+  // as overdue) or mis-file them as event dates. The column still appears in
+  // LEAD_IMPORT_TARGETS, so a user who truly wants their follow-ups can map it by
+  // hand — that's them indicating it on purpose.
+  if(h.indexOf('followup')>-1 || h.indexOf('nextcontact')>-1) return '';
   var i,j,syns;
   for(i=0;i<LEAD_IMPORT_AUTOMAP.length;i++){ syns=LEAD_IMPORT_AUTOMAP[i][1];
     for(j=0;j<syns.length;j++){ if(h===syns[j]) return LEAD_IMPORT_AUTOMAP[i][0]; } }
@@ -6555,6 +6605,10 @@ function renderSettings(){
       var val = (raw[f.key]!=null?raw[f.key]:'');
       if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
       if(f.editor==='audiences') return audiencesEditorHtml(f, val, cfg);
+      if(f.editor==='storefront') return storefrontEditorHtml(f, val, cfg);
+      if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
+      if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
+      if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
       var ph = (cfg[f.key]!=null?cfg[f.key]:'');
       var ctrl = f.multiline
         ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -6593,6 +6647,7 @@ function renderSettings(){
     html += '<button class="save" style="margin-top:18px" onclick="saveSettingsFromForm()">Save settings</button>';
     body.innerHTML = html;
     updateLogoPreview((raw.LOGO_URL!=null?raw.LOGO_URL:'') || (cfg.LOGO_URL!=null?cfg.LOGO_URL:''));
+    if($('storeProdList')) storeLoadProducts();
     var ic=$('setupImportCard'); if(ic) ic.style.display='';
   }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
     .getSettings();
@@ -6702,6 +6757,317 @@ function audiencesSync(){
   var picked=[];
   document.querySelectorAll('.aud-box').forEach(function(b){ if(b.checked) picked.push(b.value); });
   var h=$('set_AUDIENCES'); if(h) h.value=picked.join('\n');
+}
+
+/* ---------- Store: enable toggle + in-app product manager (Settings) ---------- */
+// STORE_ENABLED is a yes/'' setting carried by a hidden input (same save flow as
+// the other custom editors, via the Save-settings button). The product list is
+// its own live data in the "Store Products" sheet — each add/edit/delete hits
+// the server immediately and re-renders from the returned list.
+var STORE_PRODUCTS=[], STORE_BASEURL='', STORE_EDITING=null, STORE_ADDING=false, STORE_DEL_ARM=null;
+function storefrontEditorHtml(f, val, cfg){
+  var on = String(val||'').trim().toLowerCase()==='yes';
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'')+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+    +   '<input type="checkbox" id="store_enable_box"'+(on?' checked':'')+' onchange="storefrontSync()" style="width:auto;flex:0 0 auto;margin:0">'
+    +   '<span>Turn on my store page</span></label>'
+    + '<div style="margin-top:14px">'
+    +   '<div class="hstack" style="justify-content:space-between;align-items:center;margin:0 0 8px">'
+    +     '<label style="margin:0">Your products</label>'
+    +     '<button type="button" onclick="storeAddProduct()" style="width:auto;background:rgba(201,160,80,.14);border:1px solid var(--gold);color:var(--gold-bright);font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer">+ Add product</button>'
+    +   '</div>'
+    +   '<div style="font-size:11px;color:var(--muted);margin:0 0 10px">Products save on their own — the Save-settings button below is only for the toggle and your other settings.</div>'
+    +   '<div id="storeProdList" style="text-align:left">Loading…</div>'
+    + '</div></div>';
+}
+function storefrontSync(){
+  var b=$('store_enable_box'), h=$('set_STORE_ENABLED');
+  if(h) h.value = (b && b.checked) ? 'yes' : '';
+}
+
+/* ---------- Store payment methods filter (Settings) ---------- */
+// This optional filter narrows the store to a subset of its methods. Stored as a
+// newline list of labels in STORE_PAYMENT_METHODS (blank = offer them all); a
+// hidden input carries the value into the normal save flow, same as the audiences
+// editor. The store offers Card + Cash App / Check / Venmo (NOT ACH or Wire, which
+// are sign-page-only) — this list must match Store.html's PAYMENT_METHODS; it's
+// display-only (the store enforces its own copy of the rule).
+function storeConfiguredMethods(cfg){
+  cfg = cfg || {};
+  var m=[];
+  if(cfg.CASHAPP_CASHTAG) m.push('Cash App');
+  if(cfg.CHECK_PAYEE || cfg.CHECK_ADDRESS || cfg.ADDRESS) m.push('Check');
+  m.push('Credit Card');
+  if(cfg.VENMO_USERNAME) m.push('Venmo');
+  return m;
+}
+function storemethodsEditorHtml(f, val, cfg){
+  var current = parseStatusList(val||''), checked={};
+  current.forEach(function(a){ checked[a]=1; });
+  var methods = storeConfiguredMethods(cfg);
+  // Nothing to filter until more than one method is set up — show a hint instead.
+  if(methods.length < 2){
+    return '<div class="field"><label>'+esc(f.label)+'</label>'
+      + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
+      + '<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">Set up more than one payment method under “Getting paid” above, then choose which ones your store offers here.</div></div>';
+  }
+  var boxes = methods.map(function(o){
+    return '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+      + '<input type="checkbox" class="stm-box" value="'+esc(o)+'"'+(checked[o]?' checked':'')+' onchange="storemethodsSync()" style="width:auto;flex:0 0 auto;margin:0">'
+      + '<span>'+esc(o)+'</span></label>';
+  }).join('');
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<div>'+boxes+'</div></div>';
+}
+function storemethodsSync(){
+  var picked=[];
+  document.querySelectorAll('.stm-box').forEach(function(b){ if(b.checked) picked.push(b.value); });
+  var h=$('set_STORE_PAYMENT_METHODS'); if(h) h.value=picked.join('\n');
+}
+
+/* ---------- Business documents: W-9 & proof of insurance (Settings) ---------- */
+// Uploaded straight to Drive via uploadBusinessDoc (no Save-settings needed — like
+// the product manager); the returned URLs drive the display. Each doc shows
+// View / Replace / Remove when present, Upload when not. Remove uses the
+// arm-then-confirm double-tap (the house pattern for destructive actions).
+var BIZ_DOCS = {}, BIZ_DOC_DEL_ARM = null;
+function businessdocsEditorHtml(f, val, cfg){
+  BIZ_DOCS = { W9_URL: (cfg&&cfg.W9_URL)||'', INSURANCE_URL: (cfg&&cfg.INSURANCE_URL)||'' };
+  BIZ_DOC_DEL_ARM = null;
+  // Privacy note shown ABOVE the upload buttons so the owner reads it before
+  // uploading a W-9: these files are viewable by anyone with a client's booking
+  // link, and a W-9 normally carries an SSN — so recommend an EIN instead.
+  var tip = '<div style="background:rgba(201,160,80,.08);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin:0 0 10px;font-size:11.5px;line-height:1.5;color:var(--cream)">'
+    + '<b style="color:var(--gold-bright)">Before you upload a W-9:</b> anything you add here can be viewed by anyone who has a client’s booking link. A W-9 normally shows your Social Security number — so it’s common to put an <b>EIN</b> on it instead. You can get an EIN free from the IRS in a few minutes, and then you’re never sharing your SSN. (Your call — your accountant can confirm what’s best for you.)'
+    + '</div>';
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + tip
+    + '<div id="bizDocsBox">'+businessDocsRowsHtml()+'</div></div>';
+}
+function businessDocsRowsHtml(){
+  return bizDocRowHtml('w9','W-9 tax form', BIZ_DOCS.W9_URL)
+       + bizDocRowHtml('insurance','Proof of insurance', BIZ_DOCS.INSURANCE_URL);
+}
+function bizDocRowHtml(kind, label, url){
+  var btn='width:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer';
+  var file='<input type="file" accept="application/pdf,image/*" style="display:none" onchange="handleBusinessDocUpload(\''+kind+'\',this)">';
+  var inner;
+  if(url){
+    var armed=(BIZ_DOC_DEL_ARM===kind);
+    inner='<div class="hstack" style="gap:6px;flex-wrap:wrap">'
+      +'<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sage)">Uploaded</span>'
+      +'<a href="'+esc(url)+'" target="_blank" style="'+btn+';background:var(--panel);border:1px solid var(--line);color:var(--cream);text-decoration:none">View</a>'
+      +'<label style="'+btn+';background:var(--panel);border:1px solid var(--line);color:var(--cream)">Replace'+file+'</label>'
+      +'<button type="button" onclick="removeBizDoc(\''+kind+'\')" style="'+btn+';background:'+(armed?'rgba(192,82,54,.2)':'var(--panel)')+';border:1px solid '+(armed?'var(--crimson)':'var(--line)')+';color:'+(armed?'#E9927B':'var(--muted)')+'">'+(armed?'Tap again to remove':'Remove')+'</button>'
+      +'</div>';
+  } else {
+    inner='<label style="'+btn+';display:inline-block;background:rgba(201,160,80,.14);border:1px solid var(--gold);color:var(--gold-bright)">Upload'+file+'</label>';
+  }
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
+    +'<div style="font-weight:600;color:var(--cream);font-size:13px;margin-bottom:6px">'+esc(label)+'</div>'
+    + inner + '</div>';
+}
+function renderBizDocs(){ var b=$('bizDocsBox'); if(b) b.innerHTML=businessDocsRowsHtml(); }
+function applyBizDocsResult_(d){
+  if(!d || !d.ok) return false;
+  BIZ_DOCS.W9_URL=d.W9_URL||''; BIZ_DOCS.INSURANCE_URL=d.INSURANCE_URL||'';
+  renderBizDocs(); return true;
+}
+function handleBusinessDocUpload(kind, input){
+  var f=input.files && input.files[0]; if(!f) return;
+  var type=(f.type||'').toLowerCase(), name=(f.name||'').toLowerCase();
+  var okType = type==='application/pdf' || /^image\//.test(type) || /\.(pdf|png|jpe?g|gif|webp|heic|heif)$/.test(name);
+  if(!okType){ toast('Please upload a PDF or image file'); input.value=''; return; }
+  if(f.size > 10*1024*1024){ toast('That file is over 10 MB — please use a smaller PDF or image'); input.value=''; return; }
+  BIZ_DOC_DEL_ARM=null;
+  var reader=new FileReader();
+  reader.onload=function(){
+    var base64=String(reader.result).split(',')[1];
+    toast('Uploading…');
+    google.script.run.withSuccessHandler(function(json){
+      var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
+      if(applyBizDocsResult_(d)) toast('Uploaded ✦'); else toast((d&&d.error)||'Could not upload — try again');
+    }).withFailureHandler(function(){ toast('Could not upload — try again'); })
+      .uploadBusinessDoc(kind, base64, f.type||'application/octet-stream', f.name||'document');
+  };
+  reader.onerror=function(){ toast('Could not read that file'); };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function removeBizDoc(kind){
+  if(BIZ_DOC_DEL_ARM!==kind){
+    BIZ_DOC_DEL_ARM=kind; renderBizDocs();
+    setTimeout(function(){ if(BIZ_DOC_DEL_ARM===kind){ BIZ_DOC_DEL_ARM=null; renderBizDocs(); } }, 3500);
+    return;
+  }
+  BIZ_DOC_DEL_ARM=null; toast('Removing…');
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
+    if(applyBizDocsResult_(d)) toast('Removed'); else toast((d&&d.error)||'Could not remove — try again');
+  }).withFailureHandler(function(){ toast('Could not remove — try again'); })
+    .removeBusinessDoc(kind);
+}
+
+/* ---------- Deposit percent (Settings) ---------- */
+// A plain percent field (0–100) saved through the normal Save-settings flow (its
+// input carries the set_DEPOSIT_PERCENT id). A live example spells out what the
+// number does — including that 0 waives the deposit — so the owner isn't guessing.
+function depositPctExampleText(p){
+  p = Math.max(0, Math.min(100, Number(p)||0));
+  if(p<=0) return 'Set to 0: no deposit. Clients pay the full amount in one payment — the deposit step is skipped, so their booking page goes straight to paying the balance.';
+  var sample=1000, dep=Math.round(sample*p/100), bal=sample-dep;
+  return 'Example: on a $'+sample+' booking you collect a $'+dep+' deposit up front, then a $'+bal+' balance before the event.';
+}
+function depositpctEditorHtml(f, val, cfg){
+  var cur = (val!==''&&val!=null) ? val : ((cfg&&cfg.DEPOSIT_PERCENT!=null&&cfg.DEPOSIT_PERCENT!=='') ? cfg.DEPOSIT_PERCENT : '50');
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<div style="display:flex;align-items:center;gap:8px">'
+    +   '<input id="set_DEPOSIT_PERCENT" type="number" min="0" max="100" step="1" value="'+esc(cur)+'" oninput="depositPctExample()" style="width:90px">'
+    +   '<span style="color:var(--muted);font-size:13px">% of the total</span>'
+    + '</div>'
+    + (f.help?'<div style="margin:6px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<div id="depositPctEx" style="font-size:12px;color:var(--gold-bright);margin-top:6px">'+esc(depositPctExampleText(cur))+'</div>'
+    + '</div>';
+}
+function depositPctExample(){
+  var el=$('set_DEPOSIT_PERCENT'), box=$('depositPctEx'); if(!el||!box) return;
+  box.textContent=depositPctExampleText(el.value);
+}
+
+/* ---------- In-app feedback (embedded form) ---------- */
+// Config: the feedback form lives in ONE place — swap this URL to point at a
+// different form. Same form for every install (it reaches the Magic Manager team).
+var FEEDBACK_URL = 'https://tally.so/r/obP8zV';
+var _fbTimer = null, _fbLoaded = false;
+function openFeedback(){
+  var sc=$('feedbackScreen'); if(!sc) return;
+  var lnk=$('fbOpenLink'); if(lnk) lnk.href=FEEDBACK_URL; // fallback: open in a real browser tab
+  sc.classList.add('open');
+  loadFeedback();
+}
+function loadFeedback(){
+  var frame=$('fbFrame'), sp=$('fbSpinner'), er=$('fbError'); if(!frame) return;
+  _fbLoaded=false;
+  er.style.display='none';
+  frame.style.display='none';
+  sp.style.display='flex';
+  // No connection — go straight to the fallback rather than spin forever.
+  if(typeof navigator!=='undefined' && navigator.onLine===false){ showFeedbackError(); return; }
+  frame.onload=function(){ _fbLoaded=true; if(_fbTimer){clearTimeout(_fbTimer);_fbTimer=null;} sp.style.display='none'; frame.style.display='block'; };
+  frame.onerror=function(){ showFeedbackError(); };
+  frame.src=FEEDBACK_URL;
+  // If it never loads (blocked, offline mid-load, very slow) fall back cleanly.
+  if(_fbTimer) clearTimeout(_fbTimer);
+  _fbTimer=setTimeout(function(){ if(!_fbLoaded) showFeedbackError(); }, 12000);
+}
+function showFeedbackError(){
+  if(_fbTimer){clearTimeout(_fbTimer);_fbTimer=null;}
+  var sp=$('fbSpinner'), frame=$('fbFrame'), er=$('fbError');
+  if(sp) sp.style.display='none';
+  if(frame) frame.style.display='none';
+  if(er) er.style.display='flex';
+}
+function retryFeedback(){ loadFeedback(); }
+function closeFeedback(){
+  var sc=$('feedbackScreen'); if(!sc) return;
+  sc.classList.remove('open');
+  if(_fbTimer){clearTimeout(_fbTimer);_fbTimer=null;}
+  var frame=$('fbFrame'); if(frame){ frame.onload=null; frame.src='about:blank'; frame.style.display='none'; } // stop the form running in the background
+}
+function storeLoadProducts(){
+  var box=$('storeProdList'); if(!box) return;
+  box.innerHTML='<span style="color:var(--muted)">Loading…</span>';
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ box.innerHTML='<span style="color:#E9927B">'+esc((d&&d.error)||'Could not load products.')+'</span>'; return; }
+    STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||'';
+    STORE_EDITING=null; STORE_ADDING=false; STORE_DEL_ARM=null;
+    storeRenderProducts();
+  }).withFailureHandler(function(){ box.innerHTML='<span style="color:#E9927B">Could not load products — try again.</span>'; })
+    .storeListProducts();
+}
+function storePrice(p){ return '$'+((Number(p.price)||0).toFixed(2)); }
+function storeRenderProducts(){
+  var box=$('storeProdList'); if(!box) return;
+  var html='';
+  STORE_PRODUCTS.forEach(function(p){ html += (STORE_EDITING===p.id) ? storeFormHtml(p) : storeRowHtml(p); });
+  if(STORE_ADDING) html += storeFormHtml(null);
+  if(!html) html='<span style="color:var(--muted)">No products yet. Tap “+ Add product” to create one.</span>';
+  box.innerHTML=html;
+  if(STORE_ADDING || STORE_EDITING){ var n=$('sp_name'); if(n) n.focus(); }
+}
+function storeRowHtml(p){
+  var badge = p.active
+    ? '<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sage)">Live</span>'
+    : '<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Off</span>';
+  var armed = (STORE_DEL_ARM===p.id);
+  return '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0 0 10px">'
+    + '<div style="font-weight:700;color:var(--cream);word-break:break-word">'+esc(p.name||'Untitled')+'</div>'
+    + '<div style="font-size:13px;color:var(--gold-bright);margin:1px 0 10px">'+storePrice(p)+' &middot; '+badge+'</div>'
+    + '<div class="hstack" style="gap:6px;flex-wrap:wrap">'
+    +   '<button type="button" onclick="storeEditProduct(\''+esc(p.id)+'\')" style="width:auto;background:var(--panel);border:1px solid var(--line);color:var(--cream);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer">Edit</button>'
+    +   '<button type="button" onclick="storeCopyLink(\''+esc(p.id)+'\')" style="width:auto;background:var(--panel);border:1px solid var(--line);color:var(--cream);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer">Copy link</button>'
+    +   '<button type="button" onclick="storeDelProduct(\''+esc(p.id)+'\')" style="width:auto;background:'+(armed?'rgba(192,82,54,.2)':'var(--panel)')+';border:1px solid '+(armed?'var(--crimson)':'var(--line)')+';color:'+(armed?'#E9927B':'var(--muted)')+';font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer">'+(armed?'Tap again to delete':'Delete')+'</button>'
+    + '</div></div>';
+}
+function storeFormHtml(p){
+  p = p || {id:'', name:'', price:'', description:'', active:false};
+  var inp='width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:15px;padding:9px 10px;outline:none;margin:0 0 8px';
+  return '<div style="background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:12px;margin:0 0 10px">'
+    + '<input type="hidden" id="sp_id" value="'+esc(p.id)+'">'
+    + '<label style="margin:0 0 4px">Name</label><input id="sp_name" value="'+esc(p.name)+'" placeholder="e.g. Signed deck of cards" style="'+inp+'">'
+    + '<label style="margin:0 0 4px">Price ($)</label><input id="sp_price" value="'+esc(p.price===''?'':String(p.price))+'" inputmode="decimal" placeholder="25" style="'+inp+'">'
+    + '<label style="margin:0 0 4px">Description <span style="color:var(--muted);text-transform:none;letter-spacing:normal;font-weight:400">(optional)</span></label>'
+    + '<textarea id="sp_desc" rows="2" placeholder="A short line your buyer sees on the page." style="'+inp+';font-family:inherit;resize:vertical">'+esc(p.description)+'</textarea>'
+    + '<label style="display:flex;align-items:center;gap:10px;padding:2px 0 10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+    +   '<input type="checkbox" id="sp_active"'+(p.active?' checked':'')+' style="width:auto;flex:0 0 auto;margin:0"><span>Show this product on the store (live)</span></label>'
+    + '<div class="hstack" style="gap:8px">'
+    +   '<button type="button" onclick="storeSaveRow()" style="width:auto;background:var(--gold);border:none;color:#171008;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer">Save</button>'
+    +   '<button type="button" onclick="storeCancelEdit()" style="width:auto;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer">Cancel</button>'
+    + '</div></div>';
+}
+function storeEditProduct(id){ STORE_EDITING=id; STORE_ADDING=false; STORE_DEL_ARM=null; storeRenderProducts(); }
+function storeAddProduct(){ STORE_ADDING=true; STORE_EDITING=null; STORE_DEL_ARM=null; storeRenderProducts(); }
+function storeCancelEdit(){ STORE_EDITING=null; STORE_ADDING=false; storeRenderProducts(); }
+function storeSaveRow(){
+  var prod={ id:$('sp_id').value, name:$('sp_name').value, price:$('sp_price').value,
+             description:$('sp_desc').value, active:$('sp_active').checked };
+  if(!String(prod.name).trim()){ toast('Give the product a name'); return; }
+  toast('Saving…');
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ toast((d&&d.error)||'Could not save — try again'); return; }
+    STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||STORE_BASEURL;
+    STORE_EDITING=null; STORE_ADDING=false; STORE_DEL_ARM=null;
+    storeRenderProducts(); toast('Product saved ✦');
+  }).withFailureHandler(function(){ toast('Could not save — try again'); })
+    .storeSaveProduct(prod);
+}
+function storeDelProduct(id){
+  if(STORE_DEL_ARM!==id){
+    STORE_DEL_ARM=id; storeRenderProducts();
+    setTimeout(function(){ if(STORE_DEL_ARM===id){ STORE_DEL_ARM=null; storeRenderProducts(); } }, 3500);
+    return;
+  }
+  STORE_DEL_ARM=null; toast('Deleting…');
+  google.script.run.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(!d || !d.ok){ toast((d&&d.error)||'Could not delete — try again'); return; }
+    STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||STORE_BASEURL;
+    STORE_EDITING=null; STORE_ADDING=false;
+    storeRenderProducts(); toast('Product deleted');
+  }).withFailureHandler(function(){ toast('Could not delete — try again'); })
+    .storeDeleteProduct(id);
+}
+function storeCopyLink(id){
+  if(!STORE_BASEURL){ toast('Link not ready — reopen Settings'); return; }
+  var url = STORE_BASEURL + (STORE_BASEURL.indexOf('?')>-1?'&':'?') + 'store=' + encodeURIComponent(id);
+  copyToClipboard(url); toast('Store link copied');
 }
 
 /* ---------- Update-available banner (version check via the license hub) ---------- */

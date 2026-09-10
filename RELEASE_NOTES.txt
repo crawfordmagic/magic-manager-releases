@@ -1,3 +1,8 @@
 What's new in this update:
 
-• Streamlined the client portal — the standalone "Event prep" note has been removed. Your per-service event messages still appear on the client's portal after they sign, so you can share prep or arrival details there.
+• Deposits, your way — set your deposit as a percentage in Settings, or set it to 0 to skip deposits entirely so clients just pay the full balance.
+• Make the contract yours — add your own cancellation policy and extra terms in Settings, and they appear on the agreement your clients sign.
+• Share your W-9 and proof of insurance — upload them in Settings, and clients can view them right from their booking page.
+• Send us feedback — a new "Send feedback" screen in Settings lets you report bugs and request features without leaving the app.
+• Receipts now show your own business contact details.
+• Cleaner imports — importing a client list no longer fills your Follow-Ups with old dates.

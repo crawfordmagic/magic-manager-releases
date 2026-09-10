@@ -33,8 +33,11 @@ var CONFIG_DEFAULTS_ = {
   ACH_BANK: '', ACH_ACCOUNT: '', ACH_ROUTING: '',
   WIRE_BANK: '', WIRE_ACCOUNT: '', WIRE_ROUTING: '', WIRE_BANK_ADDRESS: '',
   CHECK_PAYEE: '', CHECK_ADDRESS: '',
+  DEPOSIT_PERCENT: '50',
   LOGO_URL: '',
   GOVERNING_LAW: '',
+  CANCELLATION_POLICY: '',
+  ADDITIONAL_TERMS: '',
   CONTRACTS_FOLDER: '',
   RECEIPTS_FOLDER: '',
   CAL_NAME: '',
@@ -46,7 +49,11 @@ var CONFIG_DEFAULTS_ = {
   LEAD_SOURCES: 'Bark\nGigsalad\nWebsite\nCurrent Client\nReferral\nOther',
   AD_SOURCES: 'Bark\nGigsalad\nWebsite',
   LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere',
-  AUDIENCES: ''
+  AUDIENCES: '',
+  STORE_ENABLED: '',
+  STORE_PAYMENT_METHODS: '',
+  W9_URL: '', W9_FILE_ID: '',
+  INSURANCE_URL: '', INSURANCE_FILE_ID: ''
 };
 
 function getConfig_() {
@@ -89,12 +96,14 @@ var CONFIG_FIELDS_ = [
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the sign page.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
   { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
+  { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own booking page — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
   { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the sign page and contract.', section: 'contact' },
   { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional).', section: 'contact' },
   { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com.', section: 'contact' },
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', section: 'contact' },
   // Getting paid
+  { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their booking page goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
   { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'payments' },
   { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'payments' },
   { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', section: 'payments' },
@@ -114,6 +123,12 @@ var CONFIG_FIELDS_ = [
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
   { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
+  // Contract terms
+  { key: 'CANCELLATION_POLICY', label: 'Cancellation policy', help: 'Your cancellation and refund terms, in your own words. This replaces the standard cancellation wording in the Terms section of the contract. Leave blank to keep the standard wording. (It\'s your agreement — review the wording yourself, or with an advisor.)', multiline: true, section: 'contract' },
+  { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
+  // Store (optional)
+  { key: 'STORE_ENABLED', label: 'Store page', help: 'Optional. Turn on a simple public checkout page for selling products — merch, gift cards, downloads — separate from your event bookings. Add products below; each one gets its own shareable link. Off by default.', editor: 'storefront', section: 'storefront' },
+  { key: 'STORE_PAYMENT_METHODS', label: 'Store payment methods', help: 'Optional. By default your store offers the same payment methods your clients see on the sign page. Tick specific methods here to show only those in the store — leave them all unticked to offer everything. A method only appears once you\'ve set it up under "Getting paid" above.', editor: 'storemethods', section: 'storefront' },
   // Calls & texts
   { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', section: 'comms' },
   { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', section: 'comms' },
@@ -131,6 +146,8 @@ var SETTINGS_SECTIONS_ = [
   { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client sign & pay page.', open: true },
   { id: 'payments', title: 'Getting paid', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
   { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
+  { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
+  { id: 'storefront', title: 'Store (optional)', desc: 'Sell products with a simple public checkout page — merch, gift cards, anything that isn\'t an event booking. Off unless you turn it on.', open: false },
   { id: 'comms', title: 'Calls & texts', desc: 'Tapping Call or Text opens your phone\'s built-in apps by default. To route through another app (like Google Voice), set it up here — most people can leave this alone.', open: false },
   { id: 'advanced', title: 'Advanced (optional)', desc: 'Names for the Drive folders and calendar the app creates. The defaults work great — most people never change these.', open: false }
 ];
@@ -196,6 +213,70 @@ function saveSettings(values) {
   return { ok: true, config: getConfig_() };
 }
 
+/* ---------- Business documents (W-9, proof of insurance) ----------
+ * Onboarding upload of the owner's W-9 and proof-of-insurance, stored as real
+ * Drive files (far too big for a sheet cell) and shared view-only by link so a
+ * client can open them from their booking page. The view URL + file id live in
+ * config (W9_URL/W9_FILE_ID, INSURANCE_URL/INSURANCE_FILE_ID); the client sign
+ * page reads the URLs straight off the config it already receives. */
+var BUSINESS_DOC_KINDS_ = {
+  w9:        { urlKey: 'W9_URL',        idKey: 'W9_FILE_ID',        label: 'W-9' },
+  insurance: { urlKey: 'INSURANCE_URL', idKey: 'INSURANCE_FILE_ID', label: 'Proof of Insurance' }
+};
+
+function businessDocsFolder_() {
+  const props = PropertiesService.getScriptProperties();
+  const savedId = props.getProperty('BUSINESS_DOCS_FOLDER_ID');
+  if (savedId) { try { return DriveApp.getFolderById(savedId); } catch (e) {} }
+  const name = getConfig_().BUSINESS_NAME + ' Business Documents';
+  const it = DriveApp.getFoldersByName(name);
+  const folder = it.hasNext() ? it.next() : DriveApp.createFolder(name);
+  props.setProperty('BUSINESS_DOCS_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+function businessDocsResult_() {
+  var cfg = getConfig_();
+  return JSON.stringify({ ok: true, W9_URL: cfg.W9_URL || '', INSURANCE_URL: cfg.INSURANCE_URL || '' });
+}
+
+// Upload (or replace) the W-9 / proof of insurance. Stores it in Drive, shares it
+// view-only by link, and records the URL + file id in config so the client page
+// can link to it. Returns the two current doc URLs.
+function uploadBusinessDoc(kind, base64Data, mimeType, fileName) {
+  try {
+    var spec = BUSINESS_DOC_KINDS_[String(kind)];
+    if (!spec) return JSON.stringify({ ok: false, error: 'Unknown document type.' });
+    if (!base64Data) return JSON.stringify({ ok: false, error: 'No file was received — please try again.' });
+    // Replacing an existing doc: trash the old file so re-uploads don't pile up orphans.
+    var oldId = getConfig_()[spec.idKey];
+    if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType || 'application/octet-stream', fileName || spec.label);
+    var file = businessDocsFolder_().createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var vals = {}; vals[spec.urlKey] = file.getUrl(); vals[spec.idKey] = file.getId();
+    saveSettings(vals); // persists to the Settings sheet + clears the config cache
+    return businessDocsResult_();
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Remove a stored W-9 / proof of insurance: trash the Drive file and clear config.
+function removeBusinessDoc(kind) {
+  try {
+    var spec = BUSINESS_DOC_KINDS_[String(kind)];
+    if (!spec) return JSON.stringify({ ok: false, error: 'Unknown document type.' });
+    var oldId = getConfig_()[spec.idKey];
+    if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
+    var vals = {}; vals[spec.urlKey] = ''; vals[spec.idKey] = '';
+    saveSettings(vals);
+    return businessDocsResult_();
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
 /* ---------- Licensing (sell + protect) ----------
  * Each sold copy carries a LICENSE_KEY (a Script Property the buyer enters when they
  * activate). The seller bakes their deployed license-hub URL into LICENSE_HUB_URL below
@@ -213,7 +294,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.10';
+var APP_VERSION = '1.5.11';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -510,6 +591,20 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+  // ?store=<productId> serves the optional storefront product page (its own
+  // public link, separate from the app and the sign page). The page itself
+  // checks the store toggle + product status via getStoreProduct.
+  if (e && e.parameter && e.parameter.store) {
+    var st = HtmlService.createTemplateFromFile('Store');
+    st.productId = String(e.parameter.store);
+    st.paid = e.parameter.paid || '';
+    st.cfg = getConfig_();
+    return st.evaluate()
+      .setTitle(getConfig_().BUSINESS_NAME + ' — Store')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   // The deployment itself has to be set to "Anyone" so clients without a
   // Google account can reach the sign page above — but that same setting
   // would otherwise let anyone who has (or guesses) the base URL load the
@@ -559,7 +654,18 @@ function computeBaseAmounts_(get) {
   const travelFee = Number(String(get('Travel Fee') || '').replace(/[^0-9.]/g, '')) || 0;
   const totalDue = price + travelFee;
   const depositRaw = Number(String(get('Deposit Amount') || '').replace(/[^0-9.]/g, '')) || 0;
-  const deposit = depositRaw || (totalDue / 2);
+  // Deposit = the configured percent of the total (default 50%), unless a specific
+  // Deposit Amount is set on the lead (that always wins). A percent of 0 means no
+  // deposit: the balance becomes the whole total and the client's booking page
+  // skips the deposit step. Kept as a config default so each business sets its
+  // own deposit policy — or waives deposits — during onboarding.
+  // Empty / non-numeric -> fall back to 50% (a garbage value must never silently
+  // waive deposits). An explicit "0" is a real value and still means "no deposit".
+  var rawPct = String(getConfig_().DEPOSIT_PERCENT).replace(/[^0-9.]/g, '');
+  var pct = (rawPct === '') ? 50 : Number(rawPct);
+  if (isNaN(pct)) pct = 50;
+  pct = Math.max(0, Math.min(100, pct));
+  const deposit = depositRaw || (Math.round(totalDue * pct) / 100);
   const balance = Math.max(0, totalDue - deposit);
   return { price: price, travelFee: travelFee, totalDue: totalDue, deposit: deposit, balance: balance };
 }
@@ -844,13 +950,26 @@ function buildContractTemplate_() {
   var rightTerms = termsRow.getCell(1);
 
   bulletTerm(leftTerms, 'Confidentiality & Conduct', 'Both parties agree to maintain strict professional conduct and confidentiality throughout the term of service.', true);
-  bulletTerm(leftTerms, 'Cancellation & Deposit', 'Deposits are non-refundable upon client event cancellation. Client performance cancellations allow deposit application to an alternate date. Unforeseen performer cancellation yields a full refund.');
+  // Cancellation wording is buyer-configurable (Settings -> Contract terms); the
+  // standard text below is the fallback when no custom policy is set.
+  var cancelText = String(getConfig_().CANCELLATION_POLICY || '').trim()
+    || 'Deposits are non-refundable upon client event cancellation. Client performance cancellations allow deposit application to an alternate date. Unforeseen performer cancellation yields a full refund.';
+  bulletTerm(leftTerms, 'Cancellation & Deposit', cancelText);
   bulletTerm(leftTerms, 'Liability', 'Performer assumes no responsibility for damages or injuries during performance except in cases of gross negligence.');
 
   bulletTerm(rightTerms, 'Media & Photo Release', 'Photographs of the performance may be taken freely by the Client and guests. Video recording or filming of the performance is not permitted without the Service Provider\u2019s prior consent. The Service Provider may photograph and film the performance for promotional use, which the Client agrees to unless an opt-out notification is provided in writing prior to the event.', true);
   var govLoc = governingLawPhrase_();
   bulletTerm(rightTerms, 'Governing Law', 'This Agreement shall be governed and construed in accordance with the laws of ' + govLoc + '.');
   bulletTerm(rightTerms, 'Entire Agreement', 'Supersedes all prior discussions. Any modifications must be executed in writing and signed by both parties.');
+
+  // Buyer-defined extra clauses (Settings -> Contract terms), one per line,
+  // appended full-width under the standard two-column terms.
+  var addlTerms = String(getConfig_().ADDITIONAL_TERMS || '').split(/\r?\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+  addlTerms.forEach(function (line) {
+    var ap = body.appendParagraph('• ' + line);
+    ap.setSpacingBefore(2).setSpacingAfter(4);
+    styleText(ap.editAsText(), SMALL_SIZE);
+  });
 
   // ---- 5. Acceptance & Authorization ----
   headingPara('5. Acceptance & Authorization', 4);
@@ -1015,7 +1134,7 @@ function generateReceiptPdf_(kind, get) {
   infoCell.clear();
   plainLine(infoCell, getConfig_().BUSINESS_LEGAL_NAME, { bold: true, size: 12, spacing: 1 });
   plainLine(infoCell, getConfig_().ADDRESS, { spacing: 1, size: 9 });
-  plainLine(infoCell, 'crawfordmagic@gmail.com \u00b7 678.960.8278', { spacing: 0, size: 9 });
+  plainLine(infoCell, [getConfig_().EMAIL, getConfig_().PHONE].filter(function (x) { return x; }).join(' \u00b7 '), { spacing: 0, size: 9 });
   infoCell.setWidth(230);
 
   const titleCell = hRow.getCell(2);
@@ -1484,6 +1603,230 @@ function createStripeCheckoutSession(token, kind) {
   } catch (e) {
     // Surface the real exception instead of leaving the client with a
     // generic failure — this is what actually shows up in the alert.
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+/* ===== Storefront (optional product / merch sales) =====
+ * A separate public product page (?store=<id>), off unless STORE_ENABLED is set.
+ * Products live in a "Store Products" sheet; orders log to "Store Sales".
+ * Reuses the same Stripe flow as the sign page. Phase 1: card payment. */
+var STORE_PRODUCTS_SHEET = 'Store Products';
+var STORE_PRODUCTS_HEADERS = ['Product ID', 'Name', 'Price', 'Description', 'Active'];
+var STORE_SALES_SHEET = 'Store Sales';
+var STORE_SALES_HEADERS = ['Date', 'Product', 'Buyer Name', 'Buyer Email', 'Amount', 'Method', 'Status'];
+
+function storeEnabled_() {
+  return String(getConfig_().STORE_ENABLED || '').trim().toLowerCase() === 'yes';
+}
+
+function newStoreId_() {
+  var chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  var s = ''; for (var i = 0; i < 8; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+  return 'p_' + s;
+}
+
+function storeProductsSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(STORE_PRODUCTS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(STORE_PRODUCTS_SHEET);
+    sh.getRange(1, 1, 1, STORE_PRODUCTS_HEADERS.length).setValues([STORE_PRODUCTS_HEADERS]);
+    try { sh.setFrozenRows(1); } catch (e) {}
+    // Example row so there's something to try — Active is "No" until you turn it on.
+    sh.appendRow([newStoreId_(), 'Example product', 25, 'A short description your buyer sees on the page.', 'No']);
+  }
+  return sh;
+}
+
+function storeSalesSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(STORE_SALES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(STORE_SALES_SHEET);
+    sh.getRange(1, 1, 1, STORE_SALES_HEADERS.length).setValues([STORE_SALES_HEADERS]);
+    try { sh.setFrozenRows(1); } catch (e) {}
+  }
+  return sh;
+}
+
+function storeGetProduct_(productId) {
+  var sh = storeProductsSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return null;
+  var rows = sh.getRange(2, 1, last - 1, STORE_PRODUCTS_HEADERS.length).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === String(productId).trim()) {
+      return {
+        id: String(rows[i][0]).trim(),
+        name: String(rows[i][1] || '').trim(),
+        price: Number(String(rows[i][2] || '').replace(/[^0-9.]/g, '')) || 0,
+        description: String(rows[i][3] || '').trim(),
+        active: String(rows[i][4] || '').trim().toLowerCase() === 'yes'
+      };
+    }
+  }
+  return null;
+}
+
+// Client-facing: the product data the store page renders.
+function getStoreProduct(productId) {
+  try {
+    if (!storeEnabled_()) return JSON.stringify({ ok: false, error: 'This store isn’t available.' });
+    var p = storeGetProduct_(productId);
+    if (!p || !p.active) return JSON.stringify({ ok: false, error: 'This product isn’t available.' });
+    var cfg = getConfig_();
+    return JSON.stringify({ ok: true, id: p.id, name: p.name, price: p.price, description: p.description,
+      businessName: cfg.BUSINESS_NAME, logo: cfg.LOGO_URL, email: cfg.EMAIL });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+function storeLogOrder_(productName, buyerName, buyerEmail, amount, method, status) {
+  try {
+    storeSalesSheet_().appendRow([new Date(), productName || '', buyerName || '', buyerEmail || '', amount || 0, method || '', status || 'Pending']);
+  } catch (e) {}
+}
+
+// Card checkout for a product — mirrors createStripeCheckoutSession.
+function createStoreCheckoutSession(productId, buyerName, buyerEmail) {
+  try {
+    if (!storeEnabled_()) return JSON.stringify({ ok: false, error: 'This store isn’t available.' });
+    var secretKey = String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
+    if (!secretKey) return JSON.stringify({ ok: false, error: 'Card payment isn’t set up yet.' });
+    var p = storeGetProduct_(productId);
+    if (!p || !p.active) return JSON.stringify({ ok: false, error: 'This product isn’t available.' });
+    var cents = Math.round(p.price * (1 + 0.0325) * 100); // card includes the processing fee, same as the sign page
+    if (cents <= 0) return JSON.stringify({ ok: false, error: 'This product has no price set yet.' });
+    var cfg = getConfig_();
+    var webAppUrl = ScriptApp.getService().getUrl();
+    var payload = {
+      'mode': 'payment',
+      'success_url': webAppUrl + '?store=' + encodeURIComponent(productId) + '&paid=1',
+      'cancel_url': webAppUrl + '?store=' + encodeURIComponent(productId),
+      'line_items[0][quantity]': '1',
+      'line_items[0][price_data][currency]': 'usd',
+      'line_items[0][price_data][unit_amount]': String(cents),
+      'line_items[0][price_data][product_data][name]': cfg.BUSINESS_NAME + ' — ' + p.name,
+      'metadata[product_id]': productId,
+      'metadata[buyer]': buyerName || '',
+      'metadata[buyer_email]': buyerEmail || ''
+    };
+    if (buyerEmail) payload['customer_email'] = buyerEmail;
+    var resp = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'post', headers: { 'Authorization': 'Bearer ' + secretKey }, payload: payload, muteHttpExceptions: true
+    });
+    var code = resp.getResponseCode();
+    var json; try { json = JSON.parse(resp.getContentText()); } catch (e2) { return JSON.stringify({ ok: false, error: 'Stripe returned an unexpected response (HTTP ' + code + ').' }); }
+    if (code >= 200 && code < 300 && json.url) {
+      storeLogOrder_(p.name, buyerName, buyerEmail, p.price, 'Card', 'Pending');
+      return JSON.stringify({ ok: true, url: json.url });
+    }
+    return JSON.stringify({ ok: false, error: (json.error && json.error.message) || ('Stripe error (HTTP ' + code + ').') });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Client-facing: a buyer chose a pay-outside method (Venmo / Cash App / ACH /
+// Check / Wire) and tapped "I've sent my payment." Card never reaches here — it
+// goes through createStoreCheckoutSession/Stripe. We log a Pending order at the
+// face price (no card fee, same as those methods on the sign page) for the
+// owner to confirm against their own account.
+function recordStoreOrder(productId, buyerName, buyerEmail, method) {
+  try {
+    if (!storeEnabled_()) return JSON.stringify({ ok: false, error: 'This store isn’t available.' });
+    var name = String(buyerName || '').trim();
+    var email = String(buyerEmail || '').trim();
+    if (!name) return JSON.stringify({ ok: false, error: 'Please enter your name.' });
+    if (email.indexOf('@') < 1) return JSON.stringify({ ok: false, error: 'Please enter a valid email.' });
+    var m = String(method || '').trim();
+    if (!m || /card/i.test(m)) return JSON.stringify({ ok: false, error: 'Please choose a payment method.' });
+    var p = storeGetProduct_(productId);
+    if (!p || !p.active) return JSON.stringify({ ok: false, error: 'This product isn’t available.' });
+    storeLogOrder_(p.name, name, email, p.price, m, 'Pending');
+    return JSON.stringify({ ok: true });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+/* ---- In-app product manager (Settings) ----
+ * The store owner adds/edits/deletes products from inside the app — no sheet
+ * editing. Each save/delete returns the fresh list so the client re-renders
+ * from one source of truth. baseUrl lets the client build each product's link. */
+
+function storeListProducts() {
+  try {
+    var sh = storeProductsSheet_();
+    var last = sh.getLastRow();
+    var out = [];
+    if (last >= 2) {
+      var rows = sh.getRange(2, 1, last - 1, STORE_PRODUCTS_HEADERS.length).getValues();
+      for (var i = 0; i < rows.length; i++) {
+        if (!String(rows[i][0]).trim()) continue;
+        out.push({
+          id: String(rows[i][0]).trim(),
+          name: String(rows[i][1] || '').trim(),
+          price: Number(String(rows[i][2] || '').replace(/[^0-9.]/g, '')) || 0,
+          description: String(rows[i][3] || '').trim(),
+          active: String(rows[i][4] || '').trim().toLowerCase() === 'yes'
+        });
+      }
+    }
+    return JSON.stringify({ ok: true, products: out, baseUrl: ScriptApp.getService().getUrl() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Add (no id) or update (matching id) one product, then return the fresh list.
+function storeSaveProduct(product) {
+  try {
+    product = product || {};
+    var name = String(product.name || '').trim();
+    if (!name) return JSON.stringify({ ok: false, error: 'Please give the product a name.' });
+    var price = Number(String(product.price == null ? '' : product.price).replace(/[^0-9.]/g, '')) || 0;
+    var description = String(product.description || '').trim();
+    var active = (product.active === true || String(product.active).trim().toLowerCase() === 'yes') ? 'Yes' : 'No';
+    var id = String(product.id || '').trim();
+    var sh = storeProductsSheet_();
+    var last = sh.getLastRow();
+    var rowNum = 0;
+    if (id && last >= 2) {
+      var ids = sh.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === id) { rowNum = i + 2; break; }
+      }
+    }
+    if (rowNum) {
+      sh.getRange(rowNum, 1, 1, STORE_PRODUCTS_HEADERS.length).setValues([[id, name, price, description, active]]);
+    } else {
+      id = newStoreId_();
+      sh.appendRow([id, name, price, description, active]);
+    }
+    return storeListProducts();
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Delete one product by id, then return the fresh list.
+function storeDeleteProduct(id) {
+  try {
+    id = String(id || '').trim();
+    if (!id) return JSON.stringify({ ok: false, error: 'No product specified.' });
+    var sh = storeProductsSheet_();
+    var last = sh.getLastRow();
+    if (last >= 2) {
+      var ids = sh.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === id) { sh.deleteRow(i + 2); break; }
+      }
+    }
+    return storeListProducts();
+  } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
   }
 }

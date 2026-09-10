@@ -92,6 +92,22 @@ function receiptCardHtml(label, url){
   return '<div class="paydetails"><div class="paydetails-title">'+label+' Receipt</div>'
     +'<a href="'+url+'" target="_blank" style="color:var(--gold-bright);text-decoration:underline">View / download PDF &rarr;</a></div>';
 }
+// The owner's W-9 / proof of insurance (Settings -> Tax form & insurance), if
+// uploaded. Shown on the client's booking page so they can grab them when a
+// venue or their accounting team asks. URLs come from the config this page
+// already receives; returns '' when nothing is uploaded, so nothing shows.
+function documentsCardHtml(){
+  function escAttr(u){ return String(u||'').replace(/"/g,'%22').replace(/</g,'%3C').replace(/>/g,'%3E'); }
+  var items=[];
+  if(CFG.W9_URL) items.push(['W-9 Tax Form', CFG.W9_URL]);
+  if(CFG.INSURANCE_URL) items.push(['Proof of Insurance', CFG.INSURANCE_URL]);
+  if(!items.length) return '';
+  return '<div class="paydetails"><div class="paydetails-title">Documents</div>'
+    + items.map(function(it){
+        return '<div style="margin-top:4px"><a href="'+escAttr(it[1])+'" target="_blank" style="color:var(--gold-bright);text-decoration:underline">'+it[0]+' &rarr;</a></div>';
+      }).join('')
+    + '</div>';
+}
 // The one page a signed client keeps coming back to — it just shows
 // whatever's relevant right now: pay the deposit, see the deposit
 // receipt, pay the balance once it's actually due, or see the balance
@@ -126,19 +142,20 @@ function renderStatusPage(d){
       +'<p style="margin:6px 0 0">'+smh+'</p></div>';
   }
 
-  var showDepositPrompt = !d.depositPaid;
+  var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — skip straight to the balance
+  var showDepositPrompt = !noDeposit && !d.depositPaid;
   var balanceDue = d.daysUntilEvent!==null && d.daysUntilEvent<=d.balanceDueDays;
   // No longer gated on balanceDue — once the deposit's handled, the client
   // can pay the balance whenever they're ready rather than being blocked
   // until it's officially due. The due date still gets shown as context
   // right above the prompt when it's not yet due, just not used to
   // prevent paying early.
-  var showBalancePrompt = d.depositPaid && !d.balancePaid;
+  var showBalancePrompt = !d.balancePaid && (noDeposit || d.depositPaid);
 
   if(d.depositPaid) html += receiptCardHtml('Deposit', d.depositReceiptUrl);
   if(d.balancePaid){
     html += receiptCardHtml('Final Balance', d.balanceReceiptUrl);
-  } else if(!d.depositPaid){
+  } else if(!d.depositPaid && !noDeposit){
     html += '<div class="paydetails"><div class="paydetails-title">Balance</div><div>Your remaining balance of '+fmtMoney(d.balanceBase)+' will be due once your deposit is received.</div></div>';
   }
 
@@ -157,6 +174,7 @@ function renderStatusPage(d){
       +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
   }
 
+  html += documentsCardHtml();
   html += signatureBlockHtml();
 
   c.innerHTML = html;
@@ -325,12 +343,16 @@ function renderForm(d){
   c.style.display='';
   var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
   var amt=computeAmounts(d.depositBase, d.balanceBase, initialMethod);
+  var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — client just pays the full balance
   var depositLabel = d.depositPaid ? 'Deposit' : 'Deposit due today';
+  var amountRows = noDeposit
+    ? '<div class="row"><span class="k">Total</span><span class="v">'+fmtMoney(d.balanceBase)+'</span></div>'
+    : '<div class="row"><span class="k">'+depositLabel+'</span><span class="v" id="depositOut">'+fmtMoney(amt.deposit)+'</span></div>'
+      +'<div class="row"><span class="k">Balance due on event date</span><span class="v" id="balanceOut">'+fmtMoney(amt.balance)+'</span></div>';
   var html=paidBannerHtml()+bookingIdHtml(d)+'<div class="card">'
     +row('Services', d.services)
     +addressRow('Location', d.location)
-    +'<div class="row"><span class="k">'+depositLabel+'</span><span class="v" id="depositOut">'+fmtMoney(amt.deposit)+'</span></div>'
-    +'<div class="row"><span class="k">Balance due on event date</span><span class="v" id="balanceOut">'+fmtMoney(amt.balance)+'</span></div>'
+    +amountRows
     +'</div>'
     +(d.pdfUrl?'<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>':'');
 
@@ -339,6 +361,10 @@ function renderForm(d){
     // another way, in advance of signing — so there's nothing to ask for
     // here. Show what's already on record instead of a payment prompt.
     html += receiptCardHtml('Deposit', d.depositReceiptUrl);
+  } else if(noDeposit){
+    // No deposit is collected — sign now, pay the full balance afterward from the
+    // booking page. Nothing to pay at signing, so no payment prompt is shown here.
+    html += '<p class="note" style="text-align:left">No deposit required — just sign below, then you can pay your balance of '+fmtMoney(d.balanceBase)+' anytime from your booking page.</p>';
   } else {
     html += '<label>How will you be paying?</label>'
       +'<select id="paymentMethod">'+PAYMENT_METHODS.map(function(m){
@@ -352,6 +378,7 @@ function renderForm(d){
     +'<div class="agree"><input type="checkbox" id="agreeBox"><span>I have read the full agreement and accept its terms.</span></div>'
     +'<button id="signBtn" disabled onclick="doSign()">Sign &amp; Accept</button>'
     +'<p class="note">Typing your name above and tapping Sign &amp; Accept serves as your electronic signature on this agreement.</p>'
+    +documentsCardHtml()
     +signatureBlockHtml();
   c.innerHTML=html;
   var nameInp=document.getElementById('signName'), agreeBox=document.getElementById('agreeBox'), btn=document.getElementById('signBtn'), pmSel=document.getElementById('paymentMethod');
