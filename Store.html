@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  :root{--ink:#0B0B10;--panel:#15131a;--raise:#1e1824;--cream:#F4EBD3;--muted:#928A75;--gold:#C9A050;--gold-bright:#E4C179;--line:rgba(201,160,80,.28)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--cream);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:540px;margin:0 auto;padding:28px 18px 60px}
+  .logo{display:block;max-width:150px;margin:0 auto 14px;border-radius:10px}
+  .portal-label{text-align:center;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:20px}
+  #loading{text-align:center;color:var(--muted);padding:40px 0}
+  h1{font-family:Georgia,'Times New Roman',serif;font-size:26px;color:var(--cream);text-align:center;margin:0 0 4px}
+  .price{text-align:center;font-family:Georgia,serif;font-size:34px;color:var(--gold-bright);margin:0 0 14px}
+  .desc{color:var(--cream);font-size:15px;white-space:pre-wrap;margin:0 0 22px;text-align:center}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 6px}
+  input{width:100%;background:var(--raise);border:1px solid var(--line);border-radius:10px;color:var(--cream);font-size:16px;padding:12px 13px;outline:none;margin-bottom:12px}
+  input:focus{border-color:var(--gold)}
+  .pay{width:100%;background:var(--gold);color:#171008;font-weight:700;font-size:16px;border:none;border-radius:10px;padding:14px;cursor:pointer}
+  .pay:active{background:var(--gold-bright)}
+  .note{font-size:12px;color:var(--muted);text-align:center;margin:12px 0 0}
+  .err{color:#F0B5A6;font-size:14px;margin-top:10px;min-height:18px;text-align:center}
+  .thanks{text-align:center;padding:30px 0}
+  .thanks .big{font-size:40px;color:var(--gold-bright)}
+  a{color:var(--gold-bright)}
+  select{width:100%;font-size:16px;color:var(--cream);background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:12px 13px;outline:none;color-scheme:dark;margin-bottom:12px}
+  select:focus{border-color:var(--gold)}
+  .feenote{font-size:12px;color:var(--gold-bright);text-align:center;margin:8px 0 0}
+  .paybtn{display:block;text-align:center;text-decoration:none;background:var(--gold);color:#171008;font-weight:700;font-size:16px;border:none;border-radius:10px;padding:14px;cursor:pointer;margin-top:4px}
+  .paybtn:active{background:var(--gold-bright)}
+  .paynote{font-size:12px;color:var(--muted);text-align:center;margin:8px 0 0}
+  .paydetails{background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:13px 14px;margin-bottom:4px;font-size:14px;line-height:1.7;color:var(--cream)}
+  .paydetails-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px}
+  .confirm{width:100%;background:transparent;color:var(--gold-bright);font-weight:700;font-size:15px;border:1px solid var(--gold);border-radius:10px;padding:13px;cursor:pointer;margin-top:12px}
+  .confirm:active{background:rgba(201,160,80,.12)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"><div id="loading">Loading&#8230;</div></div>
+</div>
+<script>
+  var PRODUCT_ID='<?= productId ?>';
+  var PAID='<?= paid ?>';
+  var CFG=<?!= JSON.stringify(cfg) ?>;
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function fmtMoney(n){return '$'+(Number(n)||0).toFixed(2);}
+  function logoHtml(){return CFG.LOGO_URL?'<img class="logo" src="'+esc(CFG.LOGO_URL)+'" alt="'+esc(CFG.BUSINESS_NAME||'')+'">':'';}
+
+  function renderError(msg){
+    document.getElementById('app').innerHTML=logoHtml()
+      +'<div class="portal-label">'+esc(CFG.BUSINESS_NAME||'Store')+'</div>'
+      +'<div class="card"><p style="text-align:center;margin:6px 0">'+esc(msg||'This product isn’t available.')+'</p></div>';
+  }
+
+  function renderThanks(){
+    document.getElementById('app').innerHTML=logoHtml()
+      +'<div class="portal-label">'+esc(CFG.BUSINESS_NAME||'Store')+'</div>'
+      +'<div class="thanks"><div class="big">&#10022;</div><p>Thank you! Your payment was submitted'+(CFG.EMAIL?' — we’ll follow up by email':'')+'.</p></div>';
+  }
+
+  var VENMO_USERNAME=CFG.VENMO_USERNAME||'';
+  var CASHAPP_CASHTAG=CFG.CASHAPP_CASHTAG||'';
+  // Which methods to offer — derived from what the owner has configured, like the
+  // sign page. Card is always available; Cash App / Check / Venmo appear only if
+  // their details are filled in. ACH and Wire Transfer are deliberately NOT
+  // offered in the store even when set up for the sign page — they're event-
+  // deposit / B2B-invoice methods, not how someone buys a product.
+  var PAYMENT_METHODS=(function(){var m=[];if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.VENMO_USERNAME)m.push('Venmo');return m;})();
+  // Optional owner filter (Settings → Store): narrow the store to a subset of
+  // the configured methods. Blank = offer them all (mirror the sign page). An
+  // empty result falls back to all, so the store is never left unpayable.
+  (function(){
+    var allow=String(CFG.STORE_PAYMENT_METHODS||'').split(/\r?\n/).map(function(s){return s.trim();}).filter(Boolean);
+    if(!allow.length) return;
+    var f=PAYMENT_METHODS.filter(function(m){return allow.indexOf(m)>-1;});
+    if(f.length) PAYMENT_METHODS=f;
+  })();
+
+  function payLinkFor(method, amount, productName){
+    if(method==='Venmo'){
+      return 'https://venmo.com/'+VENMO_USERNAME+'?txn=pay&amount='+amount.toFixed(2)+'&note='+encodeURIComponent((CFG.BUSINESS_NAME||'')+' - '+productName);
+    }
+    return null;
+  }
+  function paymentInstructionsFor(method){
+    if(method==='Check'){
+      return {title:'Mail a Check', lines:['Payable to “'+(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME||CFG.BUSINESS_NAME)+'”',(CFG.CHECK_PAYEE||CFG.BUSINESS_LEGAL_NAME||CFG.BUSINESS_NAME),(CFG.CHECK_ADDRESS||CFG.ADDRESS)]};
+    }
+    return null;
+  }
+  function confirmBtnHtml(){ return '<button class="confirm" id="confirmbtn">I’ve sent my payment</button>'; }
+  // The block under the method picker for the chosen method. Card = the Stripe
+  // button (a card fee is added at checkout, same as the sign page); every other
+  // method = pay-outside instructions at face price + an "I've sent my payment"
+  // confirm that logs a Pending order for the owner to reconcile.
+  function renderExtras(p, method){
+    var amt=Number(p.price)||0;
+    if(method==='Credit Card'){
+      return '<button class="pay" id="paybtn">Pay by card &#8212; '+fmtMoney(amt)+'</button>'
+        +'<p class="feenote">A small card-processing fee is added at checkout.</p>'
+        +'<p class="paynote">Secured by Stripe.</p>';
+    }
+    if(method==='Venmo'){
+      var link=payLinkFor(method, amt, p.name);
+      return '<a class="paybtn" target="_top" href="'+esc(link)+'">Pay with Venmo &#8212; '+fmtMoney(amt)+'</a>'
+        +'<p class="paynote">Opens Venmo with the amount ready to send.</p>'
+        +confirmBtnHtml();
+    }
+    if(method==='Cash App'){
+      return '<div class="paydetails"><div class="paydetails-title">Cash App</div>'
+        +'<div>Send to: $'+esc(CASHAPP_CASHTAG)+'</div>'
+        +'<div>Amount: '+fmtMoney(amt)+'</div></div>'
+        +'<a class="paybtn" target="_top" href="https://cash.app/$'+esc(CASHAPP_CASHTAG)+'">Open Cash App</a>'
+        +'<p class="paynote">Cash App can’t pre-fill the amount — please enter '+fmtMoney(amt)+' once it opens.</p>'
+        +confirmBtnHtml();
+    }
+    var info=paymentInstructionsFor(method);
+    if(info){
+      return '<div class="paydetails"><div class="paydetails-title">'+esc(info.title)+'</div>'
+        +'<div>Amount: '+fmtMoney(amt)+'</div>'
+        +info.lines.filter(function(l){return l!=null&&String(l).trim()!=='';}).map(function(l){ return '<div>'+esc(l)+'</div>'; }).join('')+'</div>'
+        +confirmBtnHtml();
+    }
+    return '';
+  }
+
+  function renderProduct(p){
+    var multi = PAYMENT_METHODS.length>1;
+    var h=logoHtml()
+      +'<div class="portal-label">'+esc(p.businessName||CFG.BUSINESS_NAME||'Store')+'</div>'
+      +'<h1>'+esc(p.name)+'</h1>'
+      +'<div class="price">'+fmtMoney(p.price)+'</div>'
+      +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'')
+      +'<div class="card">'
+      +'<label for="bn">Your name</label><input id="bn" type="text" autocomplete="name">'
+      +'<label for="be">Your email</label><input id="be" type="email" autocomplete="email">'
+      +(multi?'<label for="pm">How would you like to pay?</label><select id="pm">'+PAYMENT_METHODS.map(function(m){return '<option value="'+esc(m)+'"'+(m==='Credit Card'?' selected':'')+'>'+esc(m)+'</option>';}).join('')+'</select>':'')
+      +'<div id="extra"></div>'
+      +'<div class="err" id="err"></div>'
+      +'</div>';
+    document.getElementById('app').innerHTML=h;
+    showExtras(p, 'Credit Card');
+    if(multi){
+      var sel=document.getElementById('pm');
+      sel.addEventListener('change', function(){ document.getElementById('err').textContent=''; showExtras(p, sel.value); });
+    }
+  }
+
+  function showExtras(p, method){
+    document.getElementById('extra').innerHTML=renderExtras(p, method);
+    var cardBtn=document.getElementById('paybtn');
+    if(cardBtn) cardBtn.addEventListener('click', function(){ payCard(p); });
+    var conf=document.getElementById('confirmbtn');
+    if(conf) conf.addEventListener('click', function(){ confirmSent(p, method); });
+  }
+
+  function validateBuyer(){
+    var name=document.getElementById('bn').value.trim();
+    var email=document.getElementById('be').value.trim();
+    var err=document.getElementById('err');
+    if(!name){ err.textContent='Please enter your name.'; return null; }
+    if(!email||email.indexOf('@')<1){ err.textContent='Please enter a valid email.'; return null; }
+    err.textContent='';
+    return {name:name, email:email};
+  }
+
+  function payCard(p){
+    var b=validateBuyer(); if(!b) return;
+    var btn=document.getElementById('paybtn'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Starting checkout…';
+    google.script.run.withSuccessHandler(function(json){
+      var r=JSON.parse(json);
+      if(r.ok&&r.url){ window.top.location.href=r.url; }
+      else { btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent=r.error||'Could not start checkout.'; }
+    }).withFailureHandler(function(){ btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent='Connection error — try again.'; })
+      .createStoreCheckoutSession(PRODUCT_ID, b.name, b.email);
+  }
+
+  function confirmSent(p, method){
+    var b=validateBuyer(); if(!b) return;
+    var btn=document.getElementById('confirmbtn'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Submitting…';
+    google.script.run.withSuccessHandler(function(json){
+      var r=JSON.parse(json);
+      if(r.ok){ renderThanks(); }
+      else { btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent=r.error||'Could not submit.'; }
+    }).withFailureHandler(function(){ btn.disabled=false; btn.textContent=orig; document.getElementById('err').textContent='Connection error — try again.'; })
+      .recordStoreOrder(PRODUCT_ID, b.name, b.email, method);
+  }
+
+  if(!PRODUCT_ID){ renderError('No product specified.'); }
+  else if(PAID==='1'){ renderThanks(); }
+  else {
+    google.script.run.withSuccessHandler(function(json){
+      var d=JSON.parse(json);
+      if(d.ok) renderProduct(d); else renderError(d.error);
+    }).withFailureHandler(function(){ renderError('Something went wrong — please try again.'); }).getStoreProduct(PRODUCT_ID);
+  }
+</script>
+</body>
+</html>
