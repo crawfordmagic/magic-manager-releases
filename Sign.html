@@ -35,7 +35,7 @@
   .paydetails{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:12px;font-size:13px;line-height:1.7;color:var(--cream)}
   .paydetails-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px}
   .paidbanner{background:rgba(201,160,80,.14);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13.5px;color:var(--gold-bright);text-align:center}
-  .bookingid{text-align:center;margin:0 0 18px}
+  .bookingid{text-align:center;margin:0 0 10px}
   .bookingid .lead{font-size:11.5px;color:var(--muted);margin-bottom:2px}
   .bookingid .name{font-family:'Playfair Display',serif;font-size:19px;color:var(--cream);font-weight:700}
   .agree{display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:13px;color:var(--muted)}
@@ -43,10 +43,17 @@
   button{width:100%;font-family:'Archivo',sans-serif;font-size:16px;font-weight:700;padding:14px;border-radius:10px;border:none;background:var(--gold);color:#141008;margin-top:18px;cursor:pointer}
   button:disabled{opacity:.5}
   .note{color:var(--muted);font-size:12px;text-align:center;margin-top:12px}
-  .signed{text-align:center;padding:30px 10px}
+  .signed{text-align:center;padding:0 10px 26px}
   .signed .big{font-size:40px;margin-bottom:10px}
   .err{color:#E9927B;text-align:center;padding:30px 10px}
   #loading{text-align:center;color:var(--muted);padding:40px 0}
+  .docs{margin-top:16px}
+  .docs-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 8px}
+  .docbtn{display:flex;align-items:center;gap:12px;text-decoration:none;background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:13px 14px;margin-bottom:8px;color:var(--gold-bright);font-weight:600;font-size:14.5px}
+  .docbtn:active{background:rgba(201,160,80,.14)}
+  .dic{color:var(--gold);flex:0 0 auto}
+  .doclabel{flex:1}
+  .docarrow{color:var(--gold);flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -88,23 +95,45 @@ function signatureBlockHtml(){
     +'</div>';
 }
 function receiptCardHtml(label, url){
-  if(!url) return '<div class="paydetails"><div class="paydetails-title">'+label+'</div><div>Payment recorded \u2014 your receipt is on its way.</div></div>';
-  return '<div class="paydetails"><div class="paydetails-title">'+label+' Receipt</div>'
-    +'<a href="'+url+'" target="_blank" style="color:var(--gold-bright);text-decoration:underline">View / download PDF &rarr;</a></div>';
+  // Once a receipt PDF exists, the "Your Documents" buttons handle viewing it;
+  // here we only acknowledge a payment whose receipt isn't ready yet.
+  if(url) return '';
+  return '<div class="paydetails"><div class="paydetails-title">'+label+'</div><div>Payment recorded \u2014 your receipt is on its way.</div></div>';
 }
 // The owner's W-9 / proof of insurance (Settings -> Tax form & insurance), if
 // uploaded. Shown on the client's booking page so they can grab them when a
 // venue or their accounting team asks. URLs come from the config this page
 // already receives; returns '' when nothing is uploaded, so nothing shows.
-function documentsCardHtml(){
+// One "Your Documents" group — a button per file the client can view, and only
+// the ones that actually exist. Agreement + receipts come from the booking (d);
+// W-9 + insurance from the owner's config. Text-only gold-outline buttons,
+// alphabetized by label. The signed agreement is listed only once actually
+// signed; before that, the prominent "review the agreement" link above covers it.
+function documentButtonsHtml(d, signed){
   function escAttr(u){ return String(u||'').replace(/"/g,'%22').replace(/</g,'%3C').replace(/>/g,'%3E'); }
-  var items=[];
-  if(CFG.W9_URL) items.push(['W-9 Tax Form', CFG.W9_URL]);
-  if(CFG.INSURANCE_URL) items.push(['Proof of Insurance', CFG.INSURANCE_URL]);
-  if(!items.length) return '';
-  return '<div class="paydetails"><div class="paydetails-title">Documents</div>'
-    + items.map(function(it){
-        return '<div style="margin-top:4px"><a href="'+escAttr(it[1])+'" target="_blank" style="color:var(--gold-bright);text-decoration:underline">'+it[0]+' &rarr;</a></div>';
+  d = d || {};
+  // Gold line-art icons per document type — stroke="currentColor" so each
+  // inherits the gold .dic color (no emoji, matches the theme on every device).
+  var IC={
+    receipt:'<path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
+    shield:'<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/>',
+    fileCheck:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 15l2 2l4 -4"/>',
+    fileText:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>'
+  };
+  var docs=[];
+  if(signed && d.pdfUrl) docs.push(['Signed agreement', d.pdfUrl, IC.fileCheck]);
+  if(d.depositReceiptUrl) docs.push(['Deposit receipt', d.depositReceiptUrl, IC.receipt]);
+  if(d.balanceReceiptUrl) docs.push(['Balance receipt', d.balanceReceiptUrl, IC.receipt]);
+  if(CFG.W9_URL) docs.push(['W-9 tax form', CFG.W9_URL, IC.fileText]);
+  if(CFG.INSURANCE_URL) docs.push(['Proof of insurance', CFG.INSURANCE_URL, IC.shield]);
+  if(!docs.length) return '';
+  docs.sort(function(a,b){ return a[0].localeCompare(b[0]); });
+  return '<div class="docs"><div class="docs-title">Your Documents</div>'
+    + docs.map(function(it){
+        return '<a class="docbtn" href="'+escAttr(it[1])+'" target="_blank" rel="noopener">'
+          +'<svg class="dic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+it[2]+'</svg>'
+          +'<span class="doclabel">'+it[0]+'</span>'
+          +'<svg class="docarrow" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7l-10 10"/><path d="M8 7l9 0l0 9"/></svg></a>';
       }).join('')
     + '</div>';
 }
@@ -130,7 +159,6 @@ function renderStatusPage(d){
   html += '<div class="card">'
     +row('Services', d.services)
     +'</div>';
-  if(d.pdfUrl) html += '<a class="pdf" href="'+d.pdfUrl+'" target="_blank">View the full agreement (PDF) &rarr;</a>';
 
   // A booked client's per-service message (Settings -> Event messages by service), matched to
   // this booking's service. Shown once signed.
@@ -174,7 +202,7 @@ function renderStatusPage(d){
       +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
   }
 
-  html += documentsCardHtml();
+  html += documentButtonsHtml(d, true);
   html += signatureBlockHtml();
 
   c.innerHTML = html;
@@ -391,7 +419,7 @@ function renderForm(d){
     +'<div class="agree"><input type="checkbox" id="agreeBox"><span>I have read the full agreement and accept its terms.</span></div>'
     +'<button id="signBtn" disabled onclick="doSign()">Sign &amp; Accept</button>'
     +'<p class="note">Typing your name above and tapping Sign &amp; Accept serves as your electronic signature on this agreement.</p>'
-    +documentsCardHtml()
+    +documentButtonsHtml(d, false)
     +signatureBlockHtml();
   c.innerHTML=html;
   var nameInp=document.getElementById('signName'), agreeBox=document.getElementById('agreeBox'), btn=document.getElementById('signBtn'), pmSel=document.getElementById('paymentMethod');

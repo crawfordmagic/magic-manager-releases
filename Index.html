@@ -3750,7 +3750,7 @@ var MERGE_FIELDS=[
   {key:'email', label:'Email', get:function(L){ return String(L[C.email]||''); }},
   {key:'source', label:'Lead source', get:function(L){ return String(L[C.source]||''); }},
   {key:'contractlink', label:'Signed contract link', get:function(L){ return String(L[C.contractPdfUrl]||''); }},
-  {key:'signlink', label:'Contract sign link (send before they sign)', get:function(L){ return String(L[C.contractSignUrl]||''); }}
+  {key:'signlink', label:'Event portal link (send before they sign)', get:function(L){ return String(L[C.contractSignUrl]||''); }}
 ];
 function fillTpl(s, primary, referredLead){
   var out=String(s||'');
@@ -4197,8 +4197,8 @@ function renderContractResultPanel(signUrl, pdfUrl, docUrl){
   out.style.display='';
   out.innerHTML =
     '<div style="border:1px solid var(--gold);border-radius:10px;padding:12px;margin-top:10px">'
-    +'<p class="note" style="text-align:left;margin:0 0 8px">Contract created. Send the sign link to your client, or open the document directly.</p>'
-    +'<button class="bump" style="width:100%;border-radius:8px;margin-bottom:6px" onclick="copyToClipboard(\''+esc(signUrl)+'\');toast(\'Sign link copied\')">Copy Sign Link</button>'
+    +'<p class="note" style="text-align:left;margin:0 0 8px">Contract created. Send the event portal link to your client, or open the document directly.</p>'
+    +'<button class="bump" style="width:100%;border-radius:8px;margin-bottom:6px" onclick="copyToClipboard(\''+esc(signUrl)+'\');toast(\'Event portal link copied\')">Copy Event Portal Link</button>'
     +'<a class="act" href="'+esc(pdfUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">View PDF</a>'
     +'<a class="act" href="'+esc(docUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">Edit in Google Docs</a>'
     +'</div>';

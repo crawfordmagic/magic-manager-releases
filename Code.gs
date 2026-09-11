@@ -104,12 +104,12 @@ var CONFIG_FIELDS_ = [
   // Your business
   { key: 'BUSINESS_NAME', label: 'Business name', help: 'Shown throughout the app and to clients.', section: 'business' },
   { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: 'Full legal entity name used on contracts.', section: 'business' },
-  { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the sign page.', section: 'business' },
+  { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the event portal.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
   { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
   { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own booking page — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
-  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the sign page and contract.', section: 'contact' },
+  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract.', section: 'contact' },
   { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional).', section: 'contact' },
   { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com.', section: 'contact' },
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', section: 'contact' },
@@ -142,7 +142,7 @@ var CONFIG_FIELDS_ = [
   { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
   // Store (optional)
   { key: 'STORE_ENABLED', label: 'Store page', help: 'Optional. Turn on a simple public checkout page for selling products — merch, gift cards, downloads — separate from your event bookings. Add products below; each one gets its own shareable link. Off by default.', editor: 'storefront', section: 'storefront' },
-  { key: 'STORE_PAYMENT_METHODS', label: 'Store payment methods', help: 'Optional. By default your store offers the same payment methods your clients see on the sign page. Tick specific methods here to show only those in the store — leave them all unticked to offer everything. A method only appears once you\'ve set it up under "Getting paid" above.', editor: 'storemethods', section: 'storefront' },
+  { key: 'STORE_PAYMENT_METHODS', label: 'Store payment methods', help: 'Optional. By default your store offers the same payment methods your clients see on the event portal. Tick specific methods here to show only those in the store — leave them all unticked to offer everything. A method only appears once you\'ve set it up under "Getting paid" above.', editor: 'storemethods', section: 'storefront' },
   // Calls & texts
   { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', section: 'comms' },
   { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', section: 'comms' },
@@ -157,7 +157,7 @@ var CONFIG_FIELDS_ = [
 // two must-fill sections); the rest start collapsed to keep first-run calm.
 var SETTINGS_SECTIONS_ = [
   { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on the page your clients see.', open: true },
-  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client sign & pay page.', open: true },
+  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client event portal.', open: true },
   { id: 'payments', title: 'Getting paid', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
   { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
   { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
@@ -308,7 +308,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.13';
+var APP_VERSION = '1.5.14';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -621,7 +621,7 @@ function doGet(e) {
     template.paid = e.parameter.paid || '';
     template.cfg = getConfig_();
     return template.evaluate()
-      .setTitle(getConfig_().BUSINESS_NAME + ' — Sign Agreement')
+      .setTitle(getConfig_().BUSINESS_NAME + ' — Event Portal')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
