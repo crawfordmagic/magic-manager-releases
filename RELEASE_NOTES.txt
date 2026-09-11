@@ -1,5 +1,6 @@
 What's new in this update:
 
+• New lead field: Entertainment Budget — track what a client has budgeted for entertainment right on their lead, shown next to your quote. Like any field, you can reorder or hide it.
 • New payment options — accept PayPal and Zelle for deposits, balances, and store sales. Turn them on in Settings by adding your PayPal.Me handle or Zelle email/phone.
 • Card fee, your call — the 3.25% credit-card processing fee is now optional. Leave it on (the default) or switch it off in Settings → Payments to absorb it yourself, so card clients pay the plain amount.
 • Track your store sales — record who bought from your store, including sales you made outside the app, and see that money in your Insights income. Pick the product from a dropdown, mark it received, and edit the amount if you gave a discount. (Shows up only when your store is on.)

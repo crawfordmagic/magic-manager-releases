@@ -1109,7 +1109,8 @@ var C = {
   contractSigned:'Contract Signed',
   contractDocUrl:'Contract Doc URL', contractSignUrl:'Contract Sign URL',
   depositReceiptUrl:'Deposit Receipt PDF URL', balanceReceiptUrl:'Balance Receipt PDF URL',
-  balanceDueDays:'Balance Due Days'
+  balanceDueDays:'Balance Due Days',
+  entertainmentBudget:'Entertainment Budget'
 };
 
 // Option lists owners customize in Setup (Services, Event Types, Lead/Ad Sources).
@@ -3192,6 +3193,7 @@ var KVF=[
   {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', ['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other'])},
   {label:'Audience', col:C.audience, type:'text'},
   {label:'Audience Age Range', col:C.audienceAge, type:'text'},
+  {label:'Entertainment budget', col:C.entertainmentBudget, type:'text', money:true},
   {label:'Quoted', col:C.price, type:'text', money:true},
   {label:'Deposit', col:C.deposit, type:'text', money:true},
   {label:'Payment method', col:C.paymentMethod, type:'select', opts:['ACH','Cash App','Check','Credit Card','Venmo','Wire Transfer']},
