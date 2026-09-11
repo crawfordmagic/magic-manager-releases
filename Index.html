@@ -1246,8 +1246,23 @@ function hasDepositCardFee(L){ var pm=String(L[C.paymentMethod]||''); return pm=
 // fee math only ever runs live on the Sign page itself, based on the
 // client's real, real-time selection — never assumed ahead of time here.
 function hasBalanceCardFee(L){ var pm=String(L[C.balancePaymentMethod]||''); return pm==='Credit Card' || pm==='Card'; }
+// The configured deposit percent (Settings -> Getting paid), stripped, clamped
+// to 0-100, and falling back to 50 for a blank/garbage value — the exact same
+// rule the server's computeBaseAmounts_ uses, so the app never shows a split the
+// contract, client portal, or Stripe charge won't honor.
+function configDepositPct(){
+  var raw=String((typeof CFG!=='undefined'&&CFG&&CFG.DEPOSIT_PERCENT!=null)?CFG.DEPOSIT_PERCENT:'').replace(/[^0-9.]/g,'');
+  var pct=(raw==='')?50:Number(raw);
+  if(isNaN(pct)) pct=50;
+  return Math.max(0, Math.min(100, pct));
+}
+// Default deposit for a lead with none entered yet: the configured percent of
+// the full total (price + travel fee), rounded to the cent — mirrors the server.
+function defaultDeposit(price, travelFee){ return Math.round((money(price)+money(travelFee))*configDepositPct())/100; }
 function depositBase(L){ return money(L[C.deposit]); }
-function balanceBase(L){ return Math.max(0, money(L[C.price]) - depositBase(L)); }
+// Balance = the full total (price + travel fee) minus the deposit, matching the
+// server so the balance shown here equals what the contract/portal/charge bill.
+function balanceBase(L){ return Math.max(0, money(L[C.price]) + money(L[C.travelFee]) - depositBase(L)); }
 function depositFinal(L){ var d=depositBase(L); return hasDepositCardFee(L) ? d*(1+CARD_FEE_RATE) : d; }
 function balanceFinal(L){ var b=balanceBase(L); return hasBalanceCardFee(L) ? b*(1+CARD_FEE_RATE) : b; }
 function svcLabel(s){ s=String(s||'').trim(); return s||'\u2014'; }
@@ -1373,6 +1388,9 @@ function load(){
     // together after the main page, rather than sitting there mid-load.
     $('manageWrap').style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge();
+    // Brand-new install: open the guided setup wizard once (skippable). Already-
+    // configured installs (BUSINESS_NAME set) never see it auto-open.
+    try{ var _cfgd = CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME!=='Your Business'; if(!_cfgd && !localStorage.getItem('mm_wizard_seen')){ localStorage.setItem('mm_wizard_seen','1'); launchWizard(); } }catch(e){}
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
     checkShowtimePopup();
     google.script.run.withSuccessHandler(function(r){
@@ -3371,14 +3389,17 @@ function saveKV(i){
     updates[F.col]=nv;
     CURRENT[F.col]=nv;
   }
-  // Deposit defaults to half the quoted price the moment a price is set —
-  // but only while deposit is still blank, so it never overwrites a figure
-  // you've deliberately typed in yourself.
+  // Deposit defaults to your configured percent (Settings -> Getting paid) of
+  // the total the moment a price is set — but only while deposit is still blank,
+  // so it never overwrites a figure you've deliberately typed in yourself. Uses
+  // the same rule as the server, so what you see here is exactly what the
+  // contract, client portal, and Stripe charge will use. (0% -> left blank ->
+  // no deposit, whole amount becomes the balance.)
   if(F.col===C.price && !money(CURRENT[C.deposit])){
-    var half=money(nv)/2;
-    if(half){
-      CURRENT[C.deposit]=String(half);
-      updates[C.deposit]=String(half);
+    var dep=defaultDeposit(nv, CURRENT[C.travelFee]);
+    if(dep){
+      CURRENT[C.deposit]=String(dep);
+      updates[C.deposit]=String(dep);
       var di=KVF.findIndex(function(x){ return x.col===C.deposit; });
       if(di>-1 && $('kv_'+di)) $('kv_'+di).innerHTML=kvDisplay(KVF[di]);
     }
@@ -6754,10 +6775,32 @@ function maybeShowSetupNudge(){
   box.innerHTML = '<div class="card" style="border-color:var(--gold)">'
     + '<div style="font-weight:700;color:var(--gold-bright);margin-bottom:4px">Welcome ✦</div>'
     + '<div style="font-size:13.5px;color:var(--cream);margin-bottom:10px">Make this app yours — add your business name, contact info, and payment details so your app, contracts, and client pages show <em>your</em> brand.</div>'
-    + '<button class="save" style="margin-top:0" onclick="openSetup()">Set up my business</button>'
+    + '<button class="save" style="margin-top:0" onclick="launchWizard()">Set up my business</button>'
     + '</div>';
 }
 var SETTINGS_FIELDS = [];
+// One field's HTML — shared by the full Settings screen and the setup wizard so
+// both render (and save via set_<key>) identically. Dispatches to the custom
+// editors, otherwise a text input / textarea.
+function settingsFieldHtml(f, raw, cfg){
+  raw = raw||{}; cfg = cfg||{};
+  var val = (raw[f.key]!=null?raw[f.key]:'');
+  if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
+  if(f.editor==='audiences') return audiencesEditorHtml(f, val, cfg);
+  if(f.editor==='storefront') return storefrontEditorHtml(f, val, cfg);
+  if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
+  if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
+  if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
+  if(f.editor==='cardfee') return cardfeeEditorHtml(f, val, cfg);
+  var ph = (cfg[f.key]!=null?cfg[f.key]:'');
+  var ctrl = f.multiline
+    ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
+    : '<input id="set_'+f.key+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'"'+(f.key==='LOGO_URL'?' oninput="updateLogoPreview(this.value)"':'')+'>';
+  var h = '<div class="field"><label>'+esc(f.label)+'</label>' + ctrl
+    + (f.help?'<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'');
+  if(f.key==='LOGO_URL'){ h += '<div id="logoPreview" style="margin-top:8px"></div>'; }
+  return h + '</div>';
+}
 function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
@@ -6769,27 +6812,10 @@ function renderSettings(){
     var sections = s.sections || [];
     var cfg = s.config || {}, raw = s.raw || {};
     function filled(f){ var v=raw[f.key]; return v!=null && String(v).trim()!==''; }
-    function fieldHtml(f){
-      var val = (raw[f.key]!=null?raw[f.key]:'');
-      if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
-      if(f.editor==='audiences') return audiencesEditorHtml(f, val, cfg);
-      if(f.editor==='storefront') return storefrontEditorHtml(f, val, cfg);
-      if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
-      if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
-      if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
-      if(f.editor==='cardfee') return cardfeeEditorHtml(f, val, cfg);
-      var ph = (cfg[f.key]!=null?cfg[f.key]:'');
-      var ctrl = f.multiline
-        ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
-        : '<input id="set_'+f.key+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'"'+(f.key==='LOGO_URL'?' oninput="updateLogoPreview(this.value)"':'')+'>';
-      var h = '<div class="field"><label>'+esc(f.label)+'</label>' + ctrl
-        + (f.help?'<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'');
-      if(f.key==='LOGO_URL'){
-        h += '<div id="logoPreview" style="margin-top:8px"></div>';
-      }
-      return h + '</div>';
-    }
+    function fieldHtml(f){ return settingsFieldHtml(f, raw, cfg); }
     var used = {}, html = '';
+    html += '<button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>'
+      + '<p class="note" style="text-align:left;margin:0 0 8px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>';
     sections.forEach(function(sec){
       var fs = SETTINGS_FIELDS.filter(function(f){ return f.section===sec.id; });
       if(!fs.length) return;
@@ -6876,6 +6902,142 @@ function saveSettingsFromForm(){
   google.script.run.withSuccessHandler(function(res){ if(res&&res.config) CFG=res.config; toast('Settings saved ✦'); maybeShowSetupNudge(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .saveSettings(obj);
+}
+
+/* ---------- First-run setup wizard (polished onboarding over the config engine) ---------- */
+// Curated steps: a friendly subset of the full Settings, rendered with the SAME
+// field editors (settingsFieldHtml) and saved via the SAME saveSettings. Everything
+// else (legal name, W-9/insurance, ACH/wire/check, lead sources, store, advanced)
+// stays in the full Settings screen; the wizard just gets a new install running fast.
+var WIZARD_STEPS = [
+  { eyebrow:'The basics', title:'Your business', sub:'These appear in your app, on your contracts, and on the page your clients see.', keys:['BUSINESS_NAME','OWNER_NAME','TAGLINE','LOGO_URL'] },
+  { eyebrow:'Contact', title:'How clients reach you', sub:'Shown to clients on their event portal and your contract.', keys:['EMAIL','PHONE','WEBSITE','ADDRESS'] },
+  { eyebrow:'Getting paid', title:'How you collect', sub:'Set your deposit and switch on the digital methods you use. More options — ACH, wire, and mailed check — are optional and can be added anytime under Settings.', keys:['DEPOSIT_PERCENT','CARD_FEE_ENABLED','VENMO_USERNAME','CASHAPP_CASHTAG','PAYPAL_USERNAME','ZELLE_HANDLE'] },
+  { eyebrow:'What you offer', title:'Your services', sub:'The audiences you serve, plus the choices that fill your app\'s dropdowns.', keys:['AUDIENCES','SERVICES','EVENT_TYPES','LEAD_SOURCES'] }
+];
+var WIZ = { i:0, fields:{}, raw:{}, cfg:{} };
+
+function wizCss(){ return [
+  '#wizardOverlay{position:fixed;inset:0;z-index:1000;background:var(--ink);overflow:auto;-webkit-overflow-scrolling:touch}',
+  '#wizardOverlay [hidden]{display:none!important}',
+  '.wiz-frame{max-width:460px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}',
+  '.wiz-top{padding:22px 22px 0}',
+  '.wiz-brand{display:flex;align-items:center;gap:9px;justify-content:center;color:var(--gold);font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:700}',
+  '.wiz-star{color:var(--gold-bright);font-size:15px;line-height:1}',
+  '.wiz-progwrap{margin:18px 0 2px}',
+  '.wiz-progrow{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}',
+  '.wiz-stepnum{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}',
+  '.wiz-pct{font-size:11px;color:var(--gold-bright);font-weight:600}',
+  '.wiz-track{height:4px;background:var(--panel2);border-radius:99px;overflow:hidden}',
+  '.wiz-fill{height:100%;width:0;background:var(--gold);border-radius:99px;transition:width .35s ease}',
+  '.wiz-body{flex:1;padding:18px 22px 8px}',
+  '.wiz-h1{font-family:\'Playfair Display\',Georgia,serif;font-size:25px;font-weight:800;margin:0 0 8px;color:var(--cream);text-align:left}',
+  '.wiz-eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 6px}',
+  '.wiz-sub{color:var(--muted);font-size:14px;line-height:1.65;margin:0 0 18px}',
+  '.wiz-preview{margin-top:20px;background:#000;border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center}',
+  '.wiz-pv-logo{display:block;max-width:140px;max-height:90px;margin:0 auto 10px;border-radius:6px}',
+  '.wiz-pl{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:700}',
+  '.wiz-pn{font-family:\'Playfair Display\',serif;font-size:20px;font-weight:800;color:var(--cream);margin:4px 0 2px}',
+  '.wiz-pt{font-size:11px;color:var(--muted);font-style:italic}',
+  '.wiz-pc{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:12px}',
+  '.wiz-nav{display:flex;align-items:center;gap:12px;padding:14px 22px 8px}',
+  '.wiz-btn{font-family:inherit;font-size:15px;font-weight:700;border-radius:10px;padding:13px 18px;cursor:pointer;border:none}',
+  '.wiz-primary{background:var(--gold);color:#171008;flex:1}',
+  '.wiz-ghost{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:600}',
+  '.wiz-skip{display:block;text-align:center;color:var(--muted);font-size:12.5px;text-decoration:none;padding:6px 0 22px}',
+  '.wiz-fin{text-align:center;padding:14px 4px}',
+  '.wiz-finstar{font-size:42px;color:var(--gold-bright);margin-bottom:6px}',
+  '.wiz-more{margin:18px 0 20px;text-align:left;background:rgba(201,160,80,.12);border:1.5px solid var(--gold);border-radius:12px;padding:16px 17px}',
+  '.wiz-more-h{display:flex;align-items:center;gap:8px;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold-bright);font-weight:700;margin:0 0 8px}',
+  '.wiz-more-p{font-size:14px;line-height:1.62;color:var(--cream);margin:0}',
+  '.wiz-more-p strong{color:var(--gold-bright);font-weight:700}',
+  '@media (prefers-reduced-motion:reduce){.wiz-fill{transition:none}}'
+].join(''); }
+
+function launchWizard(){
+  google.script.run.withSuccessHandler(function(s){
+    var fmap={}; (s.fields||[]).forEach(function(f){ fmap[f.key]=f; });
+    WIZ={ i:0, fields:fmap, raw:s.raw||{}, cfg:s.config||{} };
+    renderWizard();
+  }).withFailureHandler(function(){ toast('Could not open setup — try again'); }).getSettings();
+}
+
+function renderWizard(){
+  var total=WIZARD_STEPS.length;
+  // Clear the full Settings form first so its set_<key> inputs can't collide with
+  // the wizard's (getElementById would otherwise grab the settings copy).
+  var sb=$('settingsBody'); if(sb) sb.innerHTML='';
+  var ov=$('wizardOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='wizardOverlay'; document.body.appendChild(ov); }
+  var stepsHtml=WIZARD_STEPS.map(function(st, si){
+    var fieldsHtml=st.keys.map(function(k){ var f=WIZ.fields[k]; return f?settingsFieldHtml(f, WIZ.raw, WIZ.cfg):''; }).join('');
+    var pv=(si===0)?'<div class="wiz-preview"><img class="wiz-pv-logo" id="wizPvLogo" alt="" onerror="this.style.display=\'none\'" onload="this.style.display=\'\'"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn" id="wizPvName">'+esc(WIZ.raw.BUSINESS_NAME||WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pt" id="wizPvTag">'+esc(WIZ.raw.TAGLINE||WIZ.cfg.TAGLINE||'')+'</div><div class="wiz-pc">Updates live as you type</div></div>':'';
+    return '<section class="wiz-step" data-i="'+(si+1)+'" hidden><div class="wiz-eyebrow">'+esc(st.eyebrow)+'</div><h1 class="wiz-h1">'+esc(st.title)+'</h1><p class="wiz-sub">'+esc(st.sub)+'</p>'+fieldsHtml+pv+'</section>';
+  }).join('');
+  ov.innerHTML='<style>'+wizCss()+'</style>'
+    +'<div class="wiz-frame">'
+    +'<div class="wiz-top"><div class="wiz-brand"><span class="wiz-star">&#10038;</span><span>Magic Manager Setup</span></div>'
+    +'<div class="wiz-progwrap" id="wizProgwrap" hidden><div class="wiz-progrow"><span class="wiz-stepnum" id="wizStepnum"></span><span class="wiz-pct" id="wizPct"></span></div><div class="wiz-track"><div class="wiz-fill" id="wizFill"></div></div></div></div>'
+    +'<div class="wiz-body">'
+    +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1><p class="wiz-sub">Let&rsquo;s get your business set up &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p><div class="wiz-preview"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn">'+esc(WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pc">This is what your clients see</div></div></section>'
+    +stepsHtml
+    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div class="wiz-finstar">&#10038;</div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your brand.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your store, contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
+    +'</div>'
+    +'<div class="wiz-nav" id="wizNav"><button type="button" class="wiz-btn wiz-ghost" id="wizBack" hidden>Back</button><button type="button" class="wiz-btn wiz-primary" id="wizNext">Get started</button></div>'
+    +'<a href="javascript:void(0)" class="wiz-skip" id="wizSkip" hidden>Skip for now &mdash; finish later</a>'
+    +'</div>';
+  ov.style.display='block';
+  document.body.style.overflow='hidden';
+  $('wizNext').onclick=function(){ wizGo(1); };
+  $('wizBack').onclick=function(){ wizGo(-1); };
+  $('wizSkip').onclick=function(){ wizFinish(true); };
+  var wd=$('wizDone'); if(wd) wd.onclick=closeWizard;
+  var bn=$('set_BUSINESS_NAME'); if(bn) bn.addEventListener('input', function(){ var e=$('wizPvName'); if(e) e.textContent=this.value||'Your business'; });
+  var tg=$('set_TAGLINE'); if(tg) tg.addEventListener('input', function(){ var e=$('wizPvTag'); if(e) e.textContent=this.value; });
+  var lg=$('set_LOGO_URL'); if(lg) lg.addEventListener('input', function(){ var im=$('wizPvLogo'); if(im){ im.style.display=''; im.src=this.value; } });
+  var im0=$('wizPvLogo'); if(im0){ var _lu=(WIZ.raw.LOGO_URL||WIZ.cfg.LOGO_URL||''); if(_lu){ im0.src=_lu; } else { im0.style.display='none'; } }
+  try{ updateLogoPreview((WIZ.raw.LOGO_URL!=null?WIZ.raw.LOGO_URL:'')||(WIZ.cfg.LOGO_URL!=null?WIZ.cfg.LOGO_URL:'')); }catch(e){}
+  WIZ.i=0; wizShow();
+}
+
+function wizShow(){
+  var total=WIZARD_STEPS.length, i=WIZ.i, ov=$('wizardOverlay'); if(!ov) return;
+  ov.querySelectorAll('.wiz-step').forEach(function(s){ s.hidden=(Number(s.getAttribute('data-i'))!==i); });
+  var content=i>=1 && i<=total;
+  $('wizProgwrap').hidden=!content;
+  if(content){ $('wizStepnum').textContent='Step '+i+' of '+total; var p=Math.round(i/total*100); $('wizPct').textContent=p+'%'; $('wizFill').style.width=p+'%'; }
+  $('wizBack').hidden=(i===0 || i>total);
+  $('wizSkip').hidden=(i===0 || i>total);
+  $('wizNav').hidden=(i>total);
+  $('wizNext').textContent = i===0?'Get started':(i===total?'Finish setup':'Continue');
+  try{ ov.scrollTop=0; }catch(e){}
+}
+
+function wizGo(delta){
+  var total=WIZARD_STEPS.length, next=WIZ.i+delta;
+  if(next>total){ wizFinish(false); return; }
+  if(next<0) next=0;
+  WIZ.i=next; wizShow();
+}
+
+function wizCollect_(){ var obj={}; WIZARD_STEPS.forEach(function(st){ st.keys.forEach(function(k){ var el=$('set_'+k); if(el) obj[k]=el.value; }); }); return obj; }
+
+function wizFinish(skipped){
+  var obj=wizCollect_();
+  toast('Saving…');
+  google.script.run.withSuccessHandler(function(res){
+    if(res&&res.config) CFG=res.config;
+    try{ maybeShowSetupNudge(); }catch(e){}
+    if(skipped){ closeWizard(); toast('Saved — finish anytime in Settings'); return; }
+    WIZ.i=WIZARD_STEPS.length+1; wizShow();
+    toast('You’re all set ✦');
+  }).withFailureHandler(function(){ toast('Could not save — try again'); }).saveSettings(obj);
+}
+
+function closeWizard(){
+  var ov=$('wizardOverlay'); if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+  document.body.style.overflow='';
+  try{ var sv=$('view-settings'); if(sv && sv.style.display!=='none') renderSettings(); }catch(e){}
 }
 
 /* ---------- Event-messages-by-service editor (Settings) ---------- */

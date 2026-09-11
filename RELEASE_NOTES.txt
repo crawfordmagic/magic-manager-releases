@@ -1,10 +1,4 @@
 What's new in this update:
 
-• Your Event Portal — the page your clients use to review, sign, and pay is now "Your Event Portal," a cleaner home for everything tied to their booking. (Existing links still work.)
-• Documents at their fingertips — the Event Portal now has a "Your Documents" section with one-tap buttons to view the signed agreement, deposit and balance receipts, your W-9, and proof of insurance. Each button appears only when that document actually exists.
-• New lead field: Entertainment Budget — track what a client has budgeted for entertainment, shown right next to your quote. Reorder or hide it like any field.
-• New payment options — accept PayPal and Zelle for deposits, balances, and store sales.
-• Card fee, your call — the 3.25% credit-card processing fee is now optional. Switch it off in Settings → Payments to absorb it yourself.
-• Track your store sales — record who bought from your store (including sales made outside the app) and see that money in your Insights income.
-• Snooze update reminders — snooze this "update available" notice for a week or a month, or skip a version; your choice is remembered across your devices.
-• Plus a collapsible recurring-expenses list and a mobile store-checkout fix.
+• Guided setup — a friendly step-by-step guide walks you through the essentials: your business details and logo, how clients reach you, how you get paid, and your services — with a live preview of what clients will see. It opens automatically the first time you set up, and you can reopen it anytime from Settings → "Guided setup wizard." Everything stays optional, and the rest of your options are still right there in Settings.
+• Your deposit percentage now applies everywhere — when you set a price on a booking, the deposit is calculated from the percent you choose in Settings → Getting paid (and now includes any travel fee), so what you see matches your contract, your client's payment page, and their card charge exactly. Deposits you've already saved on existing bookings are left untouched.
