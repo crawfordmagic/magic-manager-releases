@@ -2067,11 +2067,12 @@ function clientIdentityKey(L){
   var contact=String(L[C.phone]||'').replace(/\D/g,'') || String(L[C.email]||'').trim().toLowerCase();
   return name+'|'+contact;
 }
-function rebookLog(logKey, name, type){
-  LOGS.push({key:logKey, when:new Date().toISOString(), type:type, note:'Rebooking outreach', id:'', row:0});
+function rebookLog(logKey, name, type, note){
+  note = note || 'Rebooking outreach';
+  LOGS.push({key:logKey, when:new Date().toISOString(), type:type, note:note, id:'', row:0});
   google.script.run.withSuccessHandler(function(json){ ingest(json); })
     .withFailureHandler(function(){})
-    .logContact(logKey, name||'', type, 'Rebooking outreach');
+    .logContact(logKey, name||'', type, note);
 }
 
 /* ---------- December Rebooking ---------- */
@@ -2115,6 +2116,8 @@ function computeDecemberRebookList(){
   var now0=today0(), fresh=[], followup=[];
   Object.keys(pastDec).forEach(function(key){
     if(handled[key]) return;
+    var kSkip='rebook:'+key+':'+targetYear+':skip';
+    if(LOGS.filter(function(l){ return l.key===kSkip; }).length) return; // snoozed for this year — returns next December
     var c=pastDec[key]; c.years.sort();
     var k1='rebook:'+key+':'+targetYear+':r1';
     var k2='rebook:'+key+':'+targetYear+':r2';
@@ -2141,6 +2144,7 @@ function decRebookItemHtml(item){
   if(phone) actions+='<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="decRebookCall(\''+esc(item.key)+'\')">Call</a>'
     +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="decRebookText(\''+esc(item.key)+'\')">Text</button>';
   if(email) actions+='<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="decRebookEmail(\''+esc(item.key)+'\')">Email</button>';
+  actions+='<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="decRebookSnooze(\''+esc(item.key)+'\')">Snooze</button>';
   var nameHtml=(company?'<span style="color:var(--muted);font-weight:400">'+esc(company)+'</span> — ':'')+esc(c.name||'Client');
   return '<div class="gfu-item">'
     +'<div class="gfu-name"'+(c.lastRow?' onclick="openSheet('+c.lastRow+')"':'')+'>'+nameHtml+'</div>'
@@ -2188,6 +2192,16 @@ function decRebookEmail(key){
   EPICKER_MODE='rebook'; EPICKER_CTX=ctx; EPICKER_TO=String(c.email||'').trim(); EPICKER_REFLEAD=null;
   var rw=$('epicker_refwrap'); if(rw) rw.style.display='none';
   renderEmailPicker();
+}
+// Hide a client from this year's rebooking list without contacting them. Logs a
+// per-year "skip" marker (same tracked mechanism as the outreach touches), so
+// they drop off now and return in next summer's cycle.
+function decRebookSnooze(key){
+  var item=decRebookFindItem(key); if(!item) return;
+  var targetYear=new Date().getFullYear();
+  rebookLog('rebook:'+key+':'+targetYear+':skip', item.client.name, 'Snooze', 'Rebooking snoozed for this year');
+  renderDecemberRebook();
+  toast('Snoozed — back next year');
 }
 // Top Clients: total value per client identity (summed across every real
 // booking they've made — Completed or Booked, any year), not per single

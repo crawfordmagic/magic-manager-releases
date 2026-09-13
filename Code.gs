@@ -308,7 +308,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.15';
+var APP_VERSION = '1.5.16';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -4516,7 +4516,11 @@ function syncFollowUps_() {
     if (!raw) return;
     const status = String(L['Status'] || '').toLowerCase();
     if (status === 'lost' || status === 'completed') return;
-    const d = new Date(raw);
+    // Followup arrives as a spreadsheet-tz string ("2026-09-20" or
+    // "2026-09-20 14:30"). parseYMD_ reads it as a LOCAL date; new Date() alone
+    // would treat the date-only form as UTC and land it the night before at the
+    // wrong hour (the "reminder on the wrong day at 8:xx" bug).
+    const d = new Date(parseYMD_(raw));
     if (isNaN(d.getTime())) return;
     // If a time of day was chosen, remind at that exact time; otherwise 9 AM.
     const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
@@ -4530,7 +4534,7 @@ function syncFollowUps_() {
     if (L['E-mail']) bits.push('Email: ' + L['E-mail']);
     if (L['Event Type']) bits.push('Event: ' + L['Event Type']);
     if (L['Date of Event']) {
-      const ed = new Date(L['Date of Event']);
+      const ed = new Date(parseYMD_(L['Date of Event']));
       if (!isNaN(ed.getTime())) bits.push('Event date: ' + Utilities.formatDate(ed, tz_(), 'M/d/yyyy'));
     }
     if (L['Quoted Price']) bits.push('Quoted: ' + L['Quoted Price']);
@@ -4548,7 +4552,7 @@ function syncFollowUps_() {
   // Task reminders — same rules: today forward, current year, exact time or 9 AM.
   getTasks_().forEach(function (T) {
     if (T.done || !T.due) return;
-    const d = new Date(T.due);
+    const d = new Date(parseYMD_(T.due)); // same tz-safe parse as the follow-ups above
     if (isNaN(d.getTime())) return;
     const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
     if (!hasTime) d.setHours(REMINDER_HOUR, 0, 0, 0);
