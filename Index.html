@@ -264,12 +264,10 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .gfu-actions{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
 .gfu-bumps{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .gfu-bumps .bump{ padding:6px 10px; font-size:11.5px; }
-.gfu-statuschip{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:5px 12px; border-radius:20px; cursor:pointer; border:1px solid var(--gold); color:var(--gold-bright); background:rgba(201,160,80,.16); }
-.gfu-statuschip.red{ border-color:var(--crimson); color:#E9927B; background:rgba(192,82,54,.16); }
-.gfu-statuschip.dim{ border-color:var(--line); color:var(--muted); background:transparent; }
-.gfu-statuspick{ display:flex; flex-wrap:wrap; gap:6px; margin:3px 0 7px; }
-.gfu-statusopt{ font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px; cursor:pointer; background:var(--panel2); border:1px solid var(--line); color:var(--cream); }
-.gfu-statusopt.active{ border-color:var(--gold); color:var(--gold-bright); background:rgba(201,160,80,.16); }
+.gfu-statuschip{ -webkit-appearance:none; -moz-appearance:none; appearance:none; width:auto; display:inline-block; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:5px 30px 5px 12px; border-radius:20px; cursor:pointer; border:1px solid var(--gold); color:var(--gold-bright); background-color:rgba(201,160,80,.16); background-repeat:no-repeat; background-position:right 11px center; background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23E4C179' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.gfu-statuschip.red{ border-color:var(--crimson); color:#E9927B; background-color:rgba(192,82,54,.16); }
+.gfu-statuschip.dim{ border-color:var(--line); color:var(--muted); background-color:transparent; }
+.gfu-statuschip option{ color:var(--cream); background:var(--panel); text-transform:none; letter-spacing:normal; font-weight:600; }
 .upcomingfu-row{
   display:flex; justify-content:space-between; align-items:center; gap:10px;
   padding:10px 0; border-top:1px solid var(--line); cursor:pointer;
@@ -1490,7 +1488,7 @@ function quickEmailLead(row){
   CURRENT=L;
   openEmailPicker();
 }
-var GFU_PROMPT_ROW=null, GFU_PROMPT_TYPE=null, GFU_SHOW_BUMPS={}, GFU_STATUS_OPEN=null;
+var GFU_PROMPT_ROW=null, GFU_PROMPT_TYPE=null, GFU_SHOW_BUMPS={};
 function showGfuBumps(row){
   GFU_SHOW_BUMPS[row]=true;
   renderGenFollowupDue();
@@ -1985,7 +1983,7 @@ function renderGenFollowupDue(){
     return f0<=t; // due today OR overdue — keep late follow-ups pinned at the top, not in the list below
   });
   due.sort(function(a,b){ return pd(a[C.followup]) - pd(b[C.followup]); });
-  if(!due.length){ box.style.display='none'; box.innerHTML=''; GFU_PROMPT_ROW=null; GFU_SHOW_BUMPS={}; GFU_STATUS_OPEN=null; return; }
+  if(!due.length){ box.style.display='none'; box.innerHTML=''; GFU_PROMPT_ROW=null; GFU_SHOW_BUMPS={}; return; }
   var dueRows={}; due.forEach(function(L){ dueRows[L._row]=true; });
   Object.keys(GFU_SHOW_BUMPS).forEach(function(r){ if(!dueRows[r]) delete GFU_SHOW_BUMPS[r]; });
   box.style.display='';
@@ -2069,28 +2067,24 @@ function renderGenFollowupDue(){
       }).join('')
     +'</div>';
 }
-// A prominent, tappable status chip on the Follow-Ups Due card — tap it to change
-// the lead's stage right there, no need to open the lead. Reuses updateLead (the
-// same server call the lead editor uses), so Booked still syncs the calendar and
-// so on; marking Lost also clears the reminder, matching the editor. Only the
-// direct statuses are offered — Referral/Referred need a partner, so they stay on
-// the existing "Refer This Lead" flow.
-var GFU_STATUS_PICK=['New','Pending','Booked','Completed','Lost'];
+// The lead's status on the Follow-Ups Due card, as a native <select> styled like a
+// prominent chip — the same control as the lead editor's Status field, so one tap
+// opens the device's own picker. Options mirror the editor (configuredStatuses).
+// Reuses updateLead (the editor's save call), so Booked still syncs the calendar;
+// marking Lost also clears the reminder, matching the editor. Referral/Referred
+// need a partner, so choosing one hands off to the same Refer flow.
 function statusChipHtml(L){
   var s=String(L[C.status]||'New');
-  if(GFU_STATUS_OPEN===L._row){
-    return '<div class="gfu-statuspick">'+GFU_STATUS_PICK.map(function(st){
-      return '<button type="button" class="gfu-statusopt'+(st===s?' active':'')+'" onclick="event.stopPropagation();setLeadStatusFromCard('+L._row+',\''+st+'\')">'+esc(st)+'</button>';
-    }).join('')+'</div>';
-  }
   var cls = s==='Lost' ? 'red' : (s==='Completed' ? 'dim' : 'gold');
-  return '<div style="margin:7px 0 2px"><span class="gfu-statuschip '+cls+'" onclick="event.stopPropagation();toggleGfuStatus('+L._row+')">'+esc(s)+' <span style="opacity:.65;font-size:10px">▾</span></span></div>';
+  var opts=configuredStatuses().map(function(st){ return '<option'+(st===s?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
+  return '<div style="margin:7px 0 2px"><select class="gfu-statuschip '+cls+'" onclick="event.stopPropagation()" onchange="setLeadStatusFromCard('+L._row+',this.value)">'+opts+'</select></div>';
 }
-function toggleGfuStatus(row){ GFU_STATUS_OPEN = (GFU_STATUS_OPEN===row) ? null : row; renderGenFollowupDue(); }
 function setLeadStatusFromCard(row, newStatus){
   var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
-  GFU_STATUS_OPEN=null;
-  if(String(L[C.status]||'')===newStatus){ renderGenFollowupDue(); return; }
+  if(String(L[C.status]||'')===newStatus) return;
+  // Referral/Referred need a partner — hand off to the same Refer flow the rest of
+  // the app uses; re-render first so the dropdown snaps back until that flow saves.
+  if(newStatus==='Referral' || newStatus==='Referred'){ renderGenFollowupDue(); openReferModal(row); return; }
   var updates={}; updates[C.status]=newStatus;
   // Match the lead editor: a Lost lead needs no follow-up (nothing is deleted; it
   // still shows under the Lost filter). Booked's calendar sync is server-side.
