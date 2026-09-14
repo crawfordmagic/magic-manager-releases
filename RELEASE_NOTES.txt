@@ -1,4 +1,3 @@
 What's new in this update:
 
-• Insights drill-downs stay in Insights. Tapping a lead source, service, event type, referral, or lost reason now opens the details right there in the Insights tab — with a back button — instead of jumping over to your Leads list. The monthly income/expense trend and the expense breakdown are now tappable too: tap a month to see that month's income and expenses, or tap a category to see the expenses behind it.
-• Settings opens tidy. The Settings screen now starts with every section collapsed, so you see the whole list at a glance and expand just the one you need.
+• Change a lead's status right from the Follow-Ups Due card. Each lead now shows its status as a tappable chip. Tap it to move the lead to New, Pending, Booked, Completed, or Lost without opening the lead — it saves automatically. As always, marking a lead Booked adds it to your calendar and marking it Lost clears its follow-up reminder.

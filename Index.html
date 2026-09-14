@@ -264,6 +264,12 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .gfu-actions{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
 .gfu-bumps{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .gfu-bumps .bump{ padding:6px 10px; font-size:11.5px; }
+.gfu-statuschip{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:5px 12px; border-radius:20px; cursor:pointer; border:1px solid var(--gold); color:var(--gold-bright); background:rgba(201,160,80,.16); }
+.gfu-statuschip.red{ border-color:var(--crimson); color:#E9927B; background:rgba(192,82,54,.16); }
+.gfu-statuschip.dim{ border-color:var(--line); color:var(--muted); background:transparent; }
+.gfu-statuspick{ display:flex; flex-wrap:wrap; gap:6px; margin:3px 0 7px; }
+.gfu-statusopt{ font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px; cursor:pointer; background:var(--panel2); border:1px solid var(--line); color:var(--cream); }
+.gfu-statusopt.active{ border-color:var(--gold); color:var(--gold-bright); background:rgba(201,160,80,.16); }
 .upcomingfu-row{
   display:flex; justify-content:space-between; align-items:center; gap:10px;
   padding:10px 0; border-top:1px solid var(--line); cursor:pointer;
@@ -1484,7 +1490,7 @@ function quickEmailLead(row){
   CURRENT=L;
   openEmailPicker();
 }
-var GFU_PROMPT_ROW=null, GFU_PROMPT_TYPE=null, GFU_SHOW_BUMPS={};
+var GFU_PROMPT_ROW=null, GFU_PROMPT_TYPE=null, GFU_SHOW_BUMPS={}, GFU_STATUS_OPEN=null;
 function showGfuBumps(row){
   GFU_SHOW_BUMPS[row]=true;
   renderGenFollowupDue();
@@ -1979,7 +1985,7 @@ function renderGenFollowupDue(){
     return f0<=t; // due today OR overdue — keep late follow-ups pinned at the top, not in the list below
   });
   due.sort(function(a,b){ return pd(a[C.followup]) - pd(b[C.followup]); });
-  if(!due.length){ box.style.display='none'; box.innerHTML=''; GFU_PROMPT_ROW=null; GFU_SHOW_BUMPS={}; return; }
+  if(!due.length){ box.style.display='none'; box.innerHTML=''; GFU_PROMPT_ROW=null; GFU_SHOW_BUMPS={}; GFU_STATUS_OPEN=null; return; }
   var dueRows={}; due.forEach(function(L){ dueRows[L._row]=true; });
   Object.keys(GFU_SHOW_BUMPS).forEach(function(r){ if(!dueRows[r]) delete GFU_SHOW_BUMPS[r]; });
   box.style.display='';
@@ -2048,6 +2054,7 @@ function renderGenFollowupDue(){
           +'</div>'
           : '<div class="gfu-name" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap" onclick="openSheet('+L._row+')"><span>'+esc(L[C.name]||'Lead')+(!hasConflict && L[C.price]?' <span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')+'</span>'+preferredContactBadgeHtml(L)+'</div>')
           +(meta?'<div class="gfu-meta">'+meta+'</div>':'')
+          +statusChipHtml(L)
           +lastHtml
           +(actions?'<div class="gfu-actions">'+actions+'</div>':'')
           +promptHtml
@@ -2061,6 +2068,40 @@ function renderGenFollowupDue(){
           +'</div>';
       }).join('')
     +'</div>';
+}
+// A prominent, tappable status chip on the Follow-Ups Due card — tap it to change
+// the lead's stage right there, no need to open the lead. Reuses updateLead (the
+// same server call the lead editor uses), so Booked still syncs the calendar and
+// so on; marking Lost also clears the reminder, matching the editor. Only the
+// direct statuses are offered — Referral/Referred need a partner, so they stay on
+// the existing "Refer This Lead" flow.
+var GFU_STATUS_PICK=['New','Pending','Booked','Completed','Lost'];
+function statusChipHtml(L){
+  var s=String(L[C.status]||'New');
+  if(GFU_STATUS_OPEN===L._row){
+    return '<div class="gfu-statuspick">'+GFU_STATUS_PICK.map(function(st){
+      return '<button type="button" class="gfu-statusopt'+(st===s?' active':'')+'" onclick="event.stopPropagation();setLeadStatusFromCard('+L._row+',\''+st+'\')">'+esc(st)+'</button>';
+    }).join('')+'</div>';
+  }
+  var cls = s==='Lost' ? 'red' : (s==='Completed' ? 'dim' : 'gold');
+  return '<div style="margin:7px 0 2px"><span class="gfu-statuschip '+cls+'" onclick="event.stopPropagation();toggleGfuStatus('+L._row+')">'+esc(s)+' <span style="opacity:.65;font-size:10px">▾</span></span></div>';
+}
+function toggleGfuStatus(row){ GFU_STATUS_OPEN = (GFU_STATUS_OPEN===row) ? null : row; renderGenFollowupDue(); }
+function setLeadStatusFromCard(row, newStatus){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  GFU_STATUS_OPEN=null;
+  if(String(L[C.status]||'')===newStatus){ renderGenFollowupDue(); return; }
+  var updates={}; updates[C.status]=newStatus;
+  // Match the lead editor: a Lost lead needs no follow-up (nothing is deleted; it
+  // still shows under the Lost filter). Booked's calendar sync is server-side.
+  if(newStatus==='Lost'){ updates[C.followup]=''; }
+  L[C.status]=newStatus;
+  if(newStatus==='Lost'){ L[C.followup]=''; }
+  renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights();
+  toast('Status → '+newStatus);
+  google.script.run.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
+    .withFailureHandler(function(){ toast('Could not save — try again'); })
+    .updateLead(row, updates);
 }
 /* ---------- Client identity helper (shared) ---------- */
 function clientIdentityKey(L){
