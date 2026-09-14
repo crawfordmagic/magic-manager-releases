@@ -1,4 +1,4 @@
 What's new in this update:
 
-• Insights now filter by year everywhere. Choosing a year at the top of Insights updates every section — Best Performing Sources, Advertising ROI, Store Sales, referrals, and the rest — not just the summary tiles at the top. Advertising ROI now shows the year you picked (no more confusing year labels), and a "Showing: <year>" line under the picker makes the active year clear. Choose "All Time" to compare every year side by side.
-• Your clients' event portal: the "View the full agreement (PDF)" link is now a clear button with an icon, matching the other document buttons on the page.
+• Insights drill-downs stay in Insights. Tapping a lead source, service, event type, referral, or lost reason now opens the details right there in the Insights tab — with a back button — instead of jumping over to your Leads list. The monthly income/expense trend and the expense breakdown are now tappable too: tap a month to see that month's income and expenses, or tap a category to see the expenses behind it.
+• Settings opens tidy. The Settings screen now starts with every section collapsed, so you see the whole list at a glance and expand just the one you need.

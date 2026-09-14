@@ -5512,13 +5512,33 @@ function renderMonthlyTrend(incomeEvents, exp, $m){
     +'</div>';
   names.forEach(function(name, i){
     if(!monthsIncome[i] && !monthsExpense[i]) return;
-    h += '<div class="bar-row">'
+    h += '<div class="bar-row" onclick="showMonthMoney('+i+')" style="cursor:pointer">'
       + '<div class="bar-top"><span>'+name+'</span><span class="n">'+$m(monthsIncome[i])+' / '+$m(monthsExpense[i])+'</span></div>'
       + '<div class="track" style="margin-bottom:3px"><div class="fill" style="width:'+Math.round(monthsIncome[i]/max*100)+'%"></div></div>'
       + '<div class="track"><div class="fill red" style="width:'+Math.round(monthsExpense[i]/max*100)+'%"></div></div>'
       + '</div>';
   });
   $('profit_monthly').innerHTML = h;
+}
+// Tap a month in the trend to see exactly what made it up — that month's income
+// events and expenses, each tappable. Reuses the same in-Insights overlay and
+// the same scoped sources as the Income/Expenses totals, so it can't drift.
+function showMonthMoney(mo){
+  var y = insightsScopeYear() || new Date().getFullYear();
+  var names=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  var inc = insightsScopedIncomeEvents().filter(function(e){ return e.date.getFullYear()===y && e.date.getMonth()===mo; }).sort(function(a,b){ return b.date-a.date; });
+  var exp = insightsScopedExpenses().filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y && d.getMonth()===mo; }).sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var incTotal=inc.reduce(function(s,e){ return s+e.amount; },0);
+  var expTotal=exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
+  $('insightResults_title').textContent = names[mo]+' '+y+' · +'+$m(incTotal)+' / −'+$m(expTotal);
+  var h='';
+  if(inc.length){ h+='<div class="sec-title"><span class="t">Income</span><span class="rule"></span></div>'
+    + inc.map(function(e){ return compactRow(e.name, $m(e.amount), e.kind+' received', fmtDateY(ymd(e.date)), 'gold', e.row?('closeInsightResults();openSheet('+e.row+')'):''); }).join(''); }
+  if(exp.length){ h+='<div class="sec-title" style="margin-top:14px"><span class="t">Expenses</span><span class="rule"></span></div>'
+    + exp.map(function(E){ return compactRow(E.vendor||'Expense', $m(E.amount), E.category||'Other', E.date?fmtDateY(E.date):'', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):''); }).join(''); }
+  $('insightResults_list').innerHTML = h || '<div class="empty"><span class="star">&#10038;</span>Nothing recorded for '+names[mo]+' '+y+'.</div>';
+  $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function renderExpenseBreakdown($m){
   var exp = insightsScopedExpenses();
@@ -5536,8 +5556,20 @@ function renderExpenseBreakdown($m){
   $('exbrk_donut').innerHTML = donutChart(rows.map(function(r){ return {label:r.cat, value:r.amt}; }), $m);
   $('exbrk_list').innerHTML = rows.map(function(r){
     var pct = Math.round(r.amt/total*100);
-    return compactRow(r.cat, $m(r.amt), pct+'% of total spend', '', 'gold', '');
+    return compactRow(r.cat, $m(r.amt), pct+'% of total spend', '', 'gold', "showExpenseCategory('"+esc(r.cat).replace(/'/g,'')+"')");
   }).join('');
+}
+// Tap a category to see the expenses behind it (scoped to the selected year),
+// each tappable to open for editing. Same overlay as the Expenses total.
+function showExpenseCategory(cat){
+  var exp = insightsScopedExpenses().filter(function(E){ return (E.category||'Other')===cat; }).sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  var total=exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
+  $('insightResults_title').textContent = cat+' · '+$m(total);
+  $('insightResults_list').innerHTML = exp.length
+    ? exp.map(function(E){ return compactRow(E.vendor||'Expense', $m(E.amount), E.date?fmtDateY(E.date):'', '', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):''); }).join('')
+    : '<div class="empty"><span class="star">&#10038;</span>No expenses in this category for this period.</div>';
+  $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function renderTopVendors($m){
   var exp = insightsScopedExpenses();
@@ -5686,12 +5718,12 @@ function showAdRoiSourceDrilldown(src, year){
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function insightNonactiveReason(reason){
-  showInsight('Lost \u00b7 '+reason, function(L){
+  showInsightInPlace('Lost \u00b7 '+reason, function(L){
     if(String(L[C.status])!=='Lost') return false;
     return (String(L[C.lostReason]||'').trim() || 'Not specified')===reason;
   });
 }
-function insightReferralPartner(name){ showInsight('Referred to \u00b7 '+name, function(L){ return String(L[C.status])==='Referred' && (String(L[C.referral]||'').trim()||'Unassigned')===name; }); }
+function insightReferralPartner(name){ showInsightInPlace('Referred to \u00b7 '+name, function(L){ return String(L[C.status])==='Referred' && (String(L[C.referral]||'').trim()||'Unassigned')===name; }); }
 
 function partnerNameById(id){
   var p=PARTNERS.find(function(x){ return x.id===id; });
@@ -5711,8 +5743,13 @@ function renderReferralsSent(){
         +(l.note?'<div class="hnote">'+linkify(l.note)+'</div>':'')+'</div>'; }).join('')
     : '';
 }
-function insightService(svc){ showInsight('Service \u00b7 '+svc, function(L){ return svcLabel(L[C.service])===svc; }); }
-function insightEvent(evt){ showInsight('Event type \u00b7 '+evt, function(L){ return String(L[C.eventType]||'').trim()===evt; }); }
+function insightService(svc){ showInsightInPlace('Service \u00b7 '+svc, function(L){ return svcLabel(L[C.service])===svc; }); }
+function insightEvent(evt){ showInsightInPlace('Event type \u00b7 '+evt, function(L){ return String(L[C.eventType]||'').trim()===evt; }); }
+// Lead Source bars (and the ROI "return multiple by source" bars) call this; it
+// was never defined, so those taps did nothing. Matches by normalized source
+// key (case/space-insensitive, same rule as everywhere else) and opens the
+// in-Insights overlay like the rest.
+function insightSource(src){ showInsightInPlace('Lead source \u00b7 '+src, function(L){ return sourceKey_(L[C.source])===sourceKey_(src); }); }
 function syncContacts(){
   var btn=$('syncBtn'), stat=$('syncStat');
   if(stat) stat.style.display='block';

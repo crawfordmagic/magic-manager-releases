@@ -156,8 +156,8 @@ var CONFIG_FIELDS_ = [
 // Setup screen sections, in display order. `open` = expanded by default (the
 // two must-fill sections); the rest start collapsed to keep first-run calm.
 var SETTINGS_SECTIONS_ = [
-  { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on the page your clients see.', open: true },
-  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client event portal.', open: true },
+  { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on the page your clients see.', open: false },
+  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client event portal.', open: false },
   { id: 'payments', title: 'Getting paid', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
   { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
   { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
@@ -308,7 +308,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.17';
+var APP_VERSION = '1.5.18';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
