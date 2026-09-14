@@ -834,6 +834,21 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <button class="save" style="background:transparent;border:1px solid var(--line);margin-top:14px" onclick="closeReferModal()">Not now, I'm done</button>
   </div>
 </div>
+<div class="sheet" id="lostReasonSheet">
+  <div class="grab"></div>
+  <h2>Why was <span id="lrm_name">this lead</span> lost?</h2>
+  <p class="note" id="lrm_context" style="text-align:left;margin-top:-6px">Optional &mdash; it feeds your Insights, but you can leave it blank.</p>
+  <div class="field"><label>Reason</label>
+    <select id="lrm_reason" onchange="onLostModalReasonChange()">
+      <option value="">Choose a reason&#8230;</option>
+    </select>
+    <input id="lrm_other" placeholder="Describe the reason" style="margin-top:8px;display:none">
+  </div>
+  <div class="grid2" style="margin-top:14px;gap:8px">
+    <button class="bump" style="border-radius:8px" onclick="closeLostReasonModal()">Cancel</button>
+    <button class="save" style="margin-top:0" onclick="confirmLostReasonModal()">Mark Lost</button>
+  </div>
+</div>
 <div class="sheet" id="topclientsSheet">
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeTopClients()">&#8592; Back</a>
@@ -2082,17 +2097,52 @@ function statusChipHtml(L){
 function setLeadStatusFromCard(row, newStatus){
   var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
   if(String(L[C.status]||'')===newStatus) return;
-  // Referral/Referred need a partner — hand off to the same Refer flow the rest of
-  // the app uses; re-render first so the dropdown snaps back until that flow saves.
+  // Lost needs a reason and Referral/Referred need a partner — hand off to a focused
+  // prompt (the same info the lead editor captures). Re-render first so the dropdown
+  // snaps back to the current status until that prompt actually saves.
+  if(newStatus==='Lost'){ renderGenFollowupDue(); openLostReasonModal(row); return; }
   if(newStatus==='Referral' || newStatus==='Referred'){ renderGenFollowupDue(); openReferModal(row); return; }
   var updates={}; updates[C.status]=newStatus;
-  // Match the lead editor: a Lost lead needs no follow-up (nothing is deleted; it
-  // still shows under the Lost filter). Booked's calendar sync is server-side.
-  if(newStatus==='Lost'){ updates[C.followup]=''; }
   L[C.status]=newStatus;
-  if(newStatus==='Lost'){ L[C.followup]=''; }
   renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights();
   toast('Status → '+newStatus);
+  google.script.run.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
+    .withFailureHandler(function(){ toast('Could not save — try again'); })
+    .updateLead(row, updates);
+}
+// Lost-reason prompt, mirroring the lead editor's reason picker (same LOST_REASONS
+// list + free-text "Other"). Kept as its own small modal so marking Lost from the
+// card captures the reason without opening the whole lead. On save: status=Lost,
+// the reason, and the follow-up cleared (matching the editor).
+var LOST_MODAL_ROW=null;
+function openLostReasonModal(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  LOST_MODAL_ROW=row;
+  $('lrm_name').textContent = L[C.name]||'this lead';
+  var reasons = parseStatusList((typeof CFG!=='undefined'&&CFG&&CFG.LOST_REASONS)||'');
+  $('lrm_reason').innerHTML = '<option value="">Choose a reason…</option>'
+    + reasons.map(function(r){ return '<option>'+esc(r)+'</option>'; }).join('')
+    + '<option value="__other__">Other…</option>';
+  $('lrm_reason').value=''; $('lrm_other').style.display='none'; $('lrm_other').value='';
+  $('overlay').classList.add('open'); $('lostReasonSheet').classList.add('open');
+}
+function closeLostReasonModal(){ $('lostReasonSheet').classList.remove('open'); syncOverlay(); }
+function onLostModalReasonChange(){
+  var other=$('lrm_other');
+  if($('lrm_reason').value==='__other__'){ other.style.display=''; other.focus(); }
+  else { other.style.display='none'; other.value=''; }
+}
+function confirmLostReasonModal(){
+  var row=LOST_MODAL_ROW;
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var pickedOther = $('lrm_reason').value==='__other__';
+  var reason = pickedOther ? $('lrm_other').value.trim() : $('lrm_reason').value;
+  if(pickedOther && !reason){ toast('Type the reason, or pick one'); return; }
+  var updates={}; updates[C.status]='Lost'; updates[C.lostReason]=reason; updates[C.followup]='';
+  L[C.status]='Lost'; L[C.lostReason]=reason; L[C.followup]='';
+  closeLostReasonModal();
+  renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights();
+  toast('Marked Lost'+(reason?' · '+reason:''));
   google.script.run.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .updateLead(row, updates);
@@ -3069,7 +3119,7 @@ function openTask(id){
   $('overlay').classList.add('open'); $('tsheet').classList.add('open');
 }
 function anyPanelOpen(){
-  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','topclientsSheet','managefieldsSheet','insightResultsSheet','expenseSheet','importSheet','categorySheet'].some(function(id){
+  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','expenseSheet','importSheet','categorySheet'].some(function(id){
     var el=$(id); return el && el.classList.contains('open');
   });
 }

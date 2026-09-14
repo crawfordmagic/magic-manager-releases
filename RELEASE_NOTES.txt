@@ -1,3 +1,3 @@
 What's new in this update:
 
-• The status on the Follow-Ups Due card is now a dropdown. Tap a lead's status and pick from all your statuses — the same way it works inside a lead — so you can move a lead to any stage right from the card. New, Pending, Booked, Completed, and Lost save instantly; choosing Referral or Referred opens the partner picker so you can assign it.
+• Changing a lead's status from the Follow-Ups Due card now asks for the details when it needs them. Mark a lead Lost and it prompts for the reason (from your Lost Reasons list, or type your own); choose Referral and it asks which partner you're referring to — the same as inside a lead. New, Pending, Booked, and Completed still save with one tap.
