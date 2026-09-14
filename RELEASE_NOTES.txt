@@ -1,4 +1,4 @@
 What's new in this update:
 
-• Calendar reminders now land on the right day and time. Follow-up and task reminders that sync to your Google Calendar could show up on the day before (around 8:00 PM) instead of the day they were due. That's fixed — a reminder with no specific time now appears at 9:00 AM on the correct day, and one with a time set shows at that exact time.
-• December Rebooking — snooze a client. On the December Rebooking list, each client now has a "Snooze" button that hides them for this year's outreach without you having to contact them. They come back on their own in next year's rebooking cycle — handy for anyone you've decided not to reach out to this season.
+• Insights now filter by year everywhere. Choosing a year at the top of Insights updates every section — Best Performing Sources, Advertising ROI, Store Sales, referrals, and the rest — not just the summary tiles at the top. Advertising ROI now shows the year you picked (no more confusing year labels), and a "Showing: <year>" line under the picker makes the active year clear. Choose "All Time" to compare every year side by side.
+• Your clients' event portal: the "View the full agreement (PDF)" link is now a clear button with an icon, matching the other document buttons on the page.

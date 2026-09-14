@@ -456,7 +456,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- INSIGHTS VIEW -->
   <div id="view-insights" style="display:none">
-    <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:12px"></select>
+    <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:6px"></select>
+    <div id="insightsScopeNote" style="margin:0 0 12px;font-size:12px;color:var(--gold-bright);font-weight:600;letter-spacing:.02em"></div>
     <div class="stats" id="statGrid"></div>
 
     <div class="oracle-box" style="border:1px solid var(--gold);border-radius:12px;padding:14px;margin-top:14px">
@@ -4706,6 +4707,13 @@ function insightsScopeYear(){
   var now=new Date().getFullYear();
   return INSIGHTS_SCOPE==='thisyear' ? now : INSIGHTS_SCOPE==='lastyear' ? now-1 : parseInt(INSIGHTS_SCOPE,10);
 }
+// True if a date falls in the currently selected Insights year (always true for
+// "All Time"). One shared test so every module filters the same way — used by
+// Best Performing Sources, Advertising ROI, Store Sales and the referrals log.
+function inInsightsYear_(dateVal){
+  var y=insightsScopeYear(); if(y===null) return true;
+  var d=pd(dateVal); return !!d && d.getFullYear()===y;
+}
 function insightsScopedExpenses(){
   var y = insightsScopeYear();
   if(y===null) return EXPENSES;
@@ -4787,6 +4795,8 @@ function showExpensesBreakdown(){
 }
 function renderInsights(){
   fillInsightsScope();
+  var _sy=insightsScopeYear();
+  var _note=$('insightsScopeNote'); if(_note) _note.textContent='Showing: '+(_sy===null?'All Time':_sy)+' · all sections below';
   var all=insightsScopedLeads();
   var booked=all.filter(isBookedLike);
   var pending=all.filter(function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; });
@@ -4842,10 +4852,11 @@ function renderInsights(){
     : '';
   bars($('chartNonactive'), nonTally, true, 'insightNonactiveReason');
 
-  // Deliberately NOT scoped to the selector above — this section's whole
-  // purpose is comparing return across years, so it always shows every
-  // year side by side regardless of what the rest of the page is viewing.
-  renderSourcePerf(LEADS, $m);
+  // Both honor the year selector now. Best Performing Sources takes the scoped
+  // leads (and scopes its ad spend to match). Advertising ROI keeps ALL leads —
+  // it groups by year internally and then filters to the selected year, so
+  // "All Time" still shows every year side by side.
+  renderSourcePerf(all, $m);
   renderAdRoi(LEADS, $m);
 
   renderProfitSummary($m);
@@ -5173,8 +5184,13 @@ function renderOracleNudge(){
 function marketingSpendRows_(){
   return EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && String(E.adSource||'').trim(); });
 }
+// Marketing spend limited to the selected Insights year (by expense date), so
+// Best Performing Sources' ROI is measured against the same year as its bookings.
+function scopedMarketingSpendRows_(){
+  return marketingSpendRows_().filter(function(E){ return inInsightsYear_(E.date); });
+}
 function unattributedMarketingSpend_(){
-  return EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim(); })
+  return EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim() && inInsightsYear_(E.date); })
     .reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
 }
 function computeSourcePerf(all){
@@ -5185,7 +5201,7 @@ function computeSourcePerf(all){
     by[key].total++;
     if(isBookedLike(L)){ by[key].booked++; by[key].bookedVal+=money(L[C.price]); }
   });
-  marketingSpendRows_().forEach(function(E){
+  scopedMarketingSpendRows_().forEach(function(E){
     var key=sourceKey_(E.adSource);
     if(!by[key]) by[key]={src:sourceLabel_(E.adSource), total:0, booked:0, bookedVal:0, spend:0};
     by[key].spend+=(Number(E.amount)||0);
@@ -5248,7 +5264,7 @@ function computeAdRoi(all){
 // one-tap bulk fix; anything less obvious still just links to opening the
 // expense directly for a manual call.
 function showUnattributedMarketingSpend(){
-  var rows = EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim(); })
+  var rows = EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim() && inInsightsYear_(E.date); })
     .sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
   var total = rows.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
@@ -5268,7 +5284,7 @@ function showUnattributedMarketingSpend(){
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function applyBulkAdSourceSuggestions(){
-  var targets = EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim() && guessAdSource(E.vendor); });
+  var targets = EXPENSES.filter(function(E){ return E.category==='Marketing & Advertising' && !String(E.adSource||'').trim() && guessAdSource(E.vendor) && inInsightsYear_(E.date); });
   if(!targets.length) return;
   var updates = targets.map(function(E){ return {row:E._row, adSource:guessAdSource(E.vendor)}; });
   closeInsightResults();
@@ -5279,12 +5295,15 @@ function applyBulkAdSourceSuggestions(){
 }
 function renderAdRoi(all, $m){
   var rows=computeAdRoi(all);
+  // A specific year shows only that year's sources; "All Time" shows every year.
+  var scopeY=insightsScopeYear();
+  if(scopeY!=null) rows=rows.filter(function(r){ return r.year===scopeY; });
   var unattributed=unattributedMarketingSpend_();
   var unattribNote = unattributed>0
     ? '<p class="note" style="text-align:left;margin:10px 0 0;cursor:pointer;text-decoration:underline" onclick="showUnattributedMarketingSpend()">'+$m(unattributed)+' in Marketing &amp; Advertising expenses isn\u2019t tagged to a lead source, so it\u2019s not reflected above. Tap to see and fix them.</p>'
     : '';
   if(!rows.length){
-    $('adRoi').innerHTML='<div class="empty"><span class="star">&#10038;</span>Log a Marketing &amp; Advertising expense with an Ad Source to see year-over-year return.</div>'+unattribNote;
+    $('adRoi').innerHTML='<div class="empty"><span class="star">&#10038;</span>'+(scopeY!=null?'No ad spend or booked leads tagged to a source for '+scopeY+'.':'Log a Marketing &amp; Advertising expense with an Ad Source to see year-over-year return.')+'</div>'+unattribNote;
     $('lroi_badge').innerHTML='<span class="pill gold">No ad spend logged yet</span>';
     $('lroi_donut').innerHTML='';
     return;
@@ -5343,7 +5362,7 @@ function toggleStoreSales(){ var w=$('storesales_wrap'), open=w.style.display===
 function refreshMoneyAfterSale_(){ renderStoreSales(); if($('profit_summary')) renderProfitSummary(function(n){ return ssFmt_(n); }); }
 function renderStoreSales(){
   var box=$('storesales_list'); if(!box) return;
-  var sales=(STORE_SALES||[]).slice().sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var sales=(STORE_SALES||[]).filter(function(s){ return inInsightsYear_(s.date); }).sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
   var recvTotal=0, pending=0;
   sales.forEach(function(s){ if(String(s.status||'').toLowerCase()==='received') recvTotal+=money(s.amount); else pending++; });
   var cnt=$('storesales_count');
@@ -5679,7 +5698,7 @@ function partnerNameById(id){
   return p? (p.name||'Unnamed partner') : 'Unknown partner';
 }
 function renderReferralsSent(){
-  var sent=PARTNERLOGS.filter(function(l){ return l.type==='Referral'; });
+  var sent=PARTNERLOGS.filter(function(l){ return l.type==='Referral' && inInsightsYear_(l.when); });
   var sentTally=tally(sent, function(l){ return partnerNameById(l.partnerId); });
   $('lref_sent_donut').innerHTML = sentTally.length
     ? donutChart(sentTally.map(function(t){ return {label:t.k, value:t.n}; }), function(n){ return n+' referral'+(n===1?'':'s'); })
