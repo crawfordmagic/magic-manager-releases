@@ -387,7 +387,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
 .tab{flex:1;text-align:center;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;padding:6px 0}
 .tab .g{display:block;font-size:17px;margin-bottom:3px;font-family:'Playfair Display',serif}
-.tab .g svg{width:17px;height:17px;vertical-align:-2px;fill:currentColor}
+.tab .g svg{width:18px;height:18px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tab.on{color:var(--gold-bright)}
 /* toast + loader */
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom));
@@ -475,7 +475,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <p class="note" style="text-align:left;margin:0 0 10px">Reads your numbers, speaks up when something's worth knowing.</p>
 
       <button class="oracle-toggle" onclick="toggleAskOracle()">
-        <span>&#128172;&nbsp; Ask the Oracle</span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Ask the Oracle</span>
         <span id="oracle_ask_chev">&#9662;</span>
       </button>
       <div id="oracle_ask_wrap" style="display:none;margin-top:10px">
@@ -830,7 +830,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <p class="note" style="text-align:left;margin-top:-6px">Let them know now, or skip and do it later &#8212; the referral's already saved.</p>
     <div class="actions" id="refm_notify_actions">
       <a class="act" id="refm_notify_call" href="javascript:void(0)" style="display:none" onclick="referNotifyCall()">&#9742; Call</a>
-      <a class="act" id="refm_notify_text" href="javascript:void(0)" style="display:none" onclick="referNotifyText()">&#128172; Text</a>
+      <a class="act" id="refm_notify_text" href="javascript:void(0)" style="display:none" onclick="referNotifyText()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Text</a>
       <a class="act" id="refm_notify_email" href="javascript:void(0)" style="display:none" onclick="referNotifyEmail()">&#9993; Email</a>
     </div>
     <p class="note" id="refm_notify_none" style="display:none;text-align:left">No phone or email on file for this partner yet &#8212; add one from their partner page when you get a chance.</p>
@@ -915,8 +915,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <input type="file" id="exp_receipt_input" accept="image/*,.pdf" onchange="onReceiptFileChosen(event)" style="display:none">
   <input type="file" id="exp_receipt_camera" accept="image/*" capture="environment" onchange="onReceiptFileChosen(event)" style="display:none">
   <div class="grid2" style="gap:8px">
-    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_input').click()">&#128206;&nbsp; Attach Receipt</button>
-    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_camera').click()">&#128247;&nbsp; Capture Receipt</button>
+    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_input').click()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>Attach Receipt</button>
+    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_camera').click()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Capture Receipt</button>
   </div>
   </div>
   <button class="save" onclick="saveExpenseUI()">Save Expense</button>
@@ -1104,16 +1104,16 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <p class="note" id="d_savestat">Changes save automatically &#10038;</p>
   <button class="save" id="d_contractbtn" onclick="generateContractUI()">Generate Contract &#10038;</button>
   <div id="d_contract_result" style="display:none"></div>
-  <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10024;</a>
+  <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10038;</a>
   <button class="save" id="d_delbtn" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteLeadUI()">Delete this lead &#10005;</button>
 </div>
 
 <nav>
   <button class="tab on" data-v="leads" onclick="go('leads',this)"><span class="g">&#10038;</span>Leads</button>
-  <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g">&#9680;</span>Insights</button>
-  <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g">&#164;</span>Expenses</button>
+  <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g"><svg viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="10"/></svg></span>Insights</button>
+  <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g"><svg viewBox="0 0 24 24"><path d="M6 2h12v19l-2.4-1.4L13.2 21 12 20l-1.2 1-2.4-1.4L6 21V2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="13.5" y2="12"/></svg></span>Expenses</button>
   <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>Add</button>
-  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span>Settings</button>
+  <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</button>
 </nav>
 
 <div id="toast"></div>
@@ -1575,8 +1575,8 @@ function conflictBadgeHtml(L){
   var border = conflict.hard ? 'var(--crimson)' : 'var(--gold)';
   var bg = conflict.hard ? 'rgba(192,82,54,.12)' : 'rgba(201,160,80,.08)';
   var cText = conflict.hard
-    ? '\u26a0\ufe0f '+cName+' already Booked this date'
-    : '\u26a0\ufe0f '+cName+' also wants this date'+(conflict.count>1?' (+'+(conflict.count-1)+')':'');
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+cName+' already Booked this date'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+cName+' also wants this date'+(conflict.count>1?' (+'+(conflict.count-1)+')':'');
   var myName=esc(L[C.name]||'This lead');
   var quoteLine = '<div style="font-size:11.5px;color:'+accent+';opacity:.85;margin-top:3px">'
     +myName+': '+(L[C.price]?esc(fmtMoney(L[C.price])):'Not quoted yet')
@@ -1604,7 +1604,7 @@ function conflictIconHtml(L){
   var title = conflict.hard
     ? 'Date conflict with a Booked lead'
     : 'Another lead is also being considered for this date';
-  return '<span title="'+esc(title)+'" style="color:'+color+';font-size:12px">\u26a0\ufe0f</span>';
+  return '<span title="'+esc(title)+'" style="color:'+color+';display:inline-flex;vertical-align:-2px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>';
 }
 function findDateConflict(L){
   var ed=pd(L[C.eventDate]);
@@ -2076,7 +2076,7 @@ function renderGenFollowupDue(){
         var kidsHtml='';
         if(showKids){
           kidsHtml='<div style="margin-bottom:10px;padding:9px 10px;background:rgba(192,82,54,.12);border:1px solid var(--crimson);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            +'<span style="font-size:12.5px;font-weight:600;color:#E9927B;flex:1;min-width:160px">\ud83e\uddd2 Children\u2019s audience \u2014 you don\u2019t take kids shows</span>'
+            +'<span style="font-size:12.5px;font-weight:600;color:#E9927B;flex:1;min-width:160px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Children\u2019s audience \u2014 you don\u2019t take kids shows</span>'
             +'<button class="followupdue-btn" style="background:var(--crimson);color:var(--cream)" onclick="openReferModal('+L._row+')">Mark as Referral</button>'
             +'</div>';
         }
@@ -2410,11 +2410,11 @@ function openTopClients(){
 function closeTopClients(){
   $('topclientsSheet').classList.remove('open'); syncOverlay();
 }
-function compactRow(name, price, meta, rightText, rightClass, onclick){
+function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml){
   return '<div class="upcomingfu-row" onclick="'+onclick+'">'
     +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:baseline;gap:8px">'
-        +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(name)+'</span>'
+        +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+(iconHtml||'')+esc(name)+'</span>'
         +(price?'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(price)+'</span>':'')
       +'</div>'
       +(meta?'<div style="font-size:12px;color:var(--muted)">'+esc(meta)+'</div>':'')
@@ -2706,7 +2706,7 @@ function showShowtimePopup(shows){
       var pesc=esc(phone).replace(/'/g,'');
       actions='<div class="showtime-actions">'
         +'<a class="showtime-action" href="javascript:void(0)" onclick="dialNumber(\''+pesc+'\')">&#9742; Call</a>'
-        +'<a class="showtime-action" href="javascript:void(0)" onclick="openSms(\''+pesc+'\',\'\')">&#128172; Text</a>'
+        +'<a class="showtime-action" href="javascript:void(0)" onclick="openSms(\''+pesc+'\',\'\')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Text</a>'
         +'</div>';
     }
     return '<div class="showtime-row"><div class="showtime-sub">'+esc(name)+'\u2019s event is today.</div>'+actions+'</div>';
@@ -5196,13 +5196,13 @@ function computeOracleTips(all){
     return f && f<today0();
   });
   if(overdue.length>=3){
-    urgent.push({icon:'\u26A0\uFE0F', text:oraclePick('overdue3',[
+    urgent.push({icon:oIcon('alert'), text:oraclePick('overdue3',[
       'You have <b>'+overdue.length+' overdue follow-ups</b> sitting untouched right now \u2014 clearing those is probably today\u2019s highest-leverage move.',
       '<b>'+overdue.length+' follow-ups</b> have slipped past due \u2014 worth clearing those before anything else today.'
     ])});
   } else if(overdue.length>0){
     var isare=overdue.length===1?'is':'are', itthey=overdue.length===1?'it slips':'they slip';
-    urgent.push({icon:'\u23F0', text:oraclePick('overdue12',[
+    urgent.push({icon:oIcon('clock'), text:oraclePick('overdue12',[
       overdue.length+' follow-up'+(overdue.length===1?'':'s')+' '+isare+' overdue \u2014 worth a quick look before '+itthey+' further.',
       'A follow-up or two '+(overdue.length===1?'has':'have')+' slipped past due \u2014 an easy win if you clear '+(overdue.length===1?'it':'them')+' now.'
     ])});
@@ -5221,9 +5221,9 @@ function computeOracleTips(all){
     if(!money(Lr[C.price])) missing.push('a quoted price');
     if(!String(Lr[C.start]||'').trim()) missing.push('a start time');
     if(!String(Lr[C.location]||'').trim()) missing.push('a location');
-    urgent.push({icon:'\uD83D\uDCCB', text: '<b>'+esc(Lr[C.name]||'A booked show')+'</b>\u2019s show this week is still missing '+missing.join(' and ')+' \u2014 worth locking down before showtime.'});
+    urgent.push({icon:oIcon('clipboard'), text: '<b>'+esc(Lr[C.name]||'A booked show')+'</b>\u2019s show this week is still missing '+missing.join(' and ')+' \u2014 worth locking down before showtime.'});
   } else if(atRisk.length>1){
-    urgent.push({icon:'\uD83D\uDCCB', text:oraclePick('atrisk2',[
+    urgent.push({icon:oIcon('clipboard'), text:oraclePick('atrisk2',[
       '<b>'+atRisk.length+' booked shows this week</b> are missing a price, start time, or location \u2014 worth a quick check before showtime.',
       '<b>'+atRisk.length+' shows coming up this week</b> still have a gap in the details \u2014 price, time, or location.'
     ])});
@@ -5239,9 +5239,9 @@ function computeOracleTips(all){
     return days>=0 && days<=7;
   });
   if(closingSoon.length===1){
-    urgent.push({icon:'\u23F3', text: '<b>'+esc(closingSoon[0][C.name]||'A quoted lead')+'</b> is quoted with an event in the next week but still isn\u2019t confirmed \u2014 worth a nudge before the window closes.'});
+    urgent.push({icon:oIcon('clock'), text: '<b>'+esc(closingSoon[0][C.name]||'A quoted lead')+'</b> is quoted with an event in the next week but still isn\u2019t confirmed \u2014 worth a nudge before the window closes.'});
   } else if(closingSoon.length>1){
-    urgent.push({icon:'\u23F3', text:oraclePick('closingwindow2',[
+    urgent.push({icon:oIcon('clock'), text:oraclePick('closingwindow2',[
       '<b>'+closingSoon.length+' quoted leads</b> have events within the next week but aren\u2019t confirmed yet \u2014 worth a push before the window closes.',
       '<b>'+closingSoon.length+' quoted leads</b> are closing in on their event date without a Booked status \u2014 worth checking in.'
     ])});
@@ -5249,12 +5249,12 @@ function computeOracleTips(all){
 
   var pendingRef=all.filter(function(L){ return String(L[C.status])==='Referral'; });
   if(pendingRef.length>=2){
-    urgent.push({icon:'\uD83E\uDD1D', text:oraclePick('pendingref2',[
+    urgent.push({icon:oIcon('users'), text:oraclePick('pendingref2',[
       'You\u2019ve got <b>'+pendingRef.length+' leads flagged for referral</b> that haven\u2019t actually gone out yet \u2014 a good batch to knock out today.',
       '<b>'+pendingRef.length+' referrals</b> are sitting flagged but unsent \u2014 worth clearing that queue.'
     ])});
   } else if(pendingRef.length===1){
-    urgent.push({icon:'\uD83E\uDD1D', text:oraclePick('pendingref1',[
+    urgent.push({icon:oIcon('users'), text:oraclePick('pendingref1',[
       'One lead is flagged for referral but hasn\u2019t been sent yet.',
       'There\u2019s a single referral still waiting to go out.'
     ])});
@@ -5275,7 +5275,7 @@ function computeOracleTips(all){
   var topReason='', topCount=0;
   Object.keys(reasonTally).forEach(function(r){ if(reasonTally[r]>topCount){ topCount=reasonTally[r]; topReason=r; } });
   if(topCount>=3){
-    urgent.push({icon:'\uD83D\uDCC9', text:oraclePick('lostpattern',[
+    urgent.push({icon:oIcon('trend'), text:oraclePick('lostpattern',[
       '<b>'+topCount+' leads</b> have been lost to \u201c'+esc(topReason)+'\u201d in the last 30 days \u2014 that\u2019s a pattern worth a closer look.',
       '\u201c'+esc(topReason)+'\u201d has cost you <b>'+topCount+' leads</b> in the past month \u2014 might be worth addressing head-on.'
     ])});
@@ -5290,9 +5290,9 @@ function computeOracleTips(all){
   });
   if(coldTopClients.length===1){
     var cc=coldTopClients[0];
-    urgent.push({icon:'\uD83D\uDC8E', text: '<b>'+esc(cc.name||'A top client')+'</b> has spent '+fmtMoney(cc.total)+' with you but hasn\u2019t heard from you in a while \u2014 worth a quick check-in.'});
+    urgent.push({icon:oIcon('gem'), text: '<b>'+esc(cc.name||'A top client')+'</b> has spent '+fmtMoney(cc.total)+' with you but hasn\u2019t heard from you in a while \u2014 worth a quick check-in.'});
   } else if(coldTopClients.length>1){
-    urgent.push({icon:'\uD83D\uDC8E', text:oraclePick('coldtop2',[
+    urgent.push({icon:oIcon('gem'), text:oraclePick('coldtop2',[
       '<b>'+coldTopClients.length+' of your top clients</b> haven\u2019t heard from you in a while \u2014 worth reaching out to keep those relationships warm.',
       'You\u2019ve got <b>'+coldTopClients.length+' high-value clients</b> overdue for a check-in \u2014 a little outreach goes a long way.'
     ])});
@@ -5312,9 +5312,9 @@ function computeOracleTips(all){
   if(unsignedSoon.length===1){
     var us=unsignedSoon[0];
     var usDays=Math.round((pd(us[C.eventDate])-today0())/86400000);
-    urgent.push({icon:'\uD83D\uDCDD', text: '<b>'+esc(us[C.name]||'A booked show')+'</b> is coming up in '+usDays+' day'+(usDays===1?'':'s')+' and still doesn\u2019t have a signed contract \u2014 worth following up.'});
+    urgent.push({icon:oIcon('file'), text: '<b>'+esc(us[C.name]||'A booked show')+'</b> is coming up in '+usDays+' day'+(usDays===1?'':'s')+' and still doesn\u2019t have a signed contract \u2014 worth following up.'});
   } else if(unsignedSoon.length>1){
-    urgent.push({icon:'\uD83D\uDCDD', text:oraclePick('unsignedsoon2',[
+    urgent.push({icon:oIcon('file'), text:oraclePick('unsignedsoon2',[
       '<b>'+unsignedSoon.length+' booked shows</b> within the next 30 days still don\u2019t have a signed contract.',
       'You\u2019ve got <b>'+unsignedSoon.length+' upcoming shows</b> in the next month without a signed contract yet \u2014 might be worth a nudge.'
     ])});
@@ -5322,10 +5322,26 @@ function computeOracleTips(all){
 
   return urgent;
 }
+// Gold line-art icons for the Oracle's insight tips + leaderboard medal.
+// Inline SVG (stroke=currentColor) to match the app's gold-SVG icon style —
+// never color emoji. Caller's span sets the color (gold, or Oracle violet).
+function oIcon(n){
+  var P={
+    clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>',
+    users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    trend:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+    gem:'<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l4 12 4-12-3-6"/><path d="M2 9h20"/>',
+    file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    medal:'<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    alert:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+  };
+  return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">'+(P[n]||'')+'</svg>';
+}
 function renderOracle(all, $m){
   var shown=ORACLE_TIP_ACTIVE ? [ORACLE_TIP_ACTIVE] : [];
   $('oracle_list').innerHTML = shown.length
-    ? shown.map(function(t,i){ return '<div class="oracle-tip" style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);animation-delay:'+(i*120)+'ms"><span style="font-size:16px;flex:0 0 auto">'+t.icon+'</span><span style="font-size:13.5px;line-height:1.5;color:var(--cream)">'+t.text+'</span></div>'; }).join('')
+    ? shown.map(function(t,i){ return '<div class="oracle-tip" style="display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);animation-delay:'+(i*120)+'ms"><span style="flex:0 0 auto;color:var(--gold-bright)">'+t.icon+'</span><span style="font-size:13.5px;line-height:1.5;color:var(--cream)">'+t.text+'</span></div>'; }).join('')
     : '';
 }
 function renderOracleNudge(){
@@ -5339,7 +5355,7 @@ function renderOracleNudge(){
     +'<span class="oracle-icon" style="font-size:14px">&#127769;</span>'
     +'<span style="font-family:\'Playfair Display\',serif;font-weight:700;color:var(--oracle-violet);font-size:12.5px;letter-spacing:.4px;text-transform:uppercase">The Oracle</span>'
     +'</div>'
-    +'<div class="oracle-tip" style="display:flex;gap:9px;padding:7px 0 0"><span style="font-size:15px;flex:0 0 auto">'+ORACLE_TIP_ACTIVE.icon+'</span><span style="font-size:13.5px;line-height:1.45;color:var(--cream)">'+ORACLE_TIP_ACTIVE.text+'</span></div>'
+    +'<div class="oracle-tip" style="display:flex;gap:9px;padding:7px 0 0"><span style="flex:0 0 auto;color:var(--oracle-violet)">'+ORACLE_TIP_ACTIVE.icon+'</span><span style="font-size:13.5px;line-height:1.45;color:var(--cream)">'+ORACLE_TIP_ACTIVE.text+'</span></div>'
     +'</div>';
 }
 // Marketing & Advertising expenses tagged with an Ad Source feed the same
@@ -5386,11 +5402,11 @@ function renderSourcePerf(all, $m){
   $('lbest_donut').innerHTML=donutChart(rows.map(function(r){ return {label:r.src, value:r.bookedVal}; }), $m);
   $('sourcePerf').innerHTML = rows.map(function(r,i){
     var conv = r.total? Math.round(r.booked/r.total*100) : 0;
-    var medal = i===0 ? '\ud83e\udd47 ' : '';
+    var medal = i===0 ? '<span style="color:var(--gold-bright)">'+oIcon('medal')+'</span> ' : '';
     var meta = [conv+'% convert', r.spend>0?$m(r.spend)+' spent':''].filter(Boolean).join(' \u00b7 ');
     var roiText = r.spend>0 ? (Math.round(r.bookedVal/r.spend*10)/10)+'x ROI' : '';
     var roiClass = (r.spend>0 && r.bookedVal<r.spend) ? 'red' : 'gold';
-    return compactRow(medal+r.src, $m(r.bookedVal), meta, roiText, roiClass, "showAdRoiSourceDrilldown('"+esc(r.src).replace(/'/g,'')+"')");
+    return compactRow(r.src, $m(r.bookedVal), meta, roiText, roiClass, "showAdRoiSourceDrilldown('"+esc(r.src).replace(/'/g,'')+"')", medal);
   }).join('');
   var top=rows[0];
   $('lbest_badge').innerHTML='<span class="pill gold">Top: '+esc(top.src)+' \u00b7 '+$m(top.bookedVal)+'</span>';
@@ -5752,8 +5768,8 @@ function renderTopVendors($m){
   }
   $('topvendors_badge').innerHTML='<span class="pill gold">Top: '+esc(rows[0].vendor)+'</span>';
   $('topvendors_list').innerHTML = rows.map(function(r,i){
-    var medal = i===0 ? '\ud83e\udd47 ' : '';
-    return compactRow(medal+r.vendor, $m(r.amt), r.count+' transaction'+(r.count===1?'':'s'), '', 'gold', '');
+    var medal = i===0 ? '<span style="color:var(--gold-bright)">'+oIcon('medal')+'</span> ' : '';
+    return compactRow(r.vendor, $m(r.amt), r.count+' transaction'+(r.count===1?'':'s'), '', 'gold', '', medal);
   }).join('');
 }
 // Meals & Entertainment counts at 50%, matching the IRS rule for that
@@ -6279,7 +6295,7 @@ function expenseRowHtml(E){
       +'<div style="display:flex;align-items:baseline;gap:8px">'
         +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(E.vendor||'Expense')+'</span>'
         +'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(E.amount))+'</span>'
-        +(E.receiptUrl?'<span style="color:var(--muted);font-size:12px" title="Receipt attached">&#128206;</span>':'')
+        +(E.receiptUrl?'<span style="color:var(--gold)" title="Receipt attached"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>':'')
       +'</div>'
       +'<div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:2px">'
         +'<span style="width:7px;height:7px;border-radius:50%;background:'+categoryColor(E.category)+';flex:0 0 auto"></span>'
@@ -6909,7 +6925,7 @@ function renderLeadMap(){
     for(var r=0;r<LI_GRID.rows.length && r<4;r++){ var c=LI_GRID.rows[r][idx]; if(c && String(c).trim()){ sample=String(c).trim(); break; } }
     var sel='<select style="width:100%;font-size:13px;margin-top:4px" onchange="setLeadMap('+idx+',this.value)">'
       + LEAD_IMPORT_TARGETS.map(function(o){ return '<option value="'+esc(o.key)+'"'+(o.key===LI_MAP[idx]?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
-      + '<option value="__new__"'+(LI_MAP[idx]==='__new__'?' selected':'')+'>➕ Add as a new field</option>'
+      + '<option value="__new__"'+(LI_MAP[idx]==='__new__'?' selected':'')+'>+ Add as a new field</option>'
       + '</select>';
     return '<div style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:8px">'
       + '<div style="font-weight:600;color:var(--cream);font-size:13px;word-break:break-word">'+esc(h||'(unnamed column)')+'</div>'

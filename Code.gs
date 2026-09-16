@@ -85,6 +85,21 @@ function getConfig_() {
   return cfg;
 }
 
+// The owner's legal business name ONLY if they've actually set one — otherwise ''.
+// A blank field keeps the generic placeholder default (getConfig_ skips empty
+// values), so that placeholder counts as "not set" and never leaks into a document.
+function legalBusinessName_() {
+  var v = String(getConfig_().BUSINESS_LEGAL_NAME || '').trim();
+  return (v && v !== CONFIG_DEFAULTS_.BUSINESS_LEGAL_NAME) ? v : '';
+}
+
+// The company name to print on a document letterhead: the legal business name if
+// set, otherwise the owner's display business name (so the header is never blank
+// and never shows the placeholder).
+function letterheadName_() {
+  return legalBusinessName_() || String(getConfig_().BUSINESS_NAME || '').trim();
+}
+
 // The credit-card surcharge rate. 3.25% by default; 0 when the owner turns the
 // card fee off in Settings (CARD_FEE_ENABLED === 'no'). Enabled unless explicitly
 // 'no', so a blank/unset value keeps the fee on. Single source of truth for every
@@ -138,7 +153,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
   { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
-  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google Business "write a review" link. After a client pays their balance and the event has passed, their portal asks for a star rating + comment; a 4- or 5-star rating then shows a "Share this on Google?" button pointing here. Lower ratings stay private to you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
+  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google "write a review" link — the short one that opens the review box directly (it looks like https://g.page/r/…/review). Get it from your Google Business Profile → "Ask for reviews" / "Get more reviews" and copy the link. After a client pays their balance and the event has passed, their portal asks for a rating + comment; a 4- or 5-star rating then offers to share it on Google — and their comment is copied to their clipboard so they just tap the stars and paste. Lower ratings stay private with you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
   // Contract terms
   { key: 'CANCELLATION_POLICY', label: 'Cancellation policy', help: 'Your cancellation and refund terms, in your own words. This replaces the standard cancellation wording in the Terms section of the contract. Leave blank to keep the standard wording. (It\'s your agreement — review the wording yourself, or with an advisor.)', multiline: true, section: 'contract' },
   { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
@@ -224,7 +239,7 @@ function saveSettings(values) {
   });
   // A settings change (logo, business info, governing law) must rebuild the
   // cached contract template so the next contract/receipt reflects it.
-  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V3'); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V4'); } catch (e) {}
   getConfig_._cache = null;
   return { ok: true, config: getConfig_() };
 }
@@ -310,7 +325,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.22';
+var APP_VERSION = '1.5.23';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -723,12 +738,12 @@ function contractTemplate_() {
   // changes (like this fee-table rework), so the next contract generated
   // automatically builds a fresh template instead of reusing an old cached
   // copy that doesn't have the new rows/tokens. Nothing to do by hand.
-  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V3');
+  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V4');
   if (savedId) {
     try { return DocumentApp.openById(savedId); } catch (e) {}
   }
   const doc = buildContractTemplate_();
-  props.setProperty('CONTRACT_TEMPLATE_ID_V3', doc.getId());
+  props.setProperty('CONTRACT_TEMPLATE_ID_V4', doc.getId());
   return doc;
 }
 
@@ -919,7 +934,7 @@ function buildContractTemplate_() {
   logoCell.setWidth(58);
 
   var infoCell = hRow.getCell(1);
-  plainLine(infoCell, getConfig_().BUSINESS_LEGAL_NAME, { bold: true, size: 12, spacing: 1, first: true });
+  plainLine(infoCell, letterheadName_(), { bold: true, size: 12, spacing: 1, first: true });
   plainLine(infoCell, getConfig_().TAGLINE, { spacing: 1 });
   plainLine(infoCell, getConfig_().OWNER_NAME + ' | Service Provider', { spacing: 0 });
   infoCell.setWidth(230);
@@ -939,7 +954,10 @@ function buildContractTemplate_() {
   var partiesCell = s12Row.getCell(0);
   plainLine(partiesCell, '1. Parties to Agreement', { bold: true, size: HEAD_SIZE, spacing: 3, first: true });
   boldLine(partiesCell, 'Client: ', '{{client}}');
-  boldLine(partiesCell, 'Service Provider: ', getConfig_().OWNER_NAME + ' (' + getConfig_().BUSINESS_LEGAL_NAME + ')');
+  // Only show the "(Legal Business Name)" parenthetical when the owner has
+  // actually set one (legalBusinessName_ returns '' for a blank/placeholder field).
+  var svcLegal = legalBusinessName_();
+  boldLine(partiesCell, 'Service Provider: ', getConfig_().OWNER_NAME + (svcLegal ? (' (' + svcLegal + ')') : ''));
   boldLine(partiesCell, 'Location: ', '{{location}}');
 
   var scheduleCell = s12Row.getCell(1);
@@ -1169,7 +1187,7 @@ function generateReceiptPdf_(kind, get) {
 
   const infoCell = hRow.getCell(1);
   infoCell.clear();
-  plainLine(infoCell, getConfig_().BUSINESS_LEGAL_NAME, { bold: true, size: 12, spacing: 1 });
+  plainLine(infoCell, letterheadName_(), { bold: true, size: 12, spacing: 1 });
   plainLine(infoCell, getConfig_().ADDRESS, { spacing: 1, size: 9 });
   plainLine(infoCell, [getConfig_().EMAIL, getConfig_().PHONE].filter(function (x) { return x; }).join(' \u00b7 '), { spacing: 0, size: 9 });
   infoCell.setWidth(230);

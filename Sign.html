@@ -232,7 +232,24 @@ function renderStatusPage(d){
  * via d.showFeedback). A 4-5 star rating then offers the owner's Google review
  * link if they've set one; lower ratings stay private with the owner. */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-var FB_RATING=0, FB_GOOGLE_URL='';
+var FB_RATING=0, FB_GOOGLE_URL='', FB_TEXT='';
+// Best-effort clipboard copy. Google doesn't allow pre-filling review text, so
+// the smoothest we can do is put the client's own note on their clipboard and
+// send them to the review box, where they just paste. Tries the modern API then
+// falls back to execCommand (better odds inside the Apps Script sandbox frame).
+function fbCopy(text){
+  text=String(text||''); if(!text) return false;
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text); return true; } }catch(e){}
+  try{
+    var ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.position='fixed'; ta.style.top='-1000px';
+    document.body.appendChild(ta); ta.select(); try{ ta.setSelectionRange(0,text.length); }catch(e2){}
+    var ok=document.execCommand('copy'); document.body.removeChild(ta); return ok;
+  }catch(e){ return false; }
+}
+function fbCopyAgain(){
+  fbCopy(FB_TEXT);
+  var b=document.getElementById('fbCopyBtn'); if(b) b.textContent='✓ Copied — now paste it on Google';
+}
 function feedbackCardHtml(d){
   if(!d.showFeedback) return '';
   FB_RATING=0; FB_GOOGLE_URL=d.googleReviewUrl||'';
@@ -257,7 +274,12 @@ function setFbRating(n){
 function submitFeedback(){
   if(!FB_RATING){ document.getElementById('fbErr').textContent='Please tap a star rating first.'; return; }
   var text=document.getElementById('fbText').value.trim();
+  FB_TEXT=text;
   var refBox=document.getElementById('fbReference'); var wantsRef=!!(refBox && refBox.checked);
+  // Copy the note now, while the button tap is still an active user gesture, so
+  // it's on their clipboard by the time the Google prompt shows. The Copy button
+  // in that prompt is the fallback if the sandbox blocked this.
+  if(text && FB_RATING>=4 && FB_GOOGLE_URL) fbCopy(text);
   var btn=document.getElementById('fbSubmit'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
   google.script.run.withSuccessHandler(function(json){
     var r; try{ r=JSON.parse(json); }catch(e){ r=null; }
@@ -270,9 +292,18 @@ function showFeedbackDone(){
   var card=document.getElementById('fbCard'); if(!card) return;
   var who=esc(CFG.OWNER_NAME||'us');
   if(FB_RATING>=4 && FB_GOOGLE_URL){
+    var hasText = !!(FB_TEXT && FB_TEXT.trim().length);
+    var noteBlock = hasText
+      ? '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:11px 12px;margin:0 0 10px">'
+          +'<div style="font-size:14px;color:var(--cream);white-space:pre-wrap;word-break:break-word">'+esc(FB_TEXT)+'</div>'
+          +'<button type="button" id="fbCopyBtn" onclick="fbCopyAgain()" style="margin-top:10px;width:100%;background:transparent;border:1px solid var(--gold);color:var(--gold-bright);font-weight:600;font-size:13px;border-radius:8px;padding:8px 12px;cursor:pointer">Copy my note</button>'
+        +'</div>'
+        +'<p class="note" style="text-align:left;margin:0 0 12px">Your note is ready — on Google, tap the stars and paste it in. That’s it.</p>'
+      : '';
     card.innerHTML='<div class="paydetails-title" style="margin-bottom:6px">Thank you! ✦</div>'
-      +'<p class="note" style="text-align:left;margin:0 0 14px">So glad you enjoyed it! Would you mind sharing that on Google? It genuinely helps '+who+'.</p>'
-      +'<a class="paybtn" target="_top" rel="noopener" href="'+esc(FB_GOOGLE_URL)+'" style="margin-top:0">Share on Google ↗</a>';
+      +'<p class="note" style="text-align:left;margin:0 0 12px">So glad you enjoyed it! Would you mind sharing that on Google? It genuinely helps '+who+'.</p>'
+      +noteBlock
+      +'<a class="paybtn" target="_top" rel="noopener" href="'+esc(FB_GOOGLE_URL)+'" style="margin-top:0">'+(hasText?'Open Google review ↗':'Share on Google ↗')+'</a>';
   } else {
     card.innerHTML='<div class="paydetails-title" style="margin-bottom:6px">Thank you! ✦</div>'
       +'<p class="note" style="text-align:left;margin:0">Your feedback goes straight to '+who+' — we appreciate it.</p>';
