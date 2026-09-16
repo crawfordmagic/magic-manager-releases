@@ -456,6 +456,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
     </div>
     </div>
+    <div id="feedbackLeadsLink" style="text-align:center;margin:24px 0 6px;display:none">
+      <a href="javascript:void(0)" onclick="openFeedback()" style="font-size:12.5px;color:var(--muted);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">Found a bug or have an idea? Send feedback</a>
+    </div>
   </div>
 
   <!-- INSIGHTS VIEW -->
@@ -681,7 +684,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   </div>
 
   <!-- SETTINGS VIEW -->
-  <div id="view-settings" style="display:none">
+  <div id="view-settings" style="display:none;padding-bottom:40px">
     <div class="sec-title"><span class="t">Settings</span><span class="rule"></span></div>
     <p class="note" style="text-align:left;margin:0 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> — the rest is optional and can wait. Save anytime; blank fields use the sensible defaults shown.</p>
     <div id="settingsBody">Loading&#8230;</div>
@@ -910,7 +913,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <label>Receipt</label>
   <div id="exp_receipt_preview" style="margin-bottom:8px"></div>
   <input type="file" id="exp_receipt_input" accept="image/*,.pdf" onchange="onReceiptFileChosen(event)" style="display:none">
-  <button class="save" type="button" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_input').click()">Attach Receipt</button>
+  <input type="file" id="exp_receipt_camera" accept="image/*" capture="environment" onchange="onReceiptFileChosen(event)" style="display:none">
+  <div class="grid2" style="gap:8px">
+    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_input').click()">&#128206;&nbsp; Attach Receipt</button>
+    <button class="save" type="button" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="$('exp_receipt_camera').click()">&#128247;&nbsp; Capture Receipt</button>
+  </div>
   </div>
   <button class="save" onclick="saveExpenseUI()">Save Expense</button>
   <button class="save" id="expenseDelBtn" style="display:none;background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteExpenseUI()">Delete this expense &#10005;</button>
@@ -1019,6 +1026,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="sub" id="d_sub"></div>
   <div id="d_conflict"></div>
   <div class="actions" id="d_actions"></div>
+  <div id="d_review" style="display:none"></div>
   <div id="ct_noteprompt" style="display:none;margin-top:10px">
     <p class="note" style="text-align:left;margin:0 0 6px" id="ct_prompttext">What happened?</p>
     <input id="ct_notetext" placeholder="e.g. answered, wants pricing for 50 guests&#8230;">
@@ -1147,10 +1155,29 @@ function fillSelect(id, items, placeholder){
   el.innerHTML = opts.join('');
   if(cur) el.value = cur;
 }
+// Defaults used only when a buyer hasn't set their own list yet. Named once so
+// the Add form, the lead editor (KVF), the ad-source list, and the post-save
+// refresh all agree — no drift.
+var FALLBACK_SERVICES=['Strolling','Stage','Stage & Strolling'];
+var FALLBACK_EVENT_TYPES=['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other'];
+var FALLBACK_LEAD_SOURCES=['Bark','Gigsalad','Website','Current Client','Referral','Other'];
+var FALLBACK_AD_SOURCES=['Bark','Gigsalad','Website'];
 function populateLeadDropdowns(){
-  fillSelect('a_service', cfgList('SERVICES', ['Strolling','Stage','Stage & Strolling']), 'Choose…');
-  fillSelect('a_eventType', cfgList('EVENT_TYPES', ['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other']), 'Choose…');
-  fillSelect('a_source', cfgList('LEAD_SOURCES', ['Bark','Gigsalad','Website','Current Client','Referral','Other']), 'Choose…');
+  fillSelect('a_service', cfgList('SERVICES', FALLBACK_SERVICES), 'Choose…');
+  fillSelect('a_eventType', cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES), 'Choose…');
+  fillSelect('a_source', cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), 'Choose…');
+}
+// After Settings is saved, CFG is refreshed in memory but the lists derived from
+// it were captured earlier (KVF.opts and AD_SOURCES at load, the Add selects at
+// startup). Re-derive them all so the app's dropdowns reflect new Services /
+// Event Types / Lead Sources / Ad Sources immediately, without a browser reload.
+function refreshConfigDerivedLists(){
+  populateLeadDropdowns();
+  AD_SOURCES = cfgList('AD_SOURCES', FALLBACK_AD_SOURCES);
+  KVF.forEach(function(f){
+    if(f.col===C.service) f.opts = cfgList('SERVICES', FALLBACK_SERVICES);
+    else if(f.col===C.eventType) f.opts = cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES);
+  });
 }
 
 var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [], STORE_SALES = [], STORE_SALE_PRODUCTS = [];
@@ -1407,6 +1434,8 @@ function load(){
     // are in — it stays hidden during "Raising the curtain" so both load in
     // together after the main page, rather than sitting there mid-load.
     $('manageWrap').style.display='block';
+    // Same idea for the bottom "Send feedback" link — hidden until the page loads.
+    var _fbl=$('feedbackLeadsLink'); if(_fbl) _fbl.style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge();
     // Brand-new install: open the guided setup wizard once (skippable). Already-
     // configured installs (BUSINESS_NAME set) never see it auto-open.
@@ -2774,12 +2803,15 @@ function matches(L, f){
   else if(f==='Past Shows') result = s==='Completed' || (s==='Booked' && isPastEvent(L));
   else if(f==='Lost') result = s==='Lost';
   else if(f==='Referred') result = s==='Referral'||s==='Referred';
+  else if(f==='References') result = String(L['Reference OK']||'').trim()==='Yes';
   else result = s===f;
   if(result && (f==='Past Shows'||f==='Lost'||f==='Referred'||f==='All')) result = inMainArchiveScope(L);
   return result;
 }
 function renderChips(){
   var opts=['Follow up','Upcoming Shows','Tasks','Partners','Past Shows','Lost','Referred','All'];
+  // Only surface the References filter once there's at least one, to avoid clutter.
+  if(LEADS.some(function(L){ return String(L['Reference OK']||'').trim()==='Yes'; })) opts.splice(opts.indexOf('All'), 0, 'References');
   $('statusChips').innerHTML = opts.map(function(o){
     var n = o==='Tasks' ? TASKS.filter(function(T){ return !T.done; }).length
       : o==='Partners' ? PARTNERS.length
@@ -2876,6 +2908,15 @@ function renderLeads(){
     });
     h+=compactLeadSection('Referred', rows, false, leadRow_Referred);
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No referred leads right now.</div>';
+
+  } else if(FILTER==='References'){
+    rows.sort(function(a,b){
+      var ra=Number(a['Event Rating'])||0, rb=Number(b['Event Rating'])||0;
+      if(ra!==rb) return rb-ra; // highest-rated first
+      return String(a[C.name]||'').localeCompare(String(b[C.name]||''));
+    });
+    h+=compactLeadSection('References', rows, false, leadRow_Show);
+    if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No references yet — flag a happy client on their card, or they can opt in after their event.</div>';
 
   } else {
     var overdue=[], todays=[], upcoming=[], noneSet=[];
@@ -3252,6 +3293,44 @@ function currentBackLabel(){
   if(Q && Q.trim()) return 'Search';
   return FILTER;
 }
+// The client's post-event feedback (star rating + comment), captured on their
+// portal after the balance is paid, plus the Reference toggle. Shows for clients
+// you've performed for (Booked/Completed) or anyone who's left a review; you can
+// flag/unflag a reference manually, and the client can also opt in on their portal.
+function renderLeadReview(L){
+  var box=$('d_review'); if(!box) return;
+  var rating=Number(L['Event Rating'])||0;
+  var isCandidate = rating>0 || isBookedLike(L);
+  if(!isCandidate){ box.style.display='none'; box.innerHTML=''; return; }
+  var html='';
+  if(rating){
+    var stars=''; for(var i=1;i<=5;i++) stars+=(i<=rating?'★':'☆');
+    var review=String(L['Event Review']||'').trim();
+    var when=L['Reviewed Date']?fmtDateY(L['Reviewed Date']):'';
+    html+='<div style="background:rgba(201,160,80,.08);border:1px solid var(--gold);border-radius:10px;padding:12px;margin:10px 0 8px">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        +'<span style="color:var(--gold-bright);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">Client Feedback</span>'
+        +'<span style="color:var(--gold-bright);font-size:16px;letter-spacing:2px">'+stars+'</span>'
+        +(when?'<span style="color:var(--muted);font-size:11px;margin-left:auto">'+esc(when)+'</span>':'')
+      +'</div>'
+      +(review?'<div style="color:var(--cream);font-size:14px;margin-top:8px;white-space:pre-wrap;word-break:break-word">'+esc(review)+'</div>':'<div style="color:var(--muted);font-size:13px;margin-top:6px">No comment left.</div>')
+    +'</div>';
+  }
+  var isRef=String(L['Reference OK']||'').trim()==='Yes';
+  html+='<button type="button" onclick="toggleLeadReference('+L._row+')" style="width:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;margin:'+(rating?'0':'10px')+' 0 4px;background:'+(isRef?'rgba(201,160,80,.16)':'transparent')+';border:1px solid '+(isRef?'var(--gold)':'var(--line)')+';color:'+(isRef?'var(--gold-bright)':'var(--muted)')+'">'+(isRef?'★ Reference':'☆ Mark as reference')+'</button>';
+  box.style.display='';
+  box.innerHTML=html;
+}
+function toggleLeadReference(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var newVal = String(L['Reference OK']||'').trim()==='Yes' ? '' : 'Yes';
+  L['Reference OK']=newVal;
+  renderLeadReview(L); renderChips();
+  toast(newVal==='Yes'?'Added to References ★':'Removed from References');
+  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+    .withFailureHandler(function(){ toast('Could not save — try again'); })
+    .updateLead(row, {'Reference OK': newVal});
+}
 function openSheet(row){
   CURRENT = LEADS.find(function(L){ return L._row===row; });
   if(!CURRENT) return;
@@ -3274,6 +3353,7 @@ function openSheet(row){
   $('d_name').textContent = L[C.name]||'Lead';
   $('d_sub').textContent = [(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType]].filter(Boolean).join(' \u00b7 ');
   buildActions();
+  renderLeadReview(L);
   var f=pd(L[C.followup]); $('d_followup').value = f? ymd(f):'';
   $('d_followtime').value = (f && (f.getHours()||f.getMinutes())) ? hm(f) : '';
   fillStatusSelect($('d_status'), String(L[C.status]||'New'));
@@ -3307,8 +3387,8 @@ var KVF=[
   {label:'Event date', col:C.eventDate, type:'date'},
   {label:'Start', col:C.start, type:'time'},
   {label:'End', col:C.end, type:'time'},
-  {label:'Service', col:C.service, type:'select', opts:cfgList('SERVICES', ['Strolling','Stage','Stage & Strolling'])},
-  {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', ['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other'])},
+  {label:'Service', col:C.service, type:'select', opts:cfgList('SERVICES', FALLBACK_SERVICES)},
+  {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES)},
   {label:'Audience', col:C.audience, type:'text'},
   {label:'Audience Age Range', col:C.audienceAge, type:'text'},
   {label:'Entertainment budget', col:C.entertainmentBudget, type:'text', money:true},
@@ -5712,7 +5792,7 @@ function saveTaxRate(){
 }
 
 /* ---------- Ad-source attribution (used by Marketing & Advertising expenses) ---------- */
-var AD_SOURCES=cfgList('AD_SOURCES', ['Bark','Gigsalad','Website']);
+var AD_SOURCES=cfgList('AD_SOURCES', FALLBACK_AD_SOURCES);
 // Ad-source attribution lives on the expense itself now (Marketing &
 // Advertising category, optional Ad Source tag) rather than a separate
 // log — these three helpers back that one field in the expense form,
@@ -6239,7 +6319,7 @@ function openAddExpense(row){
   $('expenseDelBtn').textContent = 'Delete this expense ✕';
   EXPENSE_DEL_ARM = false;
   PENDING_RECEIPT = null;
-  $('exp_receipt_input').value = '';
+  $('exp_receipt_input').value = ''; $('exp_receipt_camera').value = '';
   renderReceiptPreview();
   $('overlay').classList.add('open'); $('expenseSheet').classList.add('open');
 }
@@ -6372,7 +6452,7 @@ function renderReceiptPreview(){
 }
 function clearPendingReceipt(){
   PENDING_RECEIPT = null;
-  $('exp_receipt_input').value = '';
+  $('exp_receipt_input').value = ''; $('exp_receipt_camera').value = '';
   renderReceiptPreview();
 }
 function removeReceiptUI(){
@@ -6994,7 +7074,12 @@ function renderSettings(){
         + '<div id="setsec_more_wrap" style="display:none;margin-top:10px">'
         + leftover.map(fieldHtml).join('') + '</div>';
     }
-    html += '<button class="save" style="margin-top:18px" onclick="saveSettingsFromForm()">Save settings</button>';
+    // Sticky so Save is reachable at any scroll position — it floats just above
+    // the bottom nav (fade lets content scroll cleanly under it), and settles at
+    // the end of the form.
+    html += '<div style="position:sticky;bottom:calc(74px + env(safe-area-inset-bottom));margin-top:18px;padding:12px 0 6px;background:linear-gradient(180deg,rgba(11,11,16,0),var(--ink) 42%);z-index:12">'
+      + '<button class="save" style="margin:0" onclick="saveSettingsFromForm()">Save settings</button>'
+      + '</div>';
     body.innerHTML = html;
     updateLogoPreview((raw.LOGO_URL!=null?raw.LOGO_URL:'') || (cfg.LOGO_URL!=null?cfg.LOGO_URL:''));
     if($('storeProdList')) storeLoadProducts();
@@ -7054,7 +7139,7 @@ function saveSettingsFromForm(){
   var obj = {};
   SETTINGS_FIELDS.forEach(function(f){ var el=$('set_'+f.key); if(el) obj[f.key]=el.value; });
   toast('Saving…');
-  google.script.run.withSuccessHandler(function(res){ if(res&&res.config) CFG=res.config; toast('Settings saved ✦'); maybeShowSetupNudge(); })
+  google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } toast('Settings saved ✦'); maybeShowSetupNudge(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .saveSettings(obj);
 }

@@ -45,6 +45,8 @@
   .signed{text-align:center;padding:0 10px 26px}
   .signed .big{font-size:40px;margin-bottom:10px}
   .err{color:#E9927B;text-align:center;padding:30px 10px}
+  .fbstar{font-size:32px;color:var(--gold);cursor:pointer;line-height:1;-webkit-user-select:none;user-select:none;padding:2px}
+  .fbstar.on{color:var(--gold-bright)}
   #loading{text-align:center;color:var(--muted);padding:40px 0}
   .docs{margin-top:16px}
   .docs-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 8px}
@@ -186,6 +188,8 @@ function renderStatusPage(d){
     html += '<div class="paydetails"><div class="paydetails-title">Balance</div><div>Your remaining balance of '+fmtMoney(d.balanceBase)+' will be due once your deposit is received.</div></div>';
   }
 
+  html += feedbackCardHtml(d);
+
   var kind = showDepositPrompt ? 'deposit' : 'balance';
   if(showDepositPrompt || showBalancePrompt){
     var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
@@ -221,6 +225,57 @@ function renderStatusPage(d){
         google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).saveBalancePaymentMethod(TOKEN, pmSel.value);
       }
     };
+  }
+}
+/* ---------- Post-event feedback (star rating + optional comment) ----------
+ * Only shown once the balance is paid and the event has passed (server gates it
+ * via d.showFeedback). A 4-5 star rating then offers the owner's Google review
+ * link if they've set one; lower ratings stay private with the owner. */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+var FB_RATING=0, FB_GOOGLE_URL='';
+function feedbackCardHtml(d){
+  if(!d.showFeedback) return '';
+  FB_RATING=0; FB_GOOGLE_URL=d.googleReviewUrl||'';
+  return '<div class="card" id="fbCard" style="border-color:var(--gold)">'
+    +'<div class="paydetails-title" style="margin-bottom:6px">How was your event?</div>'
+    +'<p class="note" style="text-align:left;margin:0 0 12px">'+esc(CFG.OWNER_NAME||'We')+' would love your feedback — tap a rating below.</p>'
+    +'<div id="fbStars" style="display:flex;gap:8px;justify-content:center;margin:0 0 14px">'
+      +[1,2,3,4,5].map(function(n){ return '<span class="fbstar" data-n="'+n+'" onclick="setFbRating('+n+')">☆</span>'; }).join('')
+    +'</div>'
+    +'<textarea id="fbText" rows="3" placeholder="Anything you’d like to share? (optional)" style="width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:15px;padding:10px;outline:none;resize:vertical;font-family:inherit"></textarea>'
+    +'<label style="display:flex;align-items:center;gap:9px;margin:4px 0 12px;font-size:13.5px;color:var(--cream);cursor:pointer"><input type="checkbox" id="fbReference" style="width:auto;flex:0 0 auto;margin:0"><span>I’m happy to be a reference for future clients.</span></label>'
+    +'<button class="paybtn" id="fbSubmit" style="border:none;width:100%" onclick="submitFeedback()">Submit feedback</button>'
+    +'<div id="fbErr" style="color:#E9927B;font-size:13px;text-align:center;margin-top:8px;min-height:16px"></div>'
+  +'</div>';
+}
+function setFbRating(n){
+  FB_RATING=n;
+  var stars=document.querySelectorAll('#fbStars .fbstar');
+  for(var i=0;i<stars.length;i++){ var sn=Number(stars[i].getAttribute('data-n')); stars[i].textContent = sn<=n?'★':'☆'; if(sn<=n) stars[i].classList.add('on'); else stars[i].classList.remove('on'); }
+  var e=document.getElementById('fbErr'); if(e) e.textContent='';
+}
+function submitFeedback(){
+  if(!FB_RATING){ document.getElementById('fbErr').textContent='Please tap a star rating first.'; return; }
+  var text=document.getElementById('fbText').value.trim();
+  var refBox=document.getElementById('fbReference'); var wantsRef=!!(refBox && refBox.checked);
+  var btn=document.getElementById('fbSubmit'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
+  google.script.run.withSuccessHandler(function(json){
+    var r; try{ r=JSON.parse(json); }catch(e){ r=null; }
+    if(!r||!r.ok){ btn.disabled=false; btn.textContent=orig; document.getElementById('fbErr').textContent=(r&&r.error)||'Could not send — please try again.'; return; }
+    showFeedbackDone();
+  }).withFailureHandler(function(){ btn.disabled=false; btn.textContent=orig; document.getElementById('fbErr').textContent='Connection error — try again.'; })
+    .submitEventFeedback(TOKEN, FB_RATING, text, wantsRef);
+}
+function showFeedbackDone(){
+  var card=document.getElementById('fbCard'); if(!card) return;
+  var who=esc(CFG.OWNER_NAME||'us');
+  if(FB_RATING>=4 && FB_GOOGLE_URL){
+    card.innerHTML='<div class="paydetails-title" style="margin-bottom:6px">Thank you! ✦</div>'
+      +'<p class="note" style="text-align:left;margin:0 0 14px">So glad you enjoyed it! Would you mind sharing that on Google? It genuinely helps '+who+'.</p>'
+      +'<a class="paybtn" target="_top" rel="noopener" href="'+esc(FB_GOOGLE_URL)+'" style="margin-top:0">Share on Google ↗</a>';
+  } else {
+    card.innerHTML='<div class="paydetails-title" style="margin-bottom:6px">Thank you! ✦</div>'
+      +'<p class="note" style="text-align:left;margin:0">Your feedback goes straight to '+who+' — we appreciate it.</p>';
   }
 }
 var FEE_RATE=(String((CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()==='no')?0:0.0325;

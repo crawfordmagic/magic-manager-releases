@@ -56,7 +56,8 @@ var CONFIG_DEFAULTS_ = {
   STORE_ENABLED: '',
   STORE_PAYMENT_METHODS: '',
   W9_URL: '', W9_FILE_ID: '',
-  INSURANCE_URL: '', INSURANCE_FILE_ID: ''
+  INSURANCE_URL: '', INSURANCE_FILE_ID: '',
+  GOOGLE_REVIEW_URL: ''
 };
 
 function getConfig_() {
@@ -137,6 +138,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
   { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
+  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google Business "write a review" link. After a client pays their balance and the event has passed, their portal asks for a star rating + comment; a 4- or 5-star rating then shows a "Share this on Google?" button pointing here. Lower ratings stay private to you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
   // Contract terms
   { key: 'CANCELLATION_POLICY', label: 'Cancellation policy', help: 'Your cancellation and refund terms, in your own words. This replaces the standard cancellation wording in the Terms section of the contract. Leave blank to keep the standard wording. (It\'s your agreement — review the wording yourself, or with an advisor.)', multiline: true, section: 'contract' },
   { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
@@ -308,7 +310,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.21';
+var APP_VERSION = '1.5.22';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1468,11 +1470,53 @@ function getContractForSigning(token) {
         daysUntilEvent: daysUntilEvent,
         balanceDueDays: balanceDueDays,
         balanceDueDateFmt: balanceDueDateFmt,
-        invoiceNumber: get('Invoice Number') || ''
+        invoiceNumber: get('Invoice Number') || '',
+        // Post-event feedback: only once the balance is paid AND the event date
+        // has arrived (so an early-payer isn't asked to review a show they
+        // haven't seen), and only if they haven't already rated it.
+        rating: Number(get('Event Rating')) || 0,
+        showFeedback: balancePaid && (daysUntilEvent != null && daysUntilEvent <= 0) && !(Number(get('Event Rating')) > 0),
+        googleReviewUrl: String(getConfig_().GOOGLE_REVIEW_URL || '')
       });
     }
   }
   return JSON.stringify({ ok: false });
+}
+// Client-submitted post-event feedback from their portal: a 1-5 star rating and
+// an optional comment, written to the lead so the owner sees it. The portal
+// decides (from GOOGLE_REVIEW_URL + the rating) whether to then show the Google
+// review prompt; anything it captures here stays private to the owner.
+function submitEventFeedback(token, rating, review, referenceOk) {
+  try {
+    rating = Math.round(Number(rating) || 0);
+    if (rating < 1 || rating > 5) return JSON.stringify({ ok: false, error: 'Please choose a star rating.' });
+    review = String(review || '').trim().slice(0, 4000);
+    // The client can opt in to being a reference. Only ever SET the flag here —
+    // never clear it — so an owner's manual flag isn't wiped by a later review.
+    var wantsReference = (referenceOk === true || String(referenceOk).trim().toLowerCase() === 'yes' || String(referenceOk).trim().toLowerCase() === 'true');
+    const sh = sheet_();
+    var heads = headers_(sh);
+    const tokenCol = heads.indexOf('Contract Sign Token') + 1;
+    if (!tokenCol) return JSON.stringify({ ok: false, error: 'Not found' });
+    const last = sh.getLastRow();
+    const tokens = sh.getRange(2, tokenCol, last - 1, 1).getValues();
+    for (var i = 0; i < tokens.length; i++) {
+      if (String(tokens[i][0]) === token) {
+        const rowNum = i + 2;
+        var vals = { 'Event Rating': rating, 'Event Review': review, 'Reviewed Date': new Date() };
+        if (wantsReference) vals['Reference OK'] = 'Yes';
+        Object.keys(vals).forEach(function (name) {
+          var col = heads.indexOf(name) + 1;
+          if (!col) { col = heads.length + 1; sh.getRange(1, col).setValue(name); heads.push(name); }
+          sh.getRange(rowNum, col).setValue(vals[name]);
+        });
+        return JSON.stringify({ ok: true });
+      }
+    }
+    return JSON.stringify({ ok: false, error: 'Not found' });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
 }
 function submitContractSignature(token, typedName, paymentMethod) {
   typedName = String(typedName || '').trim();
@@ -1981,7 +2025,7 @@ function storeDeleteProduct(id) {
 
 
 
-var LEAD_HEADERS = ['Customer Name', 'Phone number', 'Company or Organization', 'E-mail', 'Audience Size', 'Service', 'Event Type', 'Notes about interaction', 'Lead Source', 'Event Location', 'Quoted Price', 'Start Time', 'End Time', 'Status', 'Followup', 'Date of Event', 'Referred To', 'Timestamp', 'Lost Reason', 'Audience Age Range', 'Deposit Amount', 'Payment Method', 'Deposit Received', 'Deposit Received Date', 'Balance Paid', 'Balance Paid Date', 'Travel Fee', 'Contract PDF URL', 'Company Address', 'Balance Payment Method', 'Balance Alert Snoozed Until', 'Referred Date', 'Partner Check-In Dismissed', 'Contract Signed', 'Contract Doc URL', 'Contract Sign URL', 'Deposit Receipt PDF URL', 'Balance Receipt PDF URL', 'Balance Due Days'];
+var LEAD_HEADERS = ['Customer Name', 'Phone number', 'Company or Organization', 'E-mail', 'Audience Size', 'Service', 'Event Type', 'Notes about interaction', 'Lead Source', 'Event Location', 'Quoted Price', 'Start Time', 'End Time', 'Status', 'Followup', 'Date of Event', 'Referred To', 'Timestamp', 'Lost Reason', 'Audience Age Range', 'Deposit Amount', 'Payment Method', 'Deposit Received', 'Deposit Received Date', 'Balance Paid', 'Balance Paid Date', 'Travel Fee', 'Contract PDF URL', 'Company Address', 'Balance Payment Method', 'Balance Alert Snoozed Until', 'Referred Date', 'Partner Check-In Dismissed', 'Contract Signed', 'Contract Doc URL', 'Contract Sign URL', 'Deposit Receipt PDF URL', 'Balance Receipt PDF URL', 'Balance Due Days', 'Event Rating', 'Event Review', 'Reviewed Date', 'Reference OK'];
 
 // A brand-new copy of this app starts with an empty leads sheet; lay down the
 // header row once so adding/reading leads works. (Contract-specific columns are

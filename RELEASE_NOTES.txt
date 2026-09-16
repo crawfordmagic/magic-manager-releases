@@ -1,3 +1,7 @@
 What's new in this update:
 
-• Changing a lead's status from the Follow-Ups Due card now asks for the details when it needs them. Mark a lead Lost and it prompts for the reason (from your Lost Reasons list, or type your own); choose Referral and it asks which partner you're referring to — the same as inside a lead. New, Pending, Booked, and Completed still save with one tap.
+• Collect reviews from your clients — automatically. After a client pays their balance and the event has passed, their portal now asks for a star rating and a comment. Add your Google review link (Settings → Services & client page) and a happy 4- or 5-star client is invited to post it on Google; anything lower comes straight to you, privately, so you can make it right. Ratings and comments show right on the lead, and you can flag any client as a "reference" (or let them opt in) to build a References list — your own testimonial pool.
+
+• Snap a receipt with your camera. Expenses now have a "Capture Receipt" button that opens your phone's camera directly — take the photo and it attaches to the expense, with no saving-and-re-uploading.
+
+• Settings that keep up with you. Your dropdown choices (Services, Event Types, Lead Sources, Ad Sources) now update everywhere the moment you tap Save — no reload needed — and the Save button stays reachable no matter how far you scroll.
