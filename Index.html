@@ -1438,9 +1438,8 @@ function load(){
     // Same idea for the bottom "Send feedback" link — hidden until the page loads.
     var _fbl=$('feedbackLeadsLink'); if(_fbl) _fbl.style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge();
-    // Brand-new install: open the guided setup wizard once (skippable). Already-
-    // configured installs (BUSINESS_NAME set) never see it auto-open.
-    try{ var _cfgd = CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME!=='Your Business'; if(!_cfgd && !localStorage.getItem('mm_wizard_seen')){ localStorage.setItem('mm_wizard_seen','1'); launchWizard(); } }catch(e){}
+    // The brand-new-install setup wizard now opens at startup (maybeLaunchSetupWizard_),
+    // before the Leads view paints, so a new user lands straight on it — no flash here.
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
     checkShowtimePopup();
     google.script.run.withSuccessHandler(function(r){
@@ -7219,6 +7218,27 @@ function launchWizard(){
   }).withFailureHandler(function(){ toast('Could not open setup — try again'); }).getSettings();
 }
 
+// Brand-new install: go STRAIGHT to the guided setup wizard on first load, so a
+// new user never sees the Leads screen flash first. We know it's a new install
+// synchronously (CFG is injected into the page), so we drop an opaque full-screen
+// curtain immediately — before the Leads view paints — then launchWizard fills it
+// once getSettings returns. Runs once per install (localStorage 'mm_wizard_seen');
+// an already-configured install never triggers it.
+function maybeLaunchSetupWizard_(){
+  try{
+    var configured = CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME!=='Your Business';
+    if(configured || localStorage.getItem('mm_wizard_seen')) return false;
+    localStorage.setItem('mm_wizard_seen','1');
+    var ov=document.getElementById('wizardOverlay');
+    if(!ov){ ov=document.createElement('div'); ov.id='wizardOverlay'; document.body.appendChild(ov); }
+    ov.style.cssText='position:fixed;inset:0;z-index:1000;background:#0B0B10';
+    ov.style.display='block';
+    document.body.style.overflow='hidden';
+    launchWizard();
+    return true;
+  }catch(e){ return false; }
+}
+
 function renderWizard(){
   var total=WIZARD_STEPS.length;
   // Clear the full Settings form first so its set_<key> inputs can't collide with
@@ -7751,6 +7771,7 @@ function renderTrialBanner(t, threshold){
 }
 function dismissTrialBanner(){ var b=$('trialBanner'); if(b){ b.style.display='none'; b.innerHTML=''; } }
 
+maybeLaunchSetupWizard_();
 populateLeadDropdowns();
 load();
 checkForUpdate();
