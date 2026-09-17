@@ -325,7 +325,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.23';
+var APP_VERSION = '1.5.24';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -351,7 +351,11 @@ function getLicenseState_() {
   var cache = null;
   try { cache = JSON.parse(props.getProperty('LICENSE_CACHE') || 'null'); } catch (e) {}
   if (cache && cache.key === key && cache.status === 'active' && (now - cache.checkedAt) < LICENSE_RECHECK_MS) {
-    return { ok: true, status: 'active', message: 'License active.', checkedAt: cache.checkedAt };
+    // A trial can't outlive its end date even inside the daily recheck window —
+    // enforce it locally so a cached "active" never runs past expiry.
+    if (!(cache.trialEndsAt && now > cache.trialEndsAt)) {
+      return { ok: true, status: 'active', message: 'License active.', checkedAt: cache.checkedAt, trialEndsAt: cache.trialEndsAt || 0 };
+    }
   }
 
   var resp = null;
@@ -374,12 +378,18 @@ function getLicenseState_() {
         if (data.latestVersion != null) props.setProperty('LATEST_VERSION', String(data.latestVersion));
         if (data.releaseNotes != null) props.setProperty('LATEST_NOTES', String(data.releaseNotes));
         if (data.updateUrl != null) props.setProperty('UPDATE_URL', String(data.updateUrl));
+        if (data.storeUrl != null) props.setProperty('STORE_URL', String(data.storeUrl));
+        // Remember a trial's end date for the in-app warnings + email reminders;
+        // a full (non-trial) active license clears it so a converted buyer sees no trial UI.
+        if (data.trialEndsAt) props.setProperty('TRIAL_ENDS_AT', String(data.trialEndsAt));
+        else if (data.status === 'active') props.deleteProperty('TRIAL_ENDS_AT');
       } catch (e) {}
     }
-    if (data && (data.status === 'active' || data.status === 'invalid' || data.status === 'revoked')) {
-      props.setProperty('LICENSE_CACHE', JSON.stringify({ status: data.status, checkedAt: now, key: key }));
-      if (data.status === 'active') return { ok: true, status: 'active', message: 'License active.', checkedAt: now };
-      return { ok: false, status: data.status, message: data.message || ('This license is ' + data.status + '.') };
+    if (data && (data.status === 'active' || data.status === 'invalid' || data.status === 'revoked' || data.status === 'expired')) {
+      var trialEndsAt = Number(data.trialEndsAt) || 0;
+      props.setProperty('LICENSE_CACHE', JSON.stringify({ status: data.status, checkedAt: now, key: key, trialEndsAt: trialEndsAt }));
+      if (data.status === 'active') return { ok: true, status: 'active', message: 'License active.', checkedAt: now, trialEndsAt: trialEndsAt };
+      return { ok: false, status: data.status, message: data.message || ('This license is ' + data.status + '.'), storeUrl: String(data.storeUrl || props.getProperty('STORE_URL') || '') };
     }
   }
 
@@ -395,6 +405,112 @@ function activateLicense(key) {
   if (typeof key === 'string') props.setProperty('LICENSE_KEY', key.trim());
   try { props.deleteProperty('LICENSE_CACHE'); } catch (e) {}
   return getLicenseState_();
+}
+
+// Self-service free trial. Asks the hub for a trial tied to this email (the hub
+// gives one per email), then activates the returned key. Called from the
+// activation page's "Start free trial" form.
+function startTrial(email) {
+  var props = PropertiesService.getScriptProperties();
+  var hub = licenseHubUrl_();
+  if (!hub) return { ok: false, message: 'Free trials aren’t available for this app.' };
+  // Never let starting a trial clobber an already-active PAID license. The trial
+  // option isn't shown once the app is activated, but this guarantees a paid key
+  // can't be overwritten even if the trial call were somehow reached.
+  var cur = getLicenseState_();
+  if (cur && cur.ok && cur.status === 'active' && !cur.trialEndsAt) {
+    return { ok: false, message: 'You already have an active license — no trial needed.' };
+  }
+  email = String(email || '').trim();
+  if (!email || email.indexOf('@') < 1 || email.indexOf('.') < 0) {
+    return { ok: false, message: 'Please enter a valid email address.' };
+  }
+  var resp = null;
+  try {
+    resp = UrlFetchApp.fetch(hub, {
+      method: 'post',
+      payload: { action: 'trial', email: email, install: getInstallId_() },
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+  } catch (e) { resp = null; }
+  if (!resp) return { ok: false, message: 'Could not reach the trial server — check your connection and try again.' };
+  var data = null;
+  try { data = JSON.parse(resp.getContentText()); } catch (e) {}
+  if (!data) return { ok: false, message: 'Unexpected response from the server — please try again.' };
+  if (!data.ok) {
+    if (data.storeUrl) { try { props.setProperty('STORE_URL', String(data.storeUrl)); } catch (e) {} }
+    return { ok: false, reason: data.reason || '', message: data.message || 'Could not start your trial.', storeUrl: String(data.storeUrl || '') };
+  }
+  // Success — store the key + trial state, then activate.
+  props.setProperty('LICENSE_KEY', String(data.key));
+  props.setProperty('TRIAL_EMAIL', email);
+  if (data.trialEndsAt != null) props.setProperty('TRIAL_ENDS_AT', String(data.trialEndsAt));
+  if (data.storeUrl != null) props.setProperty('STORE_URL', String(data.storeUrl));
+  try { props.deleteProperty('LICENSE_CACHE'); } catch (e) {}
+  // Fresh trial — clear any prior warning/reminder flags.
+  try {
+    props.deleteProperty('TRIAL_WARN_3'); props.deleteProperty('TRIAL_WARN_1');
+    props.deleteProperty('TRIAL_MAIL_3'); props.deleteProperty('TRIAL_MAIL_1');
+  } catch (e) {}
+  var state = getLicenseState_();
+  state.startedTrial = true;
+  return state;
+}
+
+// What the in-app trial banner needs: whether this is a trial, days remaining,
+// the purchase link, and which warnings have already been shown (so the 3-day and
+// 1-day notices each appear once). Non-trial installs get {trial:false}.
+function getTrialInfo() {
+  var props = PropertiesService.getScriptProperties();
+  var ends = Number(props.getProperty('TRIAL_ENDS_AT')) || 0;
+  if (!ends) return { trial: false };
+  var msLeft = ends - Date.now();
+  return {
+    trial: true,
+    endsAt: ends,
+    daysLeft: Math.ceil(msLeft / (24 * 60 * 60 * 1000)),
+    expired: msLeft <= 0,
+    storeUrl: (props.getProperty('STORE_URL') || '').trim(),
+    warn3Shown: props.getProperty('TRIAL_WARN_3') === '1',
+    warn1Shown: props.getProperty('TRIAL_WARN_1') === '1'
+  };
+}
+
+// Remember that a trial warning (the 3-day or 1-day one) has been shown, so it
+// doesn't reappear on every load.
+function markTrialWarned(which) {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty(String(which) === '1' ? 'TRIAL_WARN_1' : 'TRIAL_WARN_3', '1');
+  return JSON.stringify({ ok: true });
+}
+
+// Daily (via syncFollowUps): email the trial owner a 3-days-left and a 1-day-left
+// reminder. Computed from the stored end date, so it fires even if they don't open
+// the app. Each reminder sends at most once.
+function trialReminderCheck_() {
+  var props = PropertiesService.getScriptProperties();
+  var ends = Number(props.getProperty('TRIAL_ENDS_AT')) || 0;
+  var email = (props.getProperty('TRIAL_EMAIL') || '').trim();
+  if (!ends || !email) return;
+  var daysLeft = Math.ceil((ends - Date.now()) / (24 * 60 * 60 * 1000));
+  var store = (props.getProperty('STORE_URL') || '').trim();
+  if (daysLeft <= 1 && daysLeft > 0 && props.getProperty('TRIAL_MAIL_1') !== '1') {
+    sendTrialEmail_(email, daysLeft, store); props.setProperty('TRIAL_MAIL_1', '1');
+  } else if (daysLeft <= 3 && daysLeft > 1 && props.getProperty('TRIAL_MAIL_3') !== '1') {
+    sendTrialEmail_(email, daysLeft, store); props.setProperty('TRIAL_MAIL_3', '1');
+  }
+}
+function sendTrialEmail_(email, daysLeft, store) {
+  try {
+    var when = daysLeft <= 1 ? 'tomorrow' : ('in ' + daysLeft + ' days');
+    var subj = 'Your Magic Manager trial ends ' + when;
+    var body = 'Your free trial of Magic Manager ends ' + when + '.\n\n'
+      + 'Your data is safe and untouched — purchase the full version to keep everything you’ve set up and pick right back up where you left off.\n\n'
+      + (store ? ('Get the full version:\n' + store + '\n\n') : '')
+      + 'Thanks for trying Magic Manager!';
+    MailApp.sendEmail(email, subj, body);
+  } catch (e) {}
 }
 
 // Compares APP_VERSION against the latest version the hub reported (captured on
@@ -494,36 +610,76 @@ function escHtml_(s) {
 
 function activationPageHtml_(lic) {
   var biz = getConfig_().BUSINESS_NAME || 'this app';
+  var status = (lic && lic.status) || '';
+  var expired = (status === 'expired');
+  var showTrial = (status === 'unset'); // offer a trial only to someone who hasn't had one
   var msg = (lic && lic.message) ? lic.message : 'Enter your license key to activate this app.';
-  return [
-    '<!doctype html><html><head><meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<title>', escHtml_(biz), ' — Activate</title>',
-    '<style>',
-    'body{margin:0;background:#0B0B10;color:#F4EBD3;font-family:Arial,Helvetica,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}',
-    '.box{max-width:380px;width:100%;text-align:center}',
-    'h1{color:#E4C179;font-weight:700;font-size:20px;margin:0 0 6px}',
-    'p{color:#928A75;font-size:13.5px;line-height:1.6;margin:0 0 16px}',
-    'input{width:100%;box-sizing:border-box;font-size:16px;color:#F4EBD3;background:#1C1C27;border:1px solid rgba(201,160,80,.4);border-radius:8px;padding:12px;outline:none;text-align:center;letter-spacing:.04em}',
-    'button{width:100%;margin-top:12px;background:#C9A050;color:#141008;font-weight:700;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer}',
-    'button:disabled{opacity:.5}',
-    '.err{color:#E9927B;font-size:12.5px;margin-top:10px;min-height:16px}',
-    '</style></head><body><div class="box">',
-    '<h1>Activate ', escHtml_(biz), '</h1>',
-    '<p>', escHtml_(msg), '</p>',
-    '<input id="k" placeholder="License key" autocomplete="off" autocapitalize="off" spellcheck="false">',
-    '<button id="b" onclick="act()">Activate</button>',
-    '<div class="err" id="e"></div>',
-    '<script>',
-    'function act(){var k=document.getElementById("k").value.trim();if(!k)return;',
-    'var b=document.getElementById("b");b.disabled=true;b.textContent="Checking…";document.getElementById("e").textContent="";',
-    'google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent=(r&&r.message)||"That key could not be verified.";}})',
-    '.withFailureHandler(function(){b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent="Something went wrong — try again.";})',
-    '.activateLicense(k);}',
-    'document.getElementById("k").addEventListener("keydown",function(e){if(e.key==="Enter")act();});',
-    '</script>',
-    '</div></body></html>'
-  ].join('');
+  var store = '';
+  try { store = (lic && lic.storeUrl) ? lic.storeUrl : (PropertiesService.getScriptProperties().getProperty('STORE_URL') || ''); } catch (e) {}
+  var storeOk = /^https?:\/\//i.test(store);
+
+  var p = [];
+  p.push('<!doctype html><html><head><meta charset="utf-8">');
+  p.push('<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">');
+  p.push('<title>', escHtml_(biz), ' — Activate</title>');
+  p.push('<style>');
+  p.push('body{margin:0;background:#0B0B10;color:#F4EBD3;font-family:Arial,Helvetica,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}');
+  p.push('.box{max-width:400px;width:100%;text-align:center}');
+  p.push('h1{color:#E4C179;font-weight:700;font-size:20px;margin:0 0 6px}');
+  p.push('p{color:#928A75;font-size:13.5px;line-height:1.6;margin:0 0 16px}');
+  p.push('input{width:100%;box-sizing:border-box;font-size:16px;color:#F4EBD3;background:#1C1C27;border:1px solid rgba(201,160,80,.4);border-radius:8px;padding:12px;outline:none;text-align:center}');
+  p.push('input:focus{border-color:#C9A050}');
+  p.push('button{width:100%;margin-top:12px;background:#C9A050;color:#141008;font-weight:700;font-size:15px;border:none;border-radius:10px;padding:13px;cursor:pointer}');
+  p.push('button:disabled{opacity:.5}button.ghost{background:transparent;border:1px solid rgba(201,160,80,.45);color:#E4C179}');
+  p.push('a.buy{display:block;text-decoration:none;margin-top:6px;background:#C9A050;color:#141008;font-weight:700;font-size:15px;border-radius:10px;padding:13px}');
+  p.push('.divider{display:flex;align-items:center;gap:10px;color:#6b6250;font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:22px 0 14px}');
+  p.push('.divider::before,.divider::after{content:"";flex:1;height:1px;background:rgba(201,160,80,.18)}');
+  p.push('.lbl{color:#E4C179;font-size:13px;font-weight:700;margin:0 0 8px}');
+  p.push('.err{color:#E9927B;font-size:12.5px;margin-top:10px;min-height:16px}');
+  p.push('</style></head><body><div class="box">');
+
+  if (expired) {
+    p.push('<h1>Your free trial has ended</h1>');
+    p.push('<p>Your data is safe and untouched. Get the full version to pick up right where you left off — nothing is deleted.</p>');
+    if (storeOk) p.push('<a class="buy" href="', escHtml_(store), '" target="_top" rel="noopener">Get the full version</a>');
+    p.push('<div class="divider">already purchased?</div>');
+    p.push('<div class="lbl">Enter your license key</div>');
+  } else {
+    p.push('<h1>Activate ', escHtml_(biz), '</h1>');
+    p.push('<p>', escHtml_(msg), '</p>');
+  }
+
+  p.push('<input id="k" placeholder="License key" autocomplete="off" autocapitalize="off" spellcheck="false">');
+  p.push('<button id="b" onclick="act()">Activate</button>');
+  p.push('<div class="err" id="e"></div>');
+
+  if (showTrial) {
+    p.push('<div class="divider">or try it free</div>');
+    p.push('<div class="lbl">Start your 14-day free trial</div>');
+    p.push('<input id="te" type="email" placeholder="you@email.com" autocomplete="email" autocapitalize="off" spellcheck="false">');
+    p.push('<button id="tb" class="ghost" onclick="startTrialUI()">Start free trial</button>');
+    p.push('<div class="err" id="tee"></div>');
+    p.push('<p style="margin-top:10px;font-size:12px">No credit card. Full access for 14 days.</p>');
+  }
+
+  p.push('<script>');
+  p.push('function act(){var k=document.getElementById("k").value.trim();if(!k)return;');
+  p.push('var b=document.getElementById("b");b.disabled=true;b.textContent="Checking…";document.getElementById("e").textContent="";');
+  p.push('google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent=(r&&r.message)||"That key could not be verified.";}})');
+  p.push('.withFailureHandler(function(){b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent="Something went wrong — try again.";})');
+  p.push('.activateLicense(k);}');
+  p.push('document.getElementById("k").addEventListener("keydown",function(e){if(e.key==="Enter")act();});');
+  if (showTrial) {
+    p.push('function startTrialUI(){var em=document.getElementById("te").value.trim();var tb=document.getElementById("tb");var ee=document.getElementById("tee");ee.textContent="";if(!em){ee.textContent="Enter your email.";return;}');
+    p.push('tb.disabled=true;tb.textContent="Starting…";');
+    p.push('google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{tb.disabled=false;tb.textContent="Start free trial";ee.textContent=(r&&r.message)||"Could not start your trial.";}})');
+    p.push('.withFailureHandler(function(){tb.disabled=false;tb.textContent="Start free trial";ee.textContent="Something went wrong — try again.";})');
+    p.push('.startTrial(em);}');
+    p.push('document.getElementById("te").addEventListener("keydown",function(e){if(e.key==="Enter")startTrialUI();});');
+  }
+  p.push('</script>');
+  p.push('</div></body></html>');
+  return p.join('');
 }
 
 /* ---------- One-time buyer setup (menu in the Sheet) ----------
@@ -4551,6 +4707,7 @@ function syncFollowUps() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;
   try {
+    try { trialReminderCheck_(); } catch (e) {}
     backfillMissingTimestamps_();
     defaultFollowupForNewLeads_();
     cleanupImportedJunk_();

@@ -1,7 +1,3 @@
 What's new in this update:
 
-• Make leaving a Google review effortless for happy clients. When a 4- or 5-star client chooses to share on Google, the app now automatically copies their comment and opens your Google review page — so they just paste and post. Less friction means more reviews actually get published. (Add your review link under Settings → Services & client page.)
-
-• A cleaner, more consistent look. Icons throughout the app now use one gold line-art style, and the Insights and Expenses tabs have clear icons of their own.
-
-• Contract fix: no more placeholder business name. If you haven't filled in a Legal Business Name, your contracts and receipts now simply use your business name instead of showing a generic "Your Business LLC" placeholder.
+• Behind-the-scenes improvements to app activation and licensing. Nothing changes in your day-to-day use — this keeps your app current and running smoothly.
