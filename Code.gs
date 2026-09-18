@@ -325,7 +325,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.25';
+var APP_VERSION = '1.5.26';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -485,33 +485,9 @@ function markTrialWarned(which) {
   return JSON.stringify({ ok: true });
 }
 
-// Daily (via syncFollowUps): email the trial owner a 3-days-left and a 1-day-left
-// reminder. Computed from the stored end date, so it fires even if they don't open
-// the app. Each reminder sends at most once.
-function trialReminderCheck_() {
-  var props = PropertiesService.getScriptProperties();
-  var ends = Number(props.getProperty('TRIAL_ENDS_AT')) || 0;
-  var email = (props.getProperty('TRIAL_EMAIL') || '').trim();
-  if (!ends || !email) return;
-  var daysLeft = Math.ceil((ends - Date.now()) / (24 * 60 * 60 * 1000));
-  var store = (props.getProperty('STORE_URL') || '').trim();
-  if (daysLeft <= 1 && daysLeft > 0 && props.getProperty('TRIAL_MAIL_1') !== '1') {
-    sendTrialEmail_(email, daysLeft, store); props.setProperty('TRIAL_MAIL_1', '1');
-  } else if (daysLeft <= 3 && daysLeft > 1 && props.getProperty('TRIAL_MAIL_3') !== '1') {
-    sendTrialEmail_(email, daysLeft, store); props.setProperty('TRIAL_MAIL_3', '1');
-  }
-}
-function sendTrialEmail_(email, daysLeft, store) {
-  try {
-    var when = daysLeft <= 1 ? 'tomorrow' : ('in ' + daysLeft + ' days');
-    var subj = 'Your Magic Manager trial ends ' + when;
-    var body = 'Your free trial of Magic Manager ends ' + when + '.\n\n'
-      + 'Your data is safe and untouched — purchase the full version to keep everything you’ve set up and pick right back up where you left off.\n\n'
-      + (store ? ('Get the full version:\n' + store + '\n\n') : '')
-      + 'Thanks for trying Magic Manager!';
-    MailApp.sendEmail(email, subj, body);
-  } catch (e) {}
-}
+// Trial reminder EMAILS are sent by the license hub (from the brand address), not
+// here — so they come from Magic Manager rather than the buyer's own account. The
+// in-app 3-day / 1-day banner (getTrialInfo / markTrialWarned) still lives in the app.
 
 // Compares APP_VERSION against the latest version the hub reported (captured on
 // the daily license check) and returns what the "update available" banner needs.
@@ -4707,7 +4683,6 @@ function syncFollowUps() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;
   try {
-    try { trialReminderCheck_(); } catch (e) {}
     backfillMissingTimestamps_();
     defaultFollowupForNewLeads_();
     cleanupImportedJunk_();
