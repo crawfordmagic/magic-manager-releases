@@ -192,7 +192,7 @@ function renderStatusPage(d){
 
   var kind = showDepositPrompt ? 'deposit' : 'balance';
   if(showDepositPrompt || showBalancePrompt){
-    var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
+    var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : (PAYMENT_METHODS[0]||'Credit Card');
     var initAmt = computeAmounts(d.depositBase, d.balanceBase, initialMethod);
     var baseShown = kind==='balance' ? initAmt.balance : initAmt.deposit;
     if(kind==='balance' && !balanceDue){
@@ -310,7 +310,7 @@ function showFeedbackDone(){
   }
 }
 var FEE_RATE=(String((CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()==='no')?0:0.0325;
-var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
+var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASH_INSTRUCTIONS)m.push('Cash');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');if(CFG.CARD_ENABLED)m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
 // The owner's Venmo username and Cash App cashtag — update these here if
 // either ever changes. The Venmo link format is a long-standing pattern
 // many businesses rely on, though it's not something Venmo officially
@@ -361,6 +361,9 @@ function paymentInstructionsFor(method){
   if(method==='Zelle'){
     return {title:'Zelle', lines:['Send to: '+CFG.ZELLE_HANDLE,'Send with Zelle from your banking app to the address above.']};
   }
+  if(method==='Cash'){
+    return {title:'Cash', lines:[CFG.CASH_INSTRUCTIONS||'Pay in cash in person.']};
+  }
   return null;
 }
 function renderExtrasHtml(method, amt, kind){
@@ -374,27 +377,41 @@ function renderExtrasHtml(method, amt, kind){
   if(method==='Venmo'){
     var link=payLinkFor(method, amt);
     return '<a class="paybtn" target="_top" href="'+link+'">Pay '+kindLabel+' \u2014 '+fmtMoney(amt)+'</a>'
-      +'<p class="paynote">Opens Venmo with the amount ready to send. We will confirm once it\u2019s received.</p>';
+      +'<p class="paynote">Opens Venmo with the amount ready to send.</p>'+reportBtnHtml(kind,kindLabel);
   }
   if(method==='PayPal'){
     var plink=payLinkFor(method, amt);
     return '<a class="paybtn" target="_top" href="'+plink+'">Pay '+kindLabel+' — '+fmtMoney(amt)+'</a>'
-      +'<p class="paynote">Opens PayPal with the amount ready to send. We will confirm once it’s received.</p>';
+      +'<p class="paynote">Opens PayPal with the amount ready to send.</p>'+reportBtnHtml(kind,kindLabel);
   }
   if(method==='Cash App'){
     return '<div class="paydetails"><div class="paydetails-title">Cash App</div>'
       +'<div>Send to: $'+CASHAPP_CASHTAG+'</div>'
       +'<div>Amount: '+fmtMoney(amt)+'</div></div>'
       +'<a class="paybtn" target="_top" href="https://cash.app/$'+CASHAPP_CASHTAG+'">Open Cash App</a>'
-      +'<p class="paynote">Cash App doesn\u2019t support pre-filling the amount, so please enter '+fmtMoney(amt)+' once the app opens. We will confirm once it\u2019s received.</p>';
+      +'<p class="paynote">Cash App doesn\u2019t support pre-filling the amount, so please enter '+fmtMoney(amt)+' once the app opens.</p>'+reportBtnHtml(kind,kindLabel);
   }
   var info=paymentInstructionsFor(method);
   if(info){
     return '<div class="paydetails"><div class="paydetails-title">'+info.title+'</div>'
       +'<div>Amount: '+fmtMoney(amt)+'</div>'
-      +info.lines.map(function(l){ return '<div>'+l+'</div>'; }).join('')+'</div>';
+      +info.lines.map(function(l){ return '<div>'+l+'</div>'; }).join('')+'</div>'+reportBtnHtml(kind,kindLabel);
   }
   return '';
+}
+// Every pay-outside method gets an "I've sent it" button so the owner is told to
+// confirm; they still verify before anything is marked received. (Card reports
+// automatically on the Stripe return, so it has no button here.)
+function reportBtnHtml(kind, kindLabel){
+  return '<button type="button" class="paybtn" id="reportPayBtn" onclick="reportPaymentUI(\''+kind+'\')" style="border:none;width:100%;background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-top:10px">I’ve sent my '+kindLabel.toLowerCase()+'</button>'
+    +'<p class="paynote">Tap once you’ve sent it — '+esc(CFG.OWNER_NAME||'we')+' will confirm once the payment is received.</p>';
+}
+function reportPaymentUI(kind){
+  var b=document.getElementById('reportPayBtn'); if(b){ b.disabled=true; b.textContent='Sending…'; }
+  google.script.run.withSuccessHandler(function(){
+    var ex=document.getElementById('paymentExtra');
+    if(ex) ex.innerHTML='<div class="paydetails"><div class="paydetails-title">Thank you! ✦</div><div>We’ve let '+esc(CFG.OWNER_NAME||'the team')+' know. Your payment will be confirmed once it’s received.</div></div>';
+  }).withFailureHandler(function(){ if(b){ b.disabled=false; b.textContent='Try again'; } }).reportPayment(TOKEN, kind);
 }
 // A direct window.top.location assignment is blocked by the browser when
 // the page content is running in a cross-origin sandboxed frame (which is

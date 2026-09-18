@@ -35,6 +35,7 @@ var CONFIG_DEFAULTS_ = {
   ACH_BANK: '', ACH_ACCOUNT: '', ACH_ROUTING: '',
   WIRE_BANK: '', WIRE_ACCOUNT: '', WIRE_ROUTING: '', WIRE_BANK_ADDRESS: '',
   CHECK_PAYEE: '', CHECK_ADDRESS: '',
+  CASH_INSTRUCTIONS: '',
   DEPOSIT_PERCENT: '50',
   LOGO_URL: '',
   GOVERNING_LAW: '',
@@ -53,6 +54,7 @@ var CONFIG_DEFAULTS_ = {
   LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere',
   AUDIENCES: '',
   CARD_FEE_ENABLED: 'yes',
+  PAYMENT_REPORT_EMAIL: 'yes',
   STORE_ENABLED: '',
   STORE_PAYMENT_METHODS: '',
   W9_URL: '', W9_FILE_ID: '',
@@ -132,6 +134,7 @@ var CONFIG_FIELDS_ = [
   // Getting paid
   { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their booking page goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
   { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
+  { key: 'PAYMENT_REPORT_EMAIL', label: 'Payment-report emails', help: 'When on, you get an email whenever a client taps "I’ve sent my payment" so you know to verify and confirm it. Turn it off to rely on the "Payments to confirm" card in the app, which always shows regardless. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client reports a payment', section: 'payments' },
   { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'payments' },
   { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'payments' },
   { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', section: 'payments' },
@@ -145,6 +148,7 @@ var CONFIG_FIELDS_ = [
   { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', section: 'payments' },
   { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'payments' },
   { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'payments' },
+  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your client page. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the client page (you can still record a cash payment yourself on a lead).', section: 'payments' },
   // Services & client page
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
@@ -325,7 +329,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.26';
+var APP_VERSION = '1.5.27';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -768,7 +772,29 @@ function doGet(e) {
     var template = HtmlService.createTemplateFromFile('Sign');
     template.token = e.parameter.sign;
     template.paid = e.parameter.paid || '';
-    template.cfg = getConfig_();
+    // A card checkout returns here with &paid=1&pk=deposit|balance&cs=<session>.
+    // Re-fetch the session straight from Stripe (with the secret key) to verify
+    // it's really paid — if so, auto-mark it RECEIVED (card is the one method we
+    // can truly verify). If we can't verify (no session id / not paid / API
+    // hiccup), fall back to the same "reported → owner confirms" path as the
+    // pay-outside methods, so nothing is ever marked received unverified.
+    if (e.parameter.paid && e.parameter.pk) {
+      try {
+        if (e.parameter.cs && stripeSessionPaid_(e.parameter.cs)) {
+          autoConfirmCardPayment_(e.parameter.sign, e.parameter.pk);
+        } else {
+          reportPayment(e.parameter.sign, e.parameter.pk);
+        }
+      } catch (e2) {}
+    }
+    // Shallow-copy the config so we can add a derived CARD_ENABLED flag without
+    // polluting the cached getConfig_ object. The portal hides Credit Card unless
+    // Stripe is actually set up (the secret key lives in Script Properties, not
+    // in Settings, so the portal can't tell otherwise).
+    var signCfg = getConfig_(), cfgOut = {};
+    for (var ck in signCfg) cfgOut[ck] = signCfg[ck];
+    cfgOut.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
+    template.cfg = cfgOut;
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Event Portal')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -1752,6 +1778,92 @@ function saveBalancePaymentMethod(token, method) {
   }
 }
 
+// Set a cell by its header name, creating the column if it doesn't exist yet.
+function setCellByHeader_(sh, heads, rowNum, name, val) {
+  var col = heads.indexOf(name) + 1;
+  if (!col) { col = heads.length + 1; sh.getRange(1, col).setValue(name); heads.push(name); }
+  sh.getRange(rowNum, col).setValue(val);
+}
+
+// Client tapped "I've sent my payment" on the portal (or returned from a card
+// checkout). Records that they REPORTED paying the deposit/balance — a claim, not
+// a confirmation. Never marks the money received; that stays the owner's one-tap
+// job (confirmReportedPayment). Also emails the owner so they know to verify.
+function reportPayment(token, kind) {
+  try {
+    kind = (kind === 'balance') ? 'balance' : 'deposit';
+    const sh = sheet_();
+    const heads = headers_(sh);
+    const tokenCol = heads.indexOf('Contract Sign Token') + 1;
+    if (!tokenCol) return JSON.stringify({ ok: false, error: 'Not found' });
+    const last = sh.getLastRow();
+    const values = sh.getRange(2, 1, last - 1, heads.length).getValues();
+    for (var i = 0; i < values.length; i++) {
+      if (String(values[i][tokenCol - 1]) === token) {
+        const rowNum = i + 2;
+        var flagName = kind === 'balance' ? 'Balance Reported' : 'Deposit Reported';
+        var flagIdx = heads.indexOf(flagName);
+        // Skip if already reported — so a page reload (e.g. the card success URL
+        // being refreshed) doesn't re-notify the owner.
+        var already = flagIdx > -1 && String(values[i][flagIdx]) === 'Yes';
+        setCellByHeader_(sh, heads, rowNum, flagName, 'Yes');
+        setCellByHeader_(sh, heads, rowNum, kind === 'balance' ? 'Balance Reported Date' : 'Deposit Reported Date', new Date());
+        if (!already) { try { notifyOwnerReportedPayment_(heads, values[i], kind); } catch (e) {} }
+        return JSON.stringify({ ok: true });
+      }
+    }
+    return JSON.stringify({ ok: false, error: 'Not found' });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Emails the owner that a client reported a payment — explicitly framed as "verify
+// before confirming," never as money in hand.
+function notifyOwnerReportedPayment_(heads, rowValues, kind) {
+  var get = function (name) { var idx = heads.indexOf(name); return idx > -1 ? rowValues[idx] : ''; };
+  var cfg = getConfig_();
+  if (String(cfg.PAYMENT_REPORT_EMAIL || '').trim().toLowerCase() === 'no') return; // owner opted out
+  var ownerEmail = String(cfg.EMAIL || '').trim();
+  if (!ownerEmail) return;
+  var amounts = computeBaseAmounts_(get);
+  var method = kind === 'balance' ? String(get('Balance Payment Method') || get('Payment Method') || '') : String(get('Payment Method') || '');
+  var isCard = /credit card|^card$/i.test(method);
+  var base = kind === 'balance' ? amounts.balance : amounts.deposit;
+  var amt = isCard ? base * (1 + cardFeeRate_()) : base;
+  var client = String(get('Company or Organization') || get('Customer Name') || 'A client');
+  var kindLabel = kind === 'balance' ? 'balance' : 'deposit';
+  var evd = get('Date of Event');
+  var subj = client + ' reports paying their ' + kindLabel;
+  var body = client + ' just indicated they’ve paid their ' + kindLabel + ' of $' + Number(amt).toFixed(2)
+    + (method ? ' via ' + method : '') + '.\n\n'
+    + 'This is their report — the payment is NOT marked received yet. Open ' + (cfg.BUSINESS_NAME || 'your app')
+    + ' and tap Confirm once you’ve verified it actually arrived.\n\n'
+    + (evd ? ('Event date: ' + Utilities.formatDate(new Date(evd), tz_(), 'M/d/yyyy')) : '');
+  MailApp.sendEmail(ownerEmail, subj, body);
+}
+
+// Owner confirmed (in the app) that a reported payment really arrived: marks it
+// received + dated and clears the report flag. Reuses updateLead so the receipt
+// generates exactly as it would from a manual "received" flip.
+function confirmReportedPayment(rowNum, kind) {
+  kind = (kind === 'balance') ? 'balance' : 'deposit';
+  var today = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  var updates = kind === 'balance'
+    ? { 'Balance Paid': 'Yes', 'Balance Paid Date': today, 'Balance Reported': '' }
+    : { 'Deposit Received': 'Yes', 'Deposit Received Date': today, 'Deposit Reported': '' };
+  updateLead(Number(rowNum), updates);
+  return JSON.stringify({ ok: true });
+}
+
+// Owner dismissed a reported payment (mistaken tap, or they'll handle it manually)
+// — just clears the report flag; nothing is marked received.
+function dismissReportedPayment(rowNum, kind) {
+  kind = (kind === 'balance') ? 'balance' : 'deposit';
+  updateLead(Number(rowNum), kind === 'balance' ? { 'Balance Reported': '' } : { 'Deposit Reported': '' });
+  return JSON.stringify({ ok: true });
+}
+
 /* ---------- Stripe: real card payment for the deposit ---------- */
 // The secret key lives only in Script Properties, never in code or in any
 // client-facing file — set it via the Apps Script editor's Project
@@ -1793,7 +1905,9 @@ function createStripeCheckoutSession(token, kind) {
         const eventDateFmt = eventDateVal ? Utilities.formatDate(new Date(eventDateVal), tz_(), 'M/d/yyyy') : '';
 
         const webAppUrl = ScriptApp.getService().getUrl();
-        const successUrl = webAppUrl + '?sign=' + encodeURIComponent(token) + '&paid=1';
+        // {CHECKOUT_SESSION_ID} is a literal template Stripe swaps for the real
+        // session id on redirect — so the return can re-fetch it and verify payment.
+        const successUrl = webAppUrl + '?sign=' + encodeURIComponent(token) + '&paid=1&pk=' + kind + '&cs={CHECKOUT_SESSION_ID}';
         const cancelUrl = webAppUrl + '?sign=' + encodeURIComponent(token);
 
         const payload = {
@@ -1833,6 +1947,47 @@ function createStripeCheckoutSession(token, kind) {
     // Surface the real exception instead of leaving the client with a
     // generic failure — this is what actually shows up in the alert.
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+// Re-fetches a Checkout Session from Stripe and returns true only if Stripe itself
+// reports it paid. This is the verification: the answer comes from Stripe (via the
+// secret key), never the client's browser, so a spoofed return URL can't pass.
+function stripeSessionPaid_(sessionId) {
+  try {
+    var secretKey = String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
+    if (!secretKey || !sessionId) return false;
+    var resp = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId), {
+      method: 'get',
+      headers: { 'Authorization': 'Bearer ' + secretKey },
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() < 200 || resp.getResponseCode() >= 300) return false;
+    var json = JSON.parse(resp.getContentText());
+    return String(json && json.payment_status) === 'paid';
+  } catch (e) { return false; }
+}
+
+// A card payment Stripe verified as paid — mark it received (once), firing the
+// receipt exactly like a manual/one-tap confirm. Idempotent: a page reload of the
+// success URL won't re-fire it.
+function autoConfirmCardPayment_(token, kind) {
+  kind = (kind === 'balance') ? 'balance' : 'deposit';
+  var sh = sheet_();
+  var heads = headers_(sh);
+  var tokenCol = heads.indexOf('Contract Sign Token') + 1;
+  if (!tokenCol) return;
+  var last = sh.getLastRow();
+  var vals = sh.getRange(2, tokenCol, last - 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]) === token) {
+      var rowNum = i + 2;
+      var recCol = heads.indexOf(kind === 'balance' ? 'Balance Paid' : 'Deposit Received') + 1;
+      var already = recCol > 0 && String(sh.getRange(rowNum, recCol).getValue()) === 'Yes';
+      if (already) return; // already received — don't re-run / re-generate the receipt
+      confirmReportedPayment(rowNum, kind);
+      return;
+    }
   }
 }
 

@@ -423,6 +423,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="setupNudgeCard" style="display:none"></div>
     <div id="trialBanner" style="display:none"></div>
     <div id="updateBanner" style="display:none"></div>
+    <div id="paymentsToConfirm" style="display:none"></div>
     <div id="todayShowCard" style="display:none"></div>
     <div id="unpaidBalanceCard" style="display:none"></div>
     <div id="oracleNudgeCard" style="display:none;transition:opacity 3s ease"></div>
@@ -1131,6 +1132,8 @@ var C = {
   audienceAge:'Audience Age Range',
   deposit:'Deposit Amount', paymentMethod:'Payment Method',
   depositReceived:'Deposit Received', depositReceivedDate:'Deposit Received Date',
+  depositReported:'Deposit Reported', depositReportedDate:'Deposit Reported Date',
+  balanceReported:'Balance Reported', balanceReportedDate:'Balance Reported Date',
   balancePaid:'Balance Paid', balancePaidDate:'Balance Paid Date',
   travelFee:'Travel Fee', contractPdfUrl:'Contract PDF URL', companyAddress:'Company Address',
   balancePaymentMethod:'Balance Payment Method', balanceAlertSnooze:'Balance Alert Snoozed Until',
@@ -1178,7 +1181,24 @@ function refreshConfigDerivedLists(){
   KVF.forEach(function(f){
     if(f.col===C.service) f.opts = cfgList('SERVICES', FALLBACK_SERVICES);
     else if(f.col===C.eventType) f.opts = cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES);
+    else if(f.col===C.paymentMethod || f.col===C.balancePaymentMethod) f.opts = ownerPayMethods();
   });
+}
+// Payment methods to offer the OWNER when recording a payment: always the
+// in-person ones (anyone can hand you cash, mail a check, or run a card in
+// person), plus the digital methods only when their handle/account is set up in
+// Settings — you can't receive Venmo/Zelle/etc. without one. A lead's existing
+// value is still shown even if it's since been un-configured (the select keeps
+// an out-of-list value), so historical records never lose their method.
+function ownerPayMethods(){
+  var m=['Cash','Check','Credit Card'];
+  if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING) m.push('ACH');
+  if(CFG.CASHAPP_CASHTAG) m.push('Cash App');
+  if(CFG.PAYPAL_USERNAME) m.push('PayPal');
+  if(CFG.VENMO_USERNAME) m.push('Venmo');
+  if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING) m.push('Wire Transfer');
+  if(CFG.ZELLE_HANDLE) m.push('Zelle');
+  return m.sort();
 }
 
 var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = [], TXTPL = [], PARTNERTPL = [], PARTNERTXTPL = [], FILTER = 'Follow up', CURRENT = null, Q = '', TOP_CLIENT_THRESHOLD = 2000, KVF_ORDER = [], KVF_HIDDEN = [], EXPENSES = [], RECURRING = [], TAX_RATE = 25, VENDOR_CATEGORY_MEMORY = {}, TRASH = [], STORE_SALES = [], STORE_SALE_PRODUCTS = [];
@@ -1437,7 +1457,7 @@ function load(){
     $('manageWrap').style.display='block';
     // Same idea for the bottom "Send feedback" link — hidden until the page loads.
     var _fbl=$('feedbackLeadsLink'); if(_fbl) _fbl.style.display='block';
-    renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge();
+    renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge(); renderPaymentsToConfirm();
     // The brand-new-install setup wizard now opens at startup (maybeLaunchSetupWizard_),
     // before the Leads view paints, so a new user lands straight on it — no flash here.
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
@@ -3394,9 +3414,10 @@ var KVF=[
   {label:'Entertainment budget', col:C.entertainmentBudget, type:'text', money:true},
   {label:'Quoted', col:C.price, type:'text', money:true},
   {label:'Deposit', col:C.deposit, type:'text', money:true},
-  {label:'Payment method', col:C.paymentMethod, type:'select', opts:['ACH','Cash App','Check','Credit Card','Venmo','Wire Transfer']},
+  {label:'Payment method', col:C.paymentMethod, type:'select', opts:ownerPayMethods()},
   {label:'Deposit received?', col:C.depositReceived, type:'select', opts:['Yes','No']},
   {label:'Deposit received date', col:C.depositReceivedDate, type:'date'},
+  {label:'Balance payment method', col:C.balancePaymentMethod, type:'select', opts:ownerPayMethods()},
   {label:'Balance received?', col:C.balancePaid, type:'select', opts:['Yes','No']},
   {label:'Balance received date', col:C.balancePaidDate, type:'date'},
   {label:'Travel fee (optional)', col:C.travelFee, type:'text', money:true},
@@ -7043,6 +7064,7 @@ function settingsFieldHtml(f, raw, cfg){
   if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
   if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
   if(f.editor==='cardfee') return cardfeeEditorHtml(f, val, cfg);
+  if(f.editor==='toggle') return toggleEditorHtml(f, val, cfg);
   var ph = (cfg[f.key]!=null?cfg[f.key]:'');
   var ctrl = f.multiline
     ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
@@ -7413,6 +7435,22 @@ function cardFeeSync(){
   var b=$('cardfee_box'), h=$('set_CARD_FEE_ENABLED');
   if(h) h.value = (b && b.checked) ? 'yes' : 'no';
 }
+// Generic on/off setting — a checkbox backed by a hidden yes/no input, saved
+// through the normal Settings flow. 'no' = off; anything else (incl. blank) = on.
+function toggleEditorHtml(f, val, cfg){
+  var on = String(val||'').trim().toLowerCase()!=='no';
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'no')+'">'
+    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
+    +   '<input type="checkbox" id="tgl_'+f.key+'"'+(on?' checked':'')+' onchange="toggleSync(\''+f.key+'\')" style="width:auto;flex:0 0 auto;margin:0">'
+    +   '<span>'+esc(f.toggleLabel||('Enable '+f.label))+'</span></label>'
+    + '</div>';
+}
+function toggleSync(key){
+  var b=$('tgl_'+key), h=$('set_'+key);
+  if(h) h.value = (b && b.checked) ? 'yes' : 'no';
+}
 
 /* ---------- Store payment methods filter (Settings) ---------- */
 // This optional filter narrows the store to a subset of its methods. Stored as a
@@ -7770,6 +7808,43 @@ function renderTrialBanner(t, threshold){
   google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).markTrialWarned(threshold);
 }
 function dismissTrialBanner(){ var b=$('trialBanner'); if(b){ b.style.display='none'; b.innerHTML=''; } }
+
+/* ---------- Payments to confirm (client reported paying — owner verifies) ---------- */
+function renderPaymentsToConfirm(){
+  var box=$('paymentsToConfirm'); if(!box) return;
+  var items=[];
+  (LEADS||[]).forEach(function(L){
+    var nm=esc(L[C.name]||L[C.company]||'A client');
+    if(String(L[C.depositReported]||'')==='Yes' && String(L[C.depositReceived]||'')!=='Yes'){
+      items.push({row:L._row, kind:'deposit', name:nm, method:String(L[C.paymentMethod]||''), amt:money(L[C.deposit])});
+    }
+    if(String(L[C.balanceReported]||'')==='Yes' && String(L[C.balancePaid]||'')!=='Yes'){
+      items.push({row:L._row, kind:'balance', name:nm, method:String(L[C.balancePaymentMethod]||L[C.paymentMethod]||''), amt:(money(L[C.price])+money(L[C.travelFee])-money(L[C.deposit]))});
+    }
+  });
+  if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+  var rows=items.map(function(it){
+    var mLabel=it.method?(' · '+esc(it.method)):'';
+    return '<div style="border-top:1px solid var(--line);padding:10px 0">'
+      +'<div style="font-weight:600;color:var(--cream)">'+it.name+' — '+it.kind+'</div>'
+      +'<div style="font-size:12.5px;color:var(--muted);margin:2px 0 8px">Reports paying '+esc(fmtMoney(it.amt))+mLabel+' — verify it arrived, then confirm.</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button class="followupdue-btn" style="background:var(--sage);color:#141008" onclick="confirmPayment('+it.row+',\''+it.kind+'\')">Confirm received</button>'
+        +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--line);color:var(--muted)" onclick="dismissPayment('+it.row+',\''+it.kind+'\')">Dismiss</button>'
+      +'</div></div>';
+  }).join('');
+  box.innerHTML='<div class="card" style="border-color:var(--gold)">'
+    +'<div style="font-weight:700;color:var(--gold-bright)">Payments to confirm <span style="color:var(--muted);font-weight:400;font-size:12px">'+items.length+'</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-top:2px">A client reported paying. Nothing is marked received until you confirm it arrived.</div>'
+    +rows+'</div>';
+  box.style.display='';
+}
+function confirmPayment(row, kind){
+  google.script.run.withSuccessHandler(function(){ toast('Marked received ✦'); load(); }).withFailureHandler(function(){ toast('Could not confirm — try again'); }).confirmReportedPayment(row, kind);
+}
+function dismissPayment(row, kind){
+  google.script.run.withSuccessHandler(function(){ load(); }).withFailureHandler(function(){ toast('Could not dismiss — try again'); }).dismissReportedPayment(row, kind);
+}
 
 maybeLaunchSetupWizard_();
 populateLeadDropdowns();
