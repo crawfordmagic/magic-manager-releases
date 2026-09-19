@@ -1,9 +1,5 @@
 What's new in this update:
 
-• Cash is now a payment option. Record a cash payment on any lead, and — if you want — offer Cash on your client page (Settings → Getting paid → Cash instructions; leave it blank to keep it off).
+• Snappier reminders. Tapping "Mark done" on a follow-up — and Confirm/Dismiss on a reported payment — now responds instantly instead of pausing while it saves.
 
-• Payments flow in, with you in control. When a client taps "I've sent my payment" on their portal, you get a heads-up email and a "Payments to confirm" card in the app — nothing is marked received until you confirm it actually arrived. Card payments are the exception: they auto-confirm the moment Stripe verifies them, so those need no tap at all. (You can turn the emails off under Settings → Getting paid.)
-
-• Set the balance payment method yourself. Your lead now has both a deposit and a balance payment-method field, so you can record each one separately when a client pays them different ways.
-
-• A tidier client page. Your event portal now shows only the payment methods you've actually set up — and Credit Card appears only once your Stripe is connected — so clients never see an option you can't accept.
+• More accurate receipts. Receipts now reflect the real date a payment was made (not just when you confirmed it), and updating a payment method on an already-paid lead refreshes its receipt automatically — without changing the payment date. Card payments also now double-check that the exact expected amount was collected before marking them received.

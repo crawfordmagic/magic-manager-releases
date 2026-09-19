@@ -329,7 +329,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.27';
+var APP_VERSION = '1.5.28';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -780,7 +780,12 @@ function doGet(e) {
     // pay-outside methods, so nothing is ever marked received unverified.
     if (e.parameter.paid && e.parameter.pk) {
       try {
-        if (e.parameter.cs && stripeSessionPaid_(e.parameter.cs)) {
+        var _info = e.parameter.cs ? stripeSessionInfo_(e.parameter.cs) : null;
+        var _expected = expectedCardCents_(e.parameter.sign, e.parameter.pk);
+        // Auto-confirm only when Stripe reports it PAID and collected the EXPECTED
+        // amount. Anything else (unverifiable, not paid, or an amount mismatch)
+        // falls back to "reported" so you verify and confirm it yourself.
+        if (_info && _info.paid && _expected > 0 && _info.amount === _expected) {
           autoConfirmCardPayment_(e.parameter.sign, e.parameter.pk);
         } else {
           reportPayment(e.parameter.sign, e.parameter.pk);
@@ -1848,11 +1853,20 @@ function notifyOwnerReportedPayment_(heads, rowValues, kind) {
 // generates exactly as it would from a manual "received" flip.
 function confirmReportedPayment(rowNum, kind) {
   kind = (kind === 'balance') ? 'balance' : 'deposit';
-  var today = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  rowNum = Number(rowNum);
+  // Use the date the client REPORTED paying (≈ when the money actually moved) as
+  // the received date when we have it, so the receipt reflects the real payment
+  // date rather than whenever you happened to confirm. Falls back to today (which
+  // is also what a verified card gets, since it's confirmed the same day it's paid).
+  var sh = sheet_(), heads = headers_(sh);
+  var rIdx = heads.indexOf(kind === 'balance' ? 'Balance Reported Date' : 'Deposit Reported Date');
+  var reported = (rIdx > -1) ? sh.getRange(rowNum, rIdx + 1).getValue() : '';
+  var dateVal = (reported instanceof Date && !isNaN(reported.getTime())) ? reported : new Date();
+  var dateYmd = Utilities.formatDate(dateVal, tz_(), 'yyyy-MM-dd');
   var updates = kind === 'balance'
-    ? { 'Balance Paid': 'Yes', 'Balance Paid Date': today, 'Balance Reported': '' }
-    : { 'Deposit Received': 'Yes', 'Deposit Received Date': today, 'Deposit Reported': '' };
-  updateLead(Number(rowNum), updates);
+    ? { 'Balance Paid': 'Yes', 'Balance Paid Date': dateYmd, 'Balance Reported': '' }
+    : { 'Deposit Received': 'Yes', 'Deposit Received Date': dateYmd, 'Deposit Reported': '' };
+  updateLead(rowNum, updates);
   return JSON.stringify({ ok: true });
 }
 
@@ -1953,19 +1967,41 @@ function createStripeCheckoutSession(token, kind) {
 // Re-fetches a Checkout Session from Stripe and returns true only if Stripe itself
 // reports it paid. This is the verification: the answer comes from Stripe (via the
 // secret key), never the client's browser, so a spoofed return URL can't pass.
-function stripeSessionPaid_(sessionId) {
+function stripeSessionInfo_(sessionId) {
   try {
     var secretKey = String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
-    if (!secretKey || !sessionId) return false;
+    if (!secretKey || !sessionId) return null;
     var resp = UrlFetchApp.fetch('https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId), {
       method: 'get',
       headers: { 'Authorization': 'Bearer ' + secretKey },
       muteHttpExceptions: true
     });
-    if (resp.getResponseCode() < 200 || resp.getResponseCode() >= 300) return false;
+    if (resp.getResponseCode() < 200 || resp.getResponseCode() >= 300) return null;
     var json = JSON.parse(resp.getContentText());
-    return String(json && json.payment_status) === 'paid';
-  } catch (e) { return false; }
+    return { paid: String(json && json.payment_status) === 'paid', amount: Number(json && json.amount_total) || 0 };
+  } catch (e) { return null; }
+}
+
+// The exact cents a card charge for this lead's deposit/balance should be — the
+// same math createStripeCheckoutSession used — so the return can confirm Stripe
+// collected the RIGHT amount, not just that some payment succeeded.
+function expectedCardCents_(token, kind) {
+  try {
+    var sh = sheet_(), heads = headers_(sh);
+    var tokenCol = heads.indexOf('Contract Sign Token') + 1;
+    if (!tokenCol) return 0;
+    var last = sh.getLastRow();
+    var vals = sh.getRange(2, 1, last - 1, heads.length).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      if (String(vals[i][tokenCol - 1]) === token) {
+        var get = function (name) { var idx = heads.indexOf(name); return idx > -1 ? vals[i][idx] : ''; };
+        var a = computeBaseAmounts_(get);
+        var base = kind === 'balance' ? a.balance : a.deposit;
+        return Math.round(base * (1 + cardFeeRate_()) * 100);
+      }
+    }
+    return 0;
+  } catch (e) { return 0; }
 }
 
 // A card payment Stripe verified as paid — mark it received (once), firing the
@@ -4185,10 +4221,14 @@ function updateLead(rowNum, updates) {
     // auto-stamped "today" that turned out to be wrong. Otherwise a
     // date correction would silently never reach an already-generated
     // receipt.
-    if (updates['Deposit Received'] === 'Yes' || (('Deposit Received Date' in updates) && depositIsYes)) {
+    // Also regenerate when the payment METHOD is corrected on an already-received
+    // payment, so the receipt reflects how it was actually paid. maybeGenerateReceipt_
+    // only reads the stored Received Date — it never rewrites it — so this keeps the
+    // real payment date intact.
+    if (updates['Deposit Received'] === 'Yes' || (('Deposit Received Date' in updates) && depositIsYes) || (('Payment Method' in updates) && depositIsYes)) {
       maybeGenerateReceipt_(sh, rowNum, 'deposit');
     }
-    if (updates['Balance Paid'] === 'Yes' || (('Balance Paid Date' in updates) && balanceIsYes)) {
+    if (updates['Balance Paid'] === 'Yes' || (('Balance Paid Date' in updates) && balanceIsYes) || (('Balance Payment Method' in updates) && balanceIsYes)) {
       maybeGenerateReceipt_(sh, rowNum, 'balance');
     }
   } catch (e) { /* receipt generation never blocks a save */ }

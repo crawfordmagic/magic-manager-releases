@@ -2568,6 +2568,7 @@ function renderFollowupDue(){
   var box=$('followupDueCard'); if(!box) return;
   var t=today0();
   var due=LEADS.filter(function(L){
+    if(L._stageDoneOptimistic) return false; // just marked done — hidden instantly, server catching up
     if(!isBookedLike(L)) return false;
     var stage=followupStageLabel(L);
     if(!stage) return false;
@@ -2595,9 +2596,14 @@ function renderFollowupDue(){
 function markStageDone(row){
   var lead=LEADS.find(function(L){ return L._row===row; });
   var stageLabel=lead? followupStageLabel(lead) : '';
+  // Optimistic: hide it from the due card + toast right away so the tap feels
+  // instant; the server marks it done in the background and reconciles on return.
+  if(lead) lead._stageDoneOptimistic=true;
+  renderLeads();
+  if(CURRENT && CURRENT._row===row){ var _db=$('d_followdonebtn'); if(_db) _db.style.display='none'; }
+  toast((stageLabel||'Follow-up')+' marked done \u2726');
   google.script.run.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
-    toast((stageLabel||'Follow-up')+' marked done \u2726');
     if(CURRENT && CURRENT._row===row){
       var refound=LEADS.find(function(L){ return L._row===row; });
       if(refound){
@@ -2609,7 +2615,7 @@ function markStageDone(row){
         renderDConflict(CURRENT);
       }
     }
-  }).withFailureHandler(function(){ toast('Could not save \u2014 try again'); refreshQuiet(); })
+  }).withFailureHandler(function(){ if(lead) delete lead._stageDoneOptimistic; renderLeads(); if(CURRENT&&CURRENT._row===row) buildFollowupDoneBtn(); toast('Could not save \u2014 try again'); refreshQuiet(); })
   .markFollowupStageDone(row, '');
 }
 function renderDConflict(L){
@@ -7840,10 +7846,26 @@ function renderPaymentsToConfirm(){
   box.style.display='';
 }
 function confirmPayment(row, kind){
-  google.script.run.withSuccessHandler(function(){ toast('Marked received ✦'); load(); }).withFailureHandler(function(){ toast('Could not confirm — try again'); }).confirmReportedPayment(row, kind);
+  // Optimistic: mark received locally so the item leaves the queue instantly;
+  // the server + full reload reconcile in the background.
+  var L=LEADS.find(function(x){ return x._row===row; });
+  var col = (kind==='balance') ? C.balancePaid : C.depositReceived;
+  var old = L ? L[col] : null;
+  if(L) L[col]='Yes';
+  renderPaymentsToConfirm(); toast('Marked received ✦');
+  google.script.run.withSuccessHandler(function(){ load(); })
+    .withFailureHandler(function(){ if(L) L[col]=old; renderPaymentsToConfirm(); toast('Could not confirm — try again'); })
+    .confirmReportedPayment(row, kind);
 }
 function dismissPayment(row, kind){
-  google.script.run.withSuccessHandler(function(){ load(); }).withFailureHandler(function(){ toast('Could not dismiss — try again'); }).dismissReportedPayment(row, kind);
+  var L=LEADS.find(function(x){ return x._row===row; });
+  var col = (kind==='balance') ? C.balanceReported : C.depositReported;
+  var old = L ? L[col] : null;
+  if(L) L[col]='';
+  renderPaymentsToConfirm();
+  google.script.run.withSuccessHandler(function(){ load(); })
+    .withFailureHandler(function(){ if(L) L[col]=old; renderPaymentsToConfirm(); toast('Could not dismiss — try again'); })
+    .dismissReportedPayment(row, kind);
 }
 
 maybeLaunchSetupWizard_();
