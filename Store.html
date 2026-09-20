@@ -65,11 +65,11 @@
   var CASHAPP_CASHTAG=CFG.CASHAPP_CASHTAG||'';
   var PAYPAL_USERNAME=CFG.PAYPAL_USERNAME||'';
   // Which methods to offer — derived from what the owner has configured, like the
-  // sign page. Card is always available; Cash App / Check / PayPal / Venmo / Zelle
-  // appear only if their details are filled in. ACH and Wire Transfer are deliberately NOT
+  // sign page. Credit Card appears only when Stripe is set up (CARD_ENABLED); Cash App /
+  // Check / PayPal / Venmo / Zelle appear only if their details are filled in. ACH and Wire Transfer are deliberately NOT
   // offered in the store even when set up for the sign page — they're event-
   // deposit / B2B-invoice methods, not how someone buys a product.
-  var PAYMENT_METHODS=(function(){var m=[];if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
+  var PAYMENT_METHODS=(function(){var m=[];if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');if(CFG.CARD_ENABLED)m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
   // Optional owner filter (Settings → Store): narrow the store to a subset of
   // the configured methods. Blank = offer them all (mirror the sign page). An
   // empty result falls back to all, so the store is never left unpayable.
@@ -151,12 +151,12 @@
       +'<div class="card">'
       +'<label for="bn">Your name</label><input id="bn" type="text" autocomplete="name">'
       +'<label for="be">Your email</label><input id="be" type="email" autocomplete="email">'
-      +(multi?'<label for="pm">How would you like to pay?</label><select id="pm">'+PAYMENT_METHODS.map(function(m){return '<option value="'+esc(m)+'"'+(m==='Credit Card'?' selected':'')+'>'+esc(m)+'</option>';}).join('')+'</select>':'')
+      +(multi?'<label for="pm">How would you like to pay?</label><select id="pm">'+PAYMENT_METHODS.map(function(m,i){return '<option value="'+esc(m)+'"'+(i===0?' selected':'')+'>'+esc(m)+'</option>';}).join('')+'</select>':'')
       +'<div id="extra"></div>'
       +'<div class="err" id="err"></div>'
       +'</div>';
     document.getElementById('app').innerHTML=h;
-    showExtras(p, 'Credit Card');
+    showExtras(p, PAYMENT_METHODS[0]||'Credit Card');
     if(multi){
       var sel=document.getElementById('pm');
       sel.addEventListener('change', function(){ document.getElementById('err').textContent=''; showExtras(p, sel.value); });

@@ -226,6 +226,20 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   margin-top:10px; font-size:17px; font-weight:700; letter-spacing:.03em;
   color:var(--gold-bright); font-variant-numeric:tabular-nums;
 }
+.td-card{border:1px solid var(--line);border-radius:14px;margin-bottom:14px;padding:4px 4px 6px;
+  background:linear-gradient(180deg,rgba(201,160,80,.05),transparent)}
+.td-head{display:flex;align-items:center;gap:8px;padding:11px 12px 7px}
+.td-star{color:var(--gold-bright);font-size:14px}
+.td-lbl{font-family:'Playfair Display',serif;font-weight:700;color:var(--gold-bright);font-size:15px;letter-spacing:.01em}
+.td-row{width:100%;text-align:left;background:transparent;border:none;border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:11px;padding:12px;cursor:pointer;color:var(--cream);font-family:inherit}
+.td-row .ic{flex:0 0 auto;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(201,160,80,.10);color:var(--gold-bright)}
+.td-row .t{flex:1;min-width:0}
+.td-row .t .a{font-size:13.5px;font-weight:600;color:var(--cream)}
+.td-row .t .b{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-row .pill{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--gold-bright);background:rgba(201,160,80,.14);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums}
+.td-row .chev{color:var(--muted);font-size:16px;transition:transform .2s ease}
+.td-row.open .chev{transform:rotate(90deg)}
 .followupdue-card{
   border:1px solid var(--gold); border-radius:12px; padding:14px;
   margin-bottom:12px; background:rgba(201,160,80,.06);
@@ -297,12 +311,31 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 
 /* ---------- Insights ---------- */
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 12px 10px;text-align:center}
+/* Insights hero — the two numbers that answer "how's the business this period."
+   One gold-filled headline so the eye lands here first; the grid below is the
+   supporting detail. */
+.ins-hero{display:flex;align-items:stretch;border:1px solid var(--gold);border-radius:12px;background:rgba(201,160,80,.07);overflow:hidden}
+.ins-hero-main{flex:1.35;padding:16px 14px 14px;text-align:center}
+.ins-hero-side{flex:1;padding:16px 12px 14px;text-align:center;position:relative}
+.ins-hero-side[onclick]{cursor:pointer;transition:background .12s ease}
+.ins-hero-side[onclick]:active{background:rgba(201,160,80,.12)}
+.ins-hero-side[onclick]::after{content:"\203A";position:absolute;top:8px;right:10px;font-size:13px;line-height:1;color:var(--muted);opacity:.6}
+.ins-hero-div{width:1px;background:var(--line);flex:0 0 auto}
+.ins-hero-v{font-family:'Playfair Display',serif;font-size:31px;font-weight:700;color:var(--gold-bright);line-height:1}
+.ins-hero-v2{font-family:'Playfair Display',serif;font-size:25px;font-weight:700;color:var(--gold-bright);line-height:1;margin-top:3px}
+.ins-hero-l{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:7px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 12px 10px;text-align:center;position:relative;transition:transform .08s ease}
+/* Interactive tiles (they carry an onclick) earn a resting affordance so a
+   tap target never reads the same as a static readout — a small corner
+   chevron + a gentle press. Static number tiles get neither. */
 .stat[onclick]{cursor:pointer}
+.stat[onclick]::after{content:"\203A";position:absolute;top:6px;right:9px;font-size:13px;line-height:1;color:var(--muted);opacity:.6}
+#topclients_stat::after{content:none}/* hero tile already signals with its own "Top clients \2192" label */
 .stat.on{background:var(--gold);border-color:var(--gold)}
 .stat.on .v{color:#141008}
 .stat.on .l{color:rgba(20,16,8,.65)}
-.stat[onclick]:active{background:var(--panel2)}
+.stat.on::after{color:rgba(20,16,8,.55)}
+.stat[onclick]:active{background:var(--panel2);transform:scale(.97)}
 .stat .v{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--gold-bright)}
 .stat .l{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .bar-row{margin-bottom:11px}
@@ -423,15 +456,18 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="setupNudgeCard" style="display:none"></div>
     <div id="trialBanner" style="display:none"></div>
     <div id="updateBanner" style="display:none"></div>
-    <div id="paymentsToConfirm" style="display:none"></div>
     <div id="todayShowCard" style="display:none"></div>
+    <!-- "Today" digest: a calm summary that collapses the routine cards below it
+         (Showtime stays its own hero above; the Oracle stays ambient below). -->
+    <div id="todaySummary" style="display:none"></div>
+    <div id="paymentsToConfirm" style="display:none"></div>
     <div id="unpaidBalanceCard" style="display:none"></div>
-    <div id="oracleNudgeCard" style="display:none;transition:opacity 3s ease"></div>
     <div id="followupDueCard" style="display:none"></div>
     <div id="taskDueCard" style="display:none"></div>
     <div id="genFollowupCard" style="display:none"></div>
     <div id="partnerCheckInCard" style="display:none"></div>
     <div id="decRebookCard" style="display:none"></div>
+    <div id="oracleNudgeCard" style="display:none;transition:opacity 3s ease"></div>
     <div class="search-wrap">
       <input id="q" type="search" autocomplete="off" placeholder="Search name, company, notes, history&#8230;" oninput="setQ(this.value)">
       <button id="qClear" class="search-clear" type="button" aria-label="Clear search" onclick="clearSearch()">&#10005;</button>
@@ -465,7 +501,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- INSIGHTS VIEW -->
   <div id="view-insights" style="display:none">
-    <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:6px"></select>
+    <div class="field" style="margin-top:0"><label>Period</label>
+      <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:6px"></select>
+    </div>
     <div id="insightsScopeNote" style="margin:0 0 12px;font-size:12px;color:var(--gold-bright);font-weight:600;letter-spacing:.02em"></div>
     <div class="stats" id="statGrid"></div>
 
@@ -621,26 +659,40 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
     <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
-    <select id="exportYearSel" onchange="setExpenseViewYear(this.value)" style="margin-bottom:14px"></select>
-    <div id="expenseSummary"></div>
-    <div class="field" id="expenseMonthField" style="display:none;margin-top:12px"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
-    <div class="grid2" style="margin:12px 0 14px">
-      <div class="field"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
-      <div class="field"><label>Receipt</label>
-        <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
-          <option value="all">All expenses</option>
-          <option value="missing">Missing receipt</option>
-          <option value="has">Has receipt</option>
-        </select>
+    <div class="field" style="margin-top:0"><label>Period</label>
+      <select id="exportYearSel" onchange="setExpenseViewYear(this.value)"></select>
+    </div>
+    <div class="field" id="expenseMonthField" style="display:none"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    <div id="expenseSummary" style="margin-top:12px"></div>
+    <button class="save" onclick="openAddExpense()">+ Add Expense</button>
+
+    <!-- Category + receipt live behind a disclosure so the page opens on the
+         numbers and the list, not a wall of filter dropdowns. The badge shows
+         what's filtered while it's collapsed (e.g. after tapping a summary tile). -->
+    <button class="htoggle hstack" style="margin-top:4px" onclick="toggleExpenseFilters()">
+      <span class="httitle">Filter</span>
+      <span class="htright"><span id="expenseFilterBadge"></span><span id="expfilter_chev">&#9662;</span></span>
+    </button>
+    <div id="expenseFilterWrap" style="display:none;margin-top:12px">
+      <div class="grid2">
+        <div class="field" style="margin-top:0"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
+        <div class="field" style="margin-top:0"><label>Receipt</label>
+          <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
+            <option value="all">All expenses</option>
+            <option value="missing">Missing receipt</option>
+            <option value="has">Has receipt</option>
+          </select>
+        </div>
       </div>
     </div>
+
     <div id="expenseRecurring"></div>
-    <button class="save" onclick="openAddExpense()">+ Add Expense</button>
-    <div style="display:flex;gap:10px;margin:10px 0 14px">
+    <div id="expenseList"></div>
+
+    <div style="display:flex;gap:10px;margin:16px 0 4px">
       <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openImportExpenses()">Import CSV</button>
       <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="exportExpensesCsv()">Export CSV</button>
     </div>
-    <div id="expenseList"></div>
   </div>
 
   <!-- ADD VIEW -->
@@ -657,30 +709,42 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <div class="field"><label>Phone</label><input id="a_phone" inputmode="tel" placeholder="(404) 555-0100"></div>
       <div class="field"><label>Email</label><input id="a_email" inputmode="email" placeholder="jane@email.com"></div>
     </div>
-    <div class="field"><label>Company / organization</label><input id="a_company"></div>
-    <div class="grid2">
-      <div class="field"><label>Date of event</label><input id="a_eventDate" type="date"></div>
-      <div class="field"><label>Audience size</label><input id="a_audience" inputmode="numeric"></div>
+    <div class="field"><label>Quoted price</label><input id="a_price" inputmode="decimal" placeholder="$1,500.00"></div>
+
+    <!-- Fast capture: name + how to reach them + price is all it takes. The
+         rest of the detail lives behind this disclosure so a quick phone-inquiry
+         capture is 3 fields, not 12. All fields stay in the DOM (just hidden),
+         so submitLead() still reads every one exactly as before. -->
+    <button class="htoggle hstack" style="margin-top:4px" onclick="toggleAddDetails()">
+      <span class="httitle">Event details</span>
+      <span class="htright"><span style="font-size:11px;color:var(--muted);text-transform:none;letter-spacing:.01em">optional</span><span id="a_details_chev">&#9662;</span></span>
+    </button>
+    <div id="a_details_wrap" style="display:none;margin-top:12px">
+      <div class="field"><label>Company / organization</label><input id="a_company"></div>
+      <div class="grid2">
+        <div class="field"><label>Date of event</label><input id="a_eventDate" type="date"></div>
+        <div class="field"><label>Audience size</label><input id="a_audience" inputmode="numeric"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Service</label>
+          <select id="a_service"></select></div>
+        <div class="field"><label>Event type</label>
+          <select id="a_eventType"></select></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Lead source</label>
+          <select id="a_source"></select></div>
+        <div class="field"><label>Event location</label><input id="a_location"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Status</label>
+          <select id="a_status"><option>New</option><option>Pending</option><option>Booked</option></select></div>
+        <div class="field"><label>Next follow-up</label><input id="a_followup" type="date"></div>
+      </div>
+      <div class="field"><label>Follow-up time <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional — 9 AM if blank)</span></label><input id="a_followtime" type="time"></div>
+      <div class="field"><label>Notes</label><textarea id="a_notes" rows="3"></textarea></div>
     </div>
-    <div class="grid2">
-      <div class="field"><label>Service</label>
-        <select id="a_service"></select></div>
-      <div class="field"><label>Event type</label>
-        <select id="a_eventType"></select></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label>Lead source</label>
-        <select id="a_source"></select></div>
-      <div class="field"><label>Quoted price</label><input id="a_price" placeholder="$1,500.00"></div>
-    </div>
-    <div class="field"><label>Event location</label><input id="a_location"></div>
-    <div class="grid2">
-      <div class="field"><label>Status</label>
-        <select id="a_status"><option>New</option><option>Pending</option><option>Booked</option></select></div>
-      <div class="field"><label>Next follow-up</label><input id="a_followup" type="date"></div>
-    </div>
-    <div class="field"><label>Follow-up time <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional — 9 AM if blank)</span></label><input id="a_followtime" type="time"></div>
-    <div class="field"><label>Notes</label><textarea id="a_notes" rows="3"></textarea></div>
+
     <button class="save" id="addBtn" onclick="submitLead()">Add lead</button>
     <p class="note">Saves straight to your Google Sheet and sets the reminder.</p>
   </div>
@@ -1494,6 +1558,7 @@ function renderTaskDue(){
   if(!due.length){ box.style.display='none'; box.innerHTML=''; return; }
   due.sort(function(a,b){ return (pd(a.due)||0)-(pd(b.due)||0); });
   box.style.display='';
+  tdSetMeta('taskDueCard', due.length, tdPreview(due.map(function(T){ return String(T.task||'Task'); })));
   box.innerHTML='<div class="followupdue-card"><div class="followupdue-title">Tasks Due Today</div>'
     + due.map(function(T){
         // Same tap-to-edit time affordance as the Follow-up Due card (see
@@ -1876,6 +1941,9 @@ function renderUnpaidBalanceCard(){
   var rows={}; overdue.forEach(function(L){ rows[L._row]=true; });
   Object.keys(UB_SHOW_SNOOZE).forEach(function(r){ if(!rows[r]) delete UB_SHOW_SNOOZE[r]; });
   box.style.display='';
+  tdSetMeta('unpaidBalanceCard', overdue.length,
+    tdPreview(overdue.map(function(L){ return String(L[C.name]||'Lead'); })),
+    fmtMoney(overdue.reduce(function(s,L){ return s+balanceFinal(L); }, 0)));
   box.innerHTML='<div class="gfu-card" style="border-color:var(--crimson);background:rgba(192,82,54,.07)">'
     +'<div class="gfu-title" style="color:#E9927B">Unpaid Balance \u2014 Event Has Passed</div>'
     + overdue.map(function(L){
@@ -1948,6 +2016,7 @@ function renderPartnerCheckInCard(){
   due.sort(function(a,b){ return (pd(a[C.referredDate])||0)-(pd(b[C.referredDate])||0); });
   if(!due.length){ box.style.display='none'; box.innerHTML=''; PT_INLINE_PROMPT_ROW=null; return; }
   box.style.display='';
+  tdSetMeta('partnerCheckInCard', due.length, tdPreview(due.map(function(L){ return String(L[C.referral]||'').trim(); })));
   box.innerHTML='<div class="gfu-card">'
     +'<div class="gfu-title">Check In With Partner</div>'
     + due.map(function(L){
@@ -2051,6 +2120,7 @@ function renderGenFollowupDue(){
   var dueRows={}; due.forEach(function(L){ dueRows[L._row]=true; });
   Object.keys(GFU_SHOW_BUMPS).forEach(function(r){ if(!dueRows[r]) delete GFU_SHOW_BUMPS[r]; });
   box.style.display='';
+  tdSetMeta('genFollowupCard', due.length, tdPreview(due.map(function(L){ return String(L[C.name]||'Lead'); })));
   var singleTime='';
   if(due.length===1){
     var soloTime=pd(due[0][C.followup]);
@@ -2293,6 +2363,8 @@ function renderDecemberRebook(){
   var data=computeDecemberRebookList();
   if(!data.fresh.length && !data.followup.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
+  var _decAll=data.fresh.concat(data.followup);
+  tdSetMeta('decRebookCard', _decAll.length, tdPreview(_decAll.map(function(x){ return x.client && x.client.name; })));
   var html='<div class="gfu-card winter"><div class="gfu-title">December Rebooking</div>'
     +'<p class="note" style="text-align:left;margin:0 0 10px">Your strongest month — a little outreach now goes a long way.</p>';
   html += data.fresh.map(decRebookItemHtml).join('');
@@ -2578,6 +2650,7 @@ function renderFollowupDue(){
   due.sort(function(a,b){ return pd(a[C.followup]) - pd(b[C.followup]); });
   if(!due.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
+  tdSetMeta('followupDueCard', due.length, tdPreview(due.map(function(L){ return String(L[C.name]||'Lead'); })));
   box.innerHTML='<div class="followupdue-card"><div class="followupdue-title">Follow-Ups Due Today</div>'
     + due.map(function(L){
         var idx=followupStageIndex(L), stage=STAGE_LABELS[idx], hint=STAGE_HINTS[idx];
@@ -2864,6 +2937,67 @@ function visible(){
   return LEADS.filter(function(L){ return matches(L, FILTER); });
 }
 
+/* ---------- "Today" digest — collapses the routine reminder cards into one calm
+   summary. Showtime (renderTodayShow) stays its own hero above; the Oracle stays
+   ambient below. This is a cosmetic layer only: it toggles the existing cards'
+   visibility, so every card's own buttons/logic are untouched. ---------- */
+var TODAY_OPEN={};
+// Each render function stashes its summary here (count/preview/pill) as it
+// computes its set, so the digest shows "3 follow-ups due — Sarah, Leo, +1"
+// without re-deriving (and drifting from) each card's own filter logic.
+var TODAY_META={};
+function tdSetMeta(id, count, preview, pill){ TODAY_META[id]={n:count, preview:preview||'', pill:pill||''}; }
+function tdPreview(names){
+  names=(names||[]).filter(Boolean);
+  if(!names.length) return '';
+  if(names.length<=2) return names.join(', ');
+  return names.slice(0,2).join(', ')+', +'+(names.length-2);
+}
+function tdIcon(id){
+  var dollar='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
+  var bell='<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
+  var P={
+    paymentsToConfirm:dollar, unpaidBalanceCard:dollar,
+    followupDueCard:bell, genFollowupCard:bell,
+    taskDueCard:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    partnerCheckInCard:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    decRebookCard:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+  };
+  return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(P[id]||bell)+'</svg>';
+}
+function renderTodayDigest(){
+  var sum=$('todaySummary'); if(!sum) return;
+  // [id, singular noun, plural noun] — the count comes from TODAY_META.
+  var cards=[
+    ['paymentsToConfirm','payment to confirm','payments to confirm'],
+    ['followupDueCard','follow-up due','follow-ups due'],
+    ['genFollowupCard','follow-up due','follow-ups due'],
+    ['taskDueCard','task due','tasks due'],
+    ['unpaidBalanceCard','unpaid balance','unpaid balances'],
+    ['partnerCheckInCard','partner check-in','partner check-ins'],
+    ['decRebookCard','client to rebook','clients to rebook']
+  ];
+  // Presence is judged by CONTENT (innerHTML), never by display — the digest
+  // itself toggles display to collapse/expand, so checking display would make a
+  // collapsed card look absent on the next render. Empty cards clear their innerHTML.
+  var present=cards.filter(function(c){ var el=$(c[0]); return el && (el.innerHTML||'').trim(); });
+  if(!present.length){ sum.style.display='none'; return; }
+  var rows=present.map(function(c){
+    var id=c[0], open=!!TODAY_OPEN[id], m=TODAY_META[id];
+    $(id).style.display = open ? '' : 'none'; // collapse unless the row is expanded
+    var label = m ? (m.n+' '+(m.n===1?c[1]:c[2])) : c[2];
+    var sub = m && m.preview ? '<span class="b">'+esc(m.preview)+'</span>' : '';
+    var pill = m && m.pill ? '<span class="pill">'+esc(m.pill)+'</span>' : '';
+    return '<button type="button" class="td-row'+(open?' open':'')+'" onclick="toggleToday(\''+id+'\')">'
+      +'<span class="ic">'+tdIcon(id)+'</span>'
+      +'<span class="t"><span class="a">'+esc(label)+'</span>'+sub+'</span>'
+      +pill
+      +'<span class="chev">&#8250;</span></button>';
+  }).join('');
+  sum.innerHTML='<div class="td-card"><div class="td-head"><span class="td-star">&#10038;</span><span class="td-lbl">Today</span></div>'+rows+'</div>';
+  sum.style.display='';
+}
+function toggleToday(id){ TODAY_OPEN[id]=!TODAY_OPEN[id]; renderTodayDigest(); }
 function renderLeads(){
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   renderTodayShow();
@@ -2874,6 +3008,7 @@ function renderLeads(){
   renderUnpaidBalanceCard();
   renderPartnerCheckInCard();
   renderDecemberRebook();
+  renderTodayDigest();
   var t=today0(), h='';
 
   if(IFILTER){
@@ -4765,11 +4900,20 @@ function selectContactSuggestion(i){
   $('a_phone').value = m.phone;
   $('a_email').value = m.email;
   $('a_company').value = m.company;
+  // Company lives inside the "Event details" disclosure \u2014 open it so a filled
+  // value is never silently hidden from the user.
+  if(m.company){ var w=$('a_details_wrap'); if(w && w.style.display==='none') toggleAddDetails(); }
   $('a_name_suggest').style.display='none';
   toast('Filled in from '+m.name+'\u2019s last booking');
 }
 function hideContactSuggestionsDelayed(){
   setTimeout(function(){ var box=$('a_name_suggest'); if(box) box.style.display='none'; }, 150);
+}
+function toggleAddDetails(){
+  var w=$('a_details_wrap'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  var chev=$('a_details_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
 }
 function submitLead(){
   var f={};
@@ -4790,6 +4934,8 @@ function submitLead(){
     ['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_price','a_location','a_followup','a_followtime','a_notes']
       .forEach(function(id){ $(id).value=''; });
     ['a_service','a_eventType','a_source'].forEach(function(id){ var el=$(id); if(el) el.value=''; });
+    var _dw=$('a_details_wrap'); if(_dw) _dw.style.display='none';
+    var _dc=$('a_details_chev'); if(_dc) _dc.innerHTML='&#9662;';
     renderChips(); renderLeads(); renderInsights(); go('leads', document.querySelector('.tab[data-v="leads"]'));
     toast('Lead added \u2726');
   }).withFailureHandler(function(){ btn.disabled=false; btn.textContent='Add lead'; toast('Could not add \u2014 try again'); })
@@ -5003,11 +5149,15 @@ function renderInsights(){
   var newMonth=LEADS.filter(function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=moStart; });
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
   $('statGrid').innerHTML =
-    '<div class="stat" id="topclients_stat" onclick="openTopClients()" style="grid-column:1/-1;border-color:var(--gold);background:rgba(201,160,80,.07)"><div class="v">'+computeTopClients().length+'</div><div class="l">Top clients &rarr;</div></div>'
+    // Hero: booked value + booked count for the selected period — the headline.
+    '<div class="ins-hero" style="grid-column:1/-1">'
+     +'<div class="ins-hero-main"><div class="ins-hero-v">'+$m(bookedVal)+'</div><div class="ins-hero-l">Booked value</div></div>'
+     +'<div class="ins-hero-div"></div>'
+     +'<div class="ins-hero-side" onclick="insightBooked()"><div class="ins-hero-v2">'+booked.length+'</div><div class="ins-hero-l">Booked</div></div>'
+    +'</div>'
+   +'<div class="stat" id="topclients_stat" onclick="openTopClients()" style="grid-column:1/-1"><div class="v">'+computeTopClients().length+'</div><div class="l">Top clients &rarr;</div></div>'
    +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div></div>'
    +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div></div>'
-   +'<div class="stat" onclick="insightBooked()"><div class="v">'+booked.length+'</div><div class="l">Booked</div></div>'
-   +'<div class="stat"><div class="v">'+$m(bookedVal)+'</div><div class="l">Booked value</div></div>'
    +'<div class="stat" onclick="insightInPlay()"><div class="v">'+pending.length+'</div><div class="l">In play</div></div>'
    +'<div class="stat"><div class="v">'+$m(playVal)+'</div><div class="l">In-play quoted</div></div>'
    +'<div class="stat" onclick="insightNewWeek()"><div class="v">'+newWeek.length+'</div><div class="l">New this week</div></div>'
@@ -6224,6 +6374,14 @@ function renderExpenses(){
   if(EXPENSE_CATEGORY_FILTER!=='all' && usedCats[EXPENSE_CATEGORY_FILTER]) catSel.value = EXPENSE_CATEGORY_FILTER;
   else { EXPENSE_CATEGORY_FILTER='all'; catSel.value='all'; }
   $('expenseReceiptStatusSel').value = EXPENSE_RECEIPT_FILTER;
+  // Badge on the (collapsed) Filter disclosure so an active filter is never hidden.
+  var _fb=$('expenseFilterBadge');
+  if(_fb){
+    var fbits=[];
+    if(EXPENSE_CATEGORY_FILTER!=='all') fbits.push(EXPENSE_CATEGORY_FILTER);
+    if(EXPENSE_RECEIPT_FILTER!=='all') fbits.push(EXPENSE_RECEIPT_FILTER==='missing'?'Missing receipt':'Has receipt');
+    _fb.innerHTML = fbits.length ? '<span class="pill gold">'+esc(fbits.join(' · '))+'</span>' : '';
+  }
 
   // ---- List = period, refined by the category + receipt sub-filters ----
   var base = period.slice();
@@ -6253,6 +6411,12 @@ function expStatHtml_(v,l,o){
   return '<div class="stat'+(o.on?' on':'')+'"'+(style?' style="'+style+'"':'')+attrs+'>'
     +'<div class="v"'+(vstyle?' style="'+vstyle+'"':'')+'>'+v+'</div>'
     +'<div class="l">'+l+'</div></div>';
+}
+function toggleExpenseFilters(){
+  var w=$('expenseFilterWrap'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  var chev=$('expfilter_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
 }
 function toggleExpenseReceiptBadge(){
   EXPENSE_RECEIPT_FILTER = (EXPENSE_RECEIPT_FILTER==='missing') ? 'all' : 'missing';
@@ -6992,10 +7156,10 @@ function leadImportReview(){
   if(!nameMapped){ toast('Map one column to Customer name first'); return; }
   LI_ROWS=liBuildRows_(LI_GRID, LI_MAP, LEADS);
   if(!LI_ROWS.length){ toast('No rows with a customer name to import'); return; }
-  renderLeadReview();
+  renderLeadImportReview();
   $('li_stage_map').style.display='none'; $('li_stage_review').style.display='';
 }
-function renderLeadReview(){
+function renderLeadImportReview(){
   var dupCount=LI_ROWS.filter(function(r){ return r.dup; }).length;
   var bits=[LI_ROWS.length+' client'+(LI_ROWS.length===1?'':'s')+' found'];
   if(dupCount) bits.push(dupCount+' unchecked as likely duplicates of existing leads');
@@ -7018,7 +7182,7 @@ function renderLeadReview(){
   $('li_review').innerHTML=html;
   $('liConfirmBtn').style.display = LI_ROWS.some(function(r){ return r.included; }) ? '' : 'none';
 }
-function toggleLeadRow(i){ LI_ROWS[i].included=!LI_ROWS[i].included; renderLeadReview(); }
+function toggleLeadRow(i){ LI_ROWS[i].included=!LI_ROWS[i].included; renderLeadImportReview(); }
 function confirmLeadImport(){
   var selected=LI_ROWS.filter(function(r){ return r.included; });
   if(!selected.length){ toast('Nothing selected to import'); return; }
@@ -7118,15 +7282,23 @@ function renderSettings(){
         + '<div id="setsec_more_wrap" style="display:none;margin-top:10px">'
         + leftover.map(fieldHtml).join('') + '</div>';
     }
-    // Sticky so Save is reachable at any scroll position — it floats just above
-    // the bottom nav (fade lets content scroll cleanly under it), and settles at
-    // the end of the form.
-    html += '<div style="position:sticky;bottom:calc(74px + env(safe-area-inset-bottom));margin-top:18px;padding:12px 0 6px;background:linear-gradient(180deg,rgba(11,11,16,0),var(--ink) 42%);z-index:12">'
-      + '<button class="save" style="margin:0" onclick="saveSettingsFromForm()">Save settings</button>'
-      + '</div>';
+    // No Save button — every field autosaves on change/blur, matching the lead
+    // editor and the rest of the app. This line is the running status.
+    html += '<p class="note" id="set_savestat" style="text-align:left;margin:18px 0 6px">Changes save automatically ✦</p>';
     body.innerHTML = html;
     updateLogoPreview((raw.LOGO_URL!=null?raw.LOGO_URL:'') || (cfg.LOGO_URL!=null?cfg.LOGO_URL:''));
     if($('storeProdList')) storeLoadProducts();
+    // Snapshot current values so autosave sends only what actually changes.
+    snapshotSettings();
+    // Delegate once on the persistent container: catches every native input,
+    // select, checkbox, and textarea in the form (the custom editors all drive
+    // their hidden set_ inputs through native controls). Programmatic writes with
+    // no event — the logo upload — call queueSettingsAutosave() themselves.
+    if(!body._autosaveWired){
+      body.addEventListener('input', onSettingsFieldChange);
+      body.addEventListener('change', onSettingsFieldChange);
+      body._autosaveWired=true;
+    }
     var ic=$('setupImportCard'); if(ic) ic.style.display='';
     var fc=$('feedbackCard'); if(fc) fc.style.display='';
   }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
@@ -7171,7 +7343,8 @@ function handleLogoUpload(input){
       if(data.length>45000){ toast('That image is too large — try a smaller/simpler logo, or paste a direct image URL.'); return; }
       var el=$('set_LOGO_URL'); if(el) el.value=data;
       updateLogoPreview(data);
-      toast('Logo ready — tap Save settings to keep it.');
+      toast('Logo added ✦');
+      queueSettingsAutosave();
     };
     img.onerror=function(){ toast('Could not read that image. If it’s an iPhone (HEIC) photo, save it as JPG first; otherwise try a PNG or JPG.'); };
     img.src=e.target.result;
@@ -7179,13 +7352,40 @@ function handleLogoUpload(input){
   reader.onerror=function(){ toast('Could not read that file.'); };
   reader.readAsDataURL(file);
 }
-function saveSettingsFromForm(){
-  var obj = {};
-  SETTINGS_FIELDS.forEach(function(f){ var el=$('set_'+f.key); if(el) obj[f.key]=el.value; });
-  toast('Saving…');
-  google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } toast('Settings saved ✦'); maybeShowSetupNudge(); })
-    .withFailureHandler(function(){ toast('Could not save — try again'); })
-    .saveSettings(obj);
+/* ---------- Settings autosave — same model as the lead editor: change/blur
+   saves in the background with a running status, no manual Save button. Sends
+   only the fields that actually changed (a diff against the last snapshot), so
+   a large value like the logo data-URI isn't re-sent on every keystroke. ---------- */
+var SET_SAVET=null, SET_LAST={};
+function snapshotSettings(){
+  SET_LAST={};
+  (SETTINGS_FIELDS||[]).forEach(function(f){ var el=$('set_'+f.key); if(el) SET_LAST[f.key]=el.value; });
+}
+function onSettingsFieldChange(e){
+  // Store products are separate live data with their own save — leave them out.
+  var t=e&&e.target;
+  if(t && t.closest && t.closest('#storeProdList')) return;
+  queueSettingsAutosave();
+}
+function queueSettingsAutosave(){
+  var el=$('set_savestat'); if(el) el.innerHTML='Saving…';
+  clearTimeout(SET_SAVET);
+  SET_SAVET=setTimeout(doSettingsAutosave, 700);
+}
+function doSettingsAutosave(){
+  clearTimeout(SET_SAVET); SET_SAVET=null;
+  var obj={};
+  (SETTINGS_FIELDS||[]).forEach(function(f){ var el=$('set_'+f.key); if(el && el.value!==SET_LAST[f.key]) obj[f.key]=el.value; });
+  var keys=Object.keys(obj);
+  if(!keys.length){ var el0=$('set_savestat'); if(el0) el0.innerHTML='Saved ✦'; return; }
+  google.script.run.withSuccessHandler(function(res){
+    if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); }
+    keys.forEach(function(k){ SET_LAST[k]=obj[k]; });
+    var el=$('set_savestat'); if(el) el.innerHTML='Saved ✦';
+    maybeShowSetupNudge();
+  }).withFailureHandler(function(){
+    var el=$('set_savestat'); if(el) el.innerHTML='Save failed — check connection';
+  }).saveSettings(obj);
 }
 
 /* ---------- First-run setup wizard (polished onboarding over the config engine) ---------- */
@@ -7820,15 +8020,18 @@ function renderPaymentsToConfirm(){
   var box=$('paymentsToConfirm'); if(!box) return;
   var items=[];
   (LEADS||[]).forEach(function(L){
-    var nm=esc(L[C.name]||L[C.company]||'A client');
+    var rawNm=String(L[C.name]||L[C.company]||'A client'), nm=esc(rawNm);
     if(String(L[C.depositReported]||'')==='Yes' && String(L[C.depositReceived]||'')!=='Yes'){
-      items.push({row:L._row, kind:'deposit', name:nm, method:String(L[C.paymentMethod]||''), amt:money(L[C.deposit])});
+      items.push({row:L._row, kind:'deposit', name:nm, rawName:rawNm, method:String(L[C.paymentMethod]||''), amt:money(L[C.deposit])});
     }
     if(String(L[C.balanceReported]||'')==='Yes' && String(L[C.balancePaid]||'')!=='Yes'){
-      items.push({row:L._row, kind:'balance', name:nm, method:String(L[C.balancePaymentMethod]||L[C.paymentMethod]||''), amt:(money(L[C.price])+money(L[C.travelFee])-money(L[C.deposit]))});
+      items.push({row:L._row, kind:'balance', name:nm, rawName:rawNm, method:String(L[C.balancePaymentMethod]||L[C.paymentMethod]||''), amt:(money(L[C.price])+money(L[C.travelFee])-money(L[C.deposit]))});
     }
   });
   if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+  tdSetMeta('paymentsToConfirm', items.length,
+    tdPreview(items.map(function(it){ return it.rawName + (it.method?(' · '+it.method):''); })),
+    fmtMoney(items.reduce(function(s,it){ return s+(it.amt||0); }, 0)));
   var rows=items.map(function(it){
     var mLabel=it.method?(' · '+esc(it.method)):'';
     return '<div style="border-top:1px solid var(--line);padding:10px 0">'

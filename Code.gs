@@ -329,7 +329,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.28';
+var APP_VERSION = '1.5.29';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -813,7 +813,11 @@ function doGet(e) {
     var st = HtmlService.createTemplateFromFile('Store');
     st.productId = String(e.parameter.store);
     st.paid = e.parameter.paid || '';
-    st.cfg = getConfig_();
+    // Same as the sign page: only offer Credit Card when Stripe is set up.
+    var stCfg = getConfig_(), stCfgOut = {};
+    for (var sk in stCfg) stCfgOut[sk] = stCfg[sk];
+    stCfgOut.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
+    st.cfg = stCfgOut;
     return st.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Store')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
