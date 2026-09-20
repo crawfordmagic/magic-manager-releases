@@ -1,13 +1,11 @@
 What's new in this update:
 
-• A calmer home screen. Your daily reminders — payments to confirm, follow-ups due, tasks, unpaid balances, partner check-ins — now gather into one tidy "Today" summary, each line showing a count and a quick preview (and a dollar total for money items) instead of stacking up as separate cards. Tap any line to open it. When you have a show that day, the full "It's Showtime!" card and countdown still lead the screen.
+• A built-in Help center. Tap Settings → Help & guides for step-by-step walkthroughs (updating the app, connecting your website forms), quick fixes for common questions, and your current version with a "What's changed" history — all in one place.
 
-• Faster lead entry. Adding a lead now starts with just the essentials — name, phone/email, and price — with everything else tucked under "Event details," so jotting down a quick inquiry takes seconds. Open the details anytime for the full form.
+• A cleaner, more consistent look. Insights, Expenses, and the lead-management tools now share one tidy, tap-to-expand list style, so the whole app feels the same and is easier to scan. Insights opens each section — Lead Source, Best-Performing Sources, Money, and the rest — as a neat card that expands to its chart with a tap.
 
-• A clearer Insights screen. It now opens with your booked value and number of bookings front and center, and the tiles that lead somewhere when tapped are marked so you can tell at a glance what's interactive.
+• Export your clients. A new "Export my clients (CSV)" option (Leads → Manage) gives you a one-tap backup of your whole client list — the companion to Import.
 
-• A tidier Expenses screen. "+ Add Expense" is now the clear, front-and-center action, and the category and receipt filters tuck away until you need them.
+• Easier importing. "Bring in your existing clients" now shows up right where you'd look for it — including a friendly prompt when your account is new — and stays out of the way once you're rolling.
 
-• Settings save automatically. There's no more Save button — every change saves on its own the moment you make it, just like editing a lead.
-
-• Small fixes. The client feedback section on a lead shows correctly again, and your store only offers Credit Card once you've connected Stripe.
+• Small polish and fixes throughout.

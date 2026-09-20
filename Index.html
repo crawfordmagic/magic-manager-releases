@@ -362,6 +362,52 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .fbbar .fbclose{background:transparent;border:none;color:var(--gold-bright);font-size:14px;font-weight:600;cursor:pointer;padding:6px 4px;width:auto}
 .fbbar .fbspacer{width:52px}
 .fbbody{position:relative;flex:1;min-height:0}
+/* Help & Guides screen — reuses the .fbscreen/.fbbar chrome above. */
+.help-scroll{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
+.help-sec{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:6px 0 8px}
+.help-link{display:block;border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;text-decoration:none;background:rgba(201,160,80,.05)}
+.help-link .t{font-weight:700;color:var(--gold-bright);font-size:14px}
+.help-link .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+.help-fix{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.help-fix .q{width:100%;text-align:left;background:transparent;border:none;color:var(--cream);font-family:inherit;font-size:14px;font-weight:600;padding:13px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.help-fix .q .chev{flex:0 0 auto;color:var(--muted);font-size:16px;transition:transform .2s ease}
+.help-fix.open .q .chev{transform:rotate(90deg)}
+.help-fix .a{padding:0 14px 14px;font-size:13px;color:var(--muted);line-height:1.6;display:none}
+.help-fix.open .a{display:block}
+.help-fix .a b{color:var(--cream);font-weight:600}
+.help-fix .a ol{margin:6px 0 0;padding-left:18px}
+.help-fix .a li{margin-bottom:5px}
+.help-about{border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.help-ver{font-size:14px;color:var(--cream)}
+.help-ver b{color:var(--gold-bright)}
+.help-status{font-size:12.5px;margin-top:4px}
+.help-status.ok{color:var(--sage)}
+.help-status.up{color:var(--gold-bright)}
+.help-status a{color:var(--gold-bright)}
+.help-hist-btn{margin-top:10px;background:transparent;border:none;padding:0;color:var(--gold);font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.help-verentry{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+.help-verh{font-weight:700;color:var(--gold-bright);font-size:13px}
+.help-verh span{color:var(--muted);font-weight:400;font-size:11.5px;margin-left:4px}
+.help-verentry ul{margin:6px 0 0;padding-left:18px}
+.help-verentry li{font-size:12.5px;color:var(--muted);line-height:1.55;margin-bottom:4px}
+/* Compact "More" utility list at the bottom of Settings (Import / Help / Feedback). */
+.more-list{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.more-row{width:100%;text-align:left;background:transparent;border:none;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:14px;cursor:pointer;color:var(--cream);font-family:inherit;font-size:14px;font-weight:600}
+.more-row:first-child{border-top:none}
+.more-row:active{background:rgba(201,160,80,.06)}
+.more-row .ic{flex:0 0 auto;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--gold-bright)}
+.more-row .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.more-row .t{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.more-row .mr-sub{font-size:11.5px;color:var(--muted);font-weight:400}
+.more-row .mr-sub:empty{display:none}
+.more-row .chev{flex:0 0 auto;color:var(--muted);font-size:16px;transition:transform .2s ease}
+.more-row.open .chev{transform:rotate(90deg)}
+/* Inline detail that drops open under an expandable .more-row, inside the same card. */
+.more-detail{border-top:1px solid var(--line);padding:12px 14px;background:rgba(201,160,80,.03)}
+/* Chart-heavy details (Insights): full width, no tint, so charts breathe. */
+.more-detail.chart{background:transparent;padding:12px 8px}
+.more-detail .note{margin-top:0}
+.more-detail .save{margin-top:0}
 .fbframe{width:100%;height:100%;border:0;display:block;background:var(--ink)}
 .fbspinner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink)}
 .fbdot{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:fbspin .8s linear infinite}
@@ -454,6 +500,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- LEADS VIEW -->
   <div id="view-leads">
     <div id="setupNudgeCard" style="display:none"></div>
+    <div id="emptyImportCard" style="display:none"></div>
     <div id="trialBanner" style="display:none"></div>
     <div id="updateBanner" style="display:none"></div>
     <div id="todayShowCard" style="display:none"></div>
@@ -479,23 +526,35 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="manageWrap" style="display:none">
     <div class="sec-title"><span class="t">Manage</span><span class="rule"></span></div>
 
-    <button class="htoggle hstack" id="rbin_toggle" onclick="toggleRecycleBin()">
-      <span class="httitle">Recycle Bin</span>
-      <span class="htright"><span id="rbin_badge"></span><span id="rbin_chev">&#9662;</span></span>
-    </button>
-    <div id="rbin_wrap" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
-      <div id="rbin_list"></div>
-    </div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="rbin_toggle" onclick="toggleRecycleBin()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
+        <span class="t">Recycle Bin</span><span id="rbin_badge"></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="rbin_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
+        <div id="rbin_list"></div>
+      </div>
 
-    <div class="htoggle hstack" style="margin-top:12px">
-      <span class="httitle">Google Contacts</span>
-      <button class="save" id="syncBtn" style="margin-top:8px;width:100%" onclick="syncContacts()">Sync now</button>
-      <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+      <button type="button" class="more-row" id="gcontacts_toggle" onclick="toggleGContacts()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="t">Google Contacts</span><span class="chev">&#8250;</span>
+      </button>
+      <div id="gcontacts_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
+        <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
+        <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+      </div>
+
+      <button type="button" class="more-row" onclick="exportLeadsCsv()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
+        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="openFeedback()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+        <span class="t">Send feedback</span><span class="chev">&#8250;</span>
+      </button>
     </div>
-    </div>
-    <div id="feedbackLeadsLink" style="text-align:center;margin:24px 0 6px;display:none">
-      <a href="javascript:void(0)" onclick="openFeedback()" style="font-size:12.5px;color:var(--muted);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">Found a bug or have an idea? Send feedback</a>
     </div>
   </div>
 
@@ -535,123 +594,129 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
 
     <div class="insight-group-label" style="margin-top:20px;padding-top:0;border-top:none">Where Your Leads Come From</div>
-    <button class="htoggle hstack" onclick="toggleLeadSource()">
-      <span class="httitle">Lead Source</span>
-      <span class="htright"><span id="lsrc_badge"></span><span id="lsrc_chev">&#9662;</span></span>
-    </button>
-    <div id="lsrc_wrap" style="display:none;margin-top:10px">
-      <div id="chartSource"></div>
-    </div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="lsrc_row" onclick="toggleLeadSource()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 10v4a1 1 0 0 0 1 1h2l4 4V5L6 9H4a1 1 0 0 0-1 1z"/><path d="M14 8a4 4 0 0 1 0 8"/></svg></span>
+        <span class="t"><span>Lead Source</span><span id="lsrc_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lsrc_wrap" class="more-detail chart" style="display:none"><div id="chartSource"></div></div>
 
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleEventType()">
-      <span class="httitle">Event Type</span>
-      <span class="htright"><span id="levt_badge"></span><span id="levt_chev">&#9662;</span></span>
-    </button>
-    <div id="levt_wrap" style="display:none;margin-top:10px">
-      <div id="chartEvent"></div>
-    </div>
+      <button type="button" class="more-row" id="levt_row" onclick="toggleEventType()">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        <span class="t"><span>Event Type</span><span id="levt_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="levt_wrap" class="more-detail chart" style="display:none"><div id="chartEvent"></div></div>
 
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleServiceChart()">
-      <span class="httitle">Service Requested</span>
-      <span class="htright"><span id="lsvc_badge"></span><span id="lsvc_chev">&#9662;</span></span>
-    </button>
-    <div id="lsvc_wrap" style="display:none;margin-top:10px">
-      <div id="chartService"></div>
+      <button type="button" class="more-row" id="lsvc_row" onclick="toggleServiceChart()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polygon points="12 3 14.5 9 21 9.3 16 13.5 17.5 20 12 16.3 6.5 20 8 13.5 3 9.3 9.5 9"/></svg></span>
+        <span class="t"><span>Service Requested</span><span id="lsvc_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lsvc_wrap" class="more-detail chart" style="display:none"><div id="chartService"></div></div>
     </div>
 
     <div class="insight-group-label">Is It Working</div>
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleBestSources()">
-      <span class="httitle">Best-Performing Sources</span>
-      <span class="htright"><span id="lbest_badge"></span><span id="lbest_chev">&#9662;</span></span>
-    </button>
-    <div id="lbest_wrap" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin-top:-2px">Only sources with at least one booked gig are shown, ranked by booked value. Conversion is booked \u00f7 total leads from that source. Where ad spend has been logged for a source, its lifetime ROI (booked value \u00f7 total spend, all-time) is shown too.</p>
-      <div id="lbest_donut"></div>
-      <div id="sourcePerf"></div>
-    </div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="lbest_row" onclick="toggleBestSources()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg></span>
+        <span class="t"><span>Best-Performing Sources</span><span id="lbest_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lbest_wrap" class="more-detail chart" style="display:none">
+        <p class="note" style="text-align:left">Only sources with at least one booked gig are shown, ranked by booked value. Conversion is booked &#247; total leads from that source. Where ad spend has been logged for a source, its lifetime ROI (booked value &#247; total spend, all-time) is shown too.</p>
+        <div id="lbest_donut"></div>
+        <div id="sourcePerf"></div>
+      </div>
 
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleAdRoi()">
-      <span class="httitle">Advertising ROI by Year</span>
-      <span class="htright"><span id="lroi_badge"></span><span id="lroi_chev">&#9662;</span></span>
-    </button>
-    <div id="lroi_wrap" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin-top:-2px">Spend logged that year for a source, compared against total leads, booked value, and cost per booked lead from that same source and year.</p>
-      <div id="lroi_donut"></div>
-      <div id="lroi_multbars" style="margin-bottom:14px"></div>
-      <div id="adRoi"></div>
+      <button type="button" class="more-row" id="lroi_row" onclick="toggleAdRoi()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg></span>
+        <span class="t"><span>Advertising ROI by Year</span><span id="lroi_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lroi_wrap" class="more-detail chart" style="display:none">
+        <p class="note" style="text-align:left">Spend logged that year for a source, compared against total leads, booked value, and cost per booked lead from that same source and year.</p>
+        <div id="lroi_donut"></div>
+        <div id="lroi_multbars" style="margin-bottom:14px"></div>
+        <div id="adRoi"></div>
+      </div>
     </div>
 
     <div class="insight-group-label">Relationships</div>
-    <button class="htoggle hstack" onclick="toggleReferrals()">
-      <span class="httitle">Referrals</span>
-      <span class="htright"><span id="lref_badge"></span><span id="lref_chev">&#9662;</span></span>
-    </button>
-    <div id="lref_wrap" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin-top:-2px">Leads marked Referred, broken down by who they were referred to.</p>
-      <div id="lref_donut"></div>
-      <div id="chartReferrals"></div>
-
-      <div class="sec-title" style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line)"><span class="t">Referrals actually sent</span><span class="rule"></span></div>
-      <p class="note" style="text-align:left;margin-top:-2px">Logged from Contact History when you emailed or texted a partner with a lead attached.</p>
-      <div id="lref_sent_donut"></div>
-      <div id="lref_sent_log"></div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="lref_row" onclick="toggleReferrals()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="t"><span>Referrals</span><span id="lref_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lref_wrap" class="more-detail chart" style="display:none">
+        <p class="note" style="text-align:left">Leads marked Referred, broken down by who they were referred to.</p>
+        <div id="lref_donut"></div>
+        <div id="chartReferrals"></div>
+        <div class="sec-title" style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line)"><span class="t">Referrals actually sent</span><span class="rule"></span></div>
+        <p class="note" style="text-align:left">Logged from Contact History when you emailed or texted a partner with a lead attached.</p>
+        <div id="lref_sent_donut"></div>
+        <div id="lref_sent_log"></div>
+      </div>
     </div>
 
     <div class="insight-group-label">What's Not Converting</div>
-    <button class="htoggle hstack" onclick="toggleNonactive()">
-      <span class="httitle">Lost Leads</span>
-      <span class="htright"><span id="lnon_badge"></span><span id="lnon_chev">&#9662;</span></span>
-    </button>
-    <div id="lnon_wrap" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin-top:-2px">Every Lost lead, grouped by why it was lost.</p>
-      <div id="lnon_donut"></div>
-      <div id="chartNonactive"></div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="lnon_row" onclick="toggleNonactive()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 7 9 13 13 9 21 17"/><polyline points="15 17 21 17 21 11"/></svg></span>
+        <span class="t"><span>Lost Leads</span><span id="lnon_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lnon_wrap" class="more-detail chart" style="display:none">
+        <p class="note" style="text-align:left">Every Lost lead, grouped by why it was lost.</p>
+        <div id="lnon_donut"></div>
+        <div id="chartNonactive"></div>
+      </div>
     </div>
 
     <div class="insight-group-label">Money</div>
-    <button class="htoggle hstack" onclick="toggleProfitSummary()">
-      <span class="httitle">Income vs. Expenses</span>
-      <span class="htright"><span id="profit_badge"></span><span id="profit_chev">&#9662;</span></span>
-    </button>
-    <div id="profit_wrap" style="display:none;margin-top:10px">
-      <div id="profit_summary"></div>
-      <div class="sec-title" style="margin-top:6px"><span class="t">Monthly trend</span><span class="rule"></span></div>
-      <div id="profit_monthly" style="margin-top:10px"></div>
-    </div>
-
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleExpenseBreakdown()">
-      <span class="httitle">Expense Breakdown</span>
-      <span class="htright"><span id="exbrk_badge"></span><span id="exbrk_chev">&#9662;</span></span>
-    </button>
-    <div id="exbrk_wrap" style="display:none;margin-top:10px">
-      <div id="exbrk_donut"></div>
-      <div id="exbrk_list"></div>
-    </div>
-
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleTopVendors()">
-      <span class="httitle">Top Vendors</span>
-      <span class="htright"><span id="topvendors_badge"></span><span id="topvendors_chev">&#9662;</span></span>
-    </button>
-    <div id="topvendors_wrap" style="display:none;margin-top:10px">
-      <div id="topvendors_list"></div>
-    </div>
-
-    <button class="htoggle hstack" style="margin-top:12px" onclick="toggleTaxEstimate()">
-      <span class="httitle">Tax Deduction Estimate</span>
-      <span class="htright"><span id="tax_badge"></span><span id="tax_chev">&#9662;</span></span>
-    </button>
-    <div id="tax_wrap" style="display:none;margin-top:10px">
-      <div id="tax_summary"></div>
-    </div>
-
-    <div id="storeSalesSection" style="display:none;margin-top:16px">
-      <div id="storesales_actions"></div>
-      <button class="htoggle hstack" style="margin-top:10px" onclick="toggleStoreSales()">
-        <span class="httitle">Purchases</span>
-        <span class="htright"><span id="storesales_count"></span><span id="storesales_chev">&#9662;</span></span>
+    <div class="more-list">
+      <button type="button" class="more-row" id="profit_row" onclick="toggleProfitSummary()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a3 3 0 0 0-3-1.5c-1.7 0-3 .9-3 2.2s1.3 1.8 3 2.1 3 .9 3 2.1-1.3 2.1-3 2.1a3 3 0 0 1-3-1.5"/><line x1="12" y1="6.5" x2="12" y2="17.5"/></svg></span>
+        <span class="t"><span>Income vs. Expenses</span><span id="profit_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
       </button>
-      <div id="storesales_wrap" style="display:none;margin-top:10px">
-        <div id="storesales_list"></div>
+      <div id="profit_wrap" class="more-detail chart" style="display:none">
+        <div id="profit_summary"></div>
+        <div class="sec-title" style="margin-top:6px"><span class="t">Monthly trend</span><span class="rule"></span></div>
+        <div id="profit_monthly" style="margin-top:10px"></div>
+      </div>
+
+      <button type="button" class="more-row" id="exbrk_row" onclick="toggleExpenseBreakdown()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 15.5A9 9 0 1 1 8.5 3"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/></svg></span>
+        <span class="t"><span>Expense Breakdown</span><span id="exbrk_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="exbrk_wrap" class="more-detail chart" style="display:none">
+        <div id="exbrk_donut"></div>
+        <div id="exbrk_list"></div>
+      </div>
+
+      <button type="button" class="more-row" id="topvendors_row" onclick="toggleTopVendors()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 3 12V4a2 2 0 0 1 2-2h8a2 2 0 0 1 1.4.6l6.2 6.2a2 2 0 0 1 0 2.6z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>
+        <span class="t"><span>Top Vendors</span><span id="topvendors_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="topvendors_wrap" class="more-detail chart" style="display:none">
+        <div id="topvendors_list"></div>
+      </div>
+
+      <button type="button" class="more-row" id="tax_row" onclick="toggleTaxEstimate()">
+        <span class="ic"><svg viewBox="0 0 24 24"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+        <span class="t"><span>Tax Deduction Estimate</span><span id="tax_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="tax_wrap" class="more-detail chart" style="display:none">
+        <div id="tax_summary"></div>
+      </div>
+    </div>
+
+    <div id="storeSalesSection" style="display:none">
+      <div class="insight-group-label">Store</div>
+      <div id="storesales_actions"></div>
+      <div class="more-list" style="margin-top:10px">
+        <button type="button" class="more-row" id="storesales_row" onclick="toggleStoreSales()">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg></span>
+          <span class="t"><span>Purchases</span><span id="storesales_count" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+        </button>
+        <div id="storesales_wrap" class="more-detail chart" style="display:none">
+          <div id="storesales_list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -669,19 +734,21 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <!-- Category + receipt live behind a disclosure so the page opens on the
          numbers and the list, not a wall of filter dropdowns. The badge shows
          what's filtered while it's collapsed (e.g. after tapping a summary tile). -->
-    <button class="htoggle hstack" style="margin-top:4px" onclick="toggleExpenseFilters()">
-      <span class="httitle">Filter</span>
-      <span class="htright"><span id="expenseFilterBadge"></span><span id="expfilter_chev">&#9662;</span></span>
-    </button>
-    <div id="expenseFilterWrap" style="display:none;margin-top:12px">
-      <div class="grid2">
-        <div class="field" style="margin-top:0"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
-        <div class="field" style="margin-top:0"><label>Receipt</label>
-          <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
-            <option value="all">All expenses</option>
-            <option value="missing">Missing receipt</option>
-            <option value="has">Has receipt</option>
-          </select>
+    <div class="more-list" style="margin-top:4px">
+      <button type="button" class="more-row" id="expfilter_row" onclick="toggleExpenseFilters()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5"/></svg></span>
+        <span class="t"><span>Filter</span><span id="expenseFilterBadge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="expenseFilterWrap" class="more-detail" style="display:none">
+        <div class="grid2">
+          <div class="field" style="margin-top:0"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
+          <div class="field" style="margin-top:0"><label>Receipt</label>
+            <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
+              <option value="all">All expenses</option>
+              <option value="missing">Missing receipt</option>
+              <option value="has">Has receipt</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>
@@ -689,16 +756,21 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="expenseRecurring"></div>
     <div id="expenseList"></div>
 
-    <div style="display:flex;gap:10px;margin:16px 0 4px">
-      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openImportExpenses()">Import CSV</button>
-      <button class="save" style="flex:1;margin:0;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="exportExpensesCsv()">Export CSV</button>
+    <div class="more-list" style="margin-top:16px">
+      <button type="button" class="more-row" onclick="openImportExpenses()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
+        <span class="t">Import from a spreadsheet</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="exportExpensesCsv()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
+        <span class="t">Export to a spreadsheet</span><span class="chev">&#8250;</span>
+      </button>
     </div>
   </div>
 
   <!-- ADD VIEW -->
   <div id="view-add" style="display:none">
     <div class="sec-title"><span class="t">New Lead</span><span class="rule"></span></div>
-    <button class="save" style="margin:0 0 16px;background:transparent;border:1px solid var(--line);color:var(--cream);font-weight:600;font-size:13px;padding:11px" onclick="openLeadImport()">&#8681;&nbsp; Import existing clients from a spreadsheet</button>
     <div class="field"><label>Customer name</label>
       <div style="position:relative">
         <input id="a_name" placeholder="Jane Smith" oninput="renderContactSuggestions()" onfocus="renderContactSuggestions()" onblur="hideContactSuggestionsDelayed()">
@@ -747,6 +819,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
     <button class="save" id="addBtn" onclick="submitLead()">Add lead</button>
     <p class="note">Saves straight to your Google Sheet and sets the reminder.</p>
+    <p class="note" style="margin-top:14px"><a href="javascript:void(0)" onclick="openLeadImport()" style="color:var(--gold-bright);text-decoration:none">Switching over? Import your whole client list &#8594;</a></p>
   </div>
 
   <!-- SETTINGS VIEW -->
@@ -754,15 +827,21 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="sec-title"><span class="t">Settings</span><span class="rule"></span></div>
     <p class="note" style="text-align:left;margin:0 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> — the rest is optional and can wait. Save anytime; blank fields use the sensible defaults shown.</p>
     <div id="settingsBody">Loading&#8230;</div>
-    <div class="card" id="setupImportCard" style="margin-top:22px;border-color:var(--line);display:none">
-      <div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Bring in your existing clients</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Switching from a spreadsheet or another tool? Import your current client list as leads &mdash; optional, and you can do it anytime.</div>
-      <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openLeadImport()">&#8681;&nbsp; Import clients from a spreadsheet</button>
-    </div>
-    <div class="card" id="feedbackCard" style="margin-top:16px;border-color:var(--line);display:none">
-      <div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Send feedback</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:11px">Found a bug, or have an idea to make Magic Manager better? Send it to us &mdash; it opens right here in the app.</div>
-      <button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openFeedback()">&#9998;&nbsp; Send feedback</button>
+    <div id="settingsMore" style="margin-top:22px;display:none">
+      <div class="more-list">
+        <button type="button" class="more-row" onclick="openLeadImport()">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
+          <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
+        </button>
+        <button type="button" class="more-row" onclick="openHelp()">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
+          <span class="t">Help &amp; guides</span><span class="chev">&#8250;</span>
+        </button>
+        <button type="button" class="more-row" onclick="openFeedback()">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+          <span class="t">Send feedback</span><span class="chev">&#8250;</span>
+        </button>
+      </div>
     </div>
   </div>
 </main>
@@ -784,6 +863,16 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
     <iframe id="fbFrame" class="fbframe" title="Magic Manager Feedback" style="display:none"></iframe>
   </div>
+</div>
+
+<!-- IN-APP HELP & GUIDES -->
+<div id="helpScreen" class="fbscreen">
+  <div class="fbbar">
+    <button class="fbclose" onclick="closeHelp()">&#8592; Back</button>
+    <div class="fbtitle">Help &amp; Guides</div>
+    <span class="fbspacer"></span>
+  </div>
+  <div class="fbbody"><div id="helpBody" class="help-scroll"></div></div>
 </div>
 
 <!-- DETAIL SHEET -->
@@ -1519,8 +1608,6 @@ function load(){
     // are in — it stays hidden during "Raising the curtain" so both load in
     // together after the main page, rather than sitting there mid-load.
     $('manageWrap').style.display='block';
-    // Same idea for the bottom "Send feedback" link — hidden until the page loads.
-    var _fbl=$('feedbackLeadsLink'); if(_fbl) _fbl.style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge(); renderPaymentsToConfirm();
     // The brand-new-install setup wizard now opens at startup (maybeLaunchSetupWizard_),
     // before the Leads view paints, so a new user lands straight on it — no flash here.
@@ -2998,6 +3085,19 @@ function renderTodayDigest(){
   sum.style.display='';
 }
 function toggleToday(id){ TODAY_OPEN[id]=!TODAY_OPEN[id]; renderTodayDigest(); }
+// Empty-state nudge: when the account is nearly empty (and not mid-search or
+// drilled in from Insights), offer a one-tap bulk import — the "right place,
+// right time" version of the import entry point. Fades once real leads exist.
+function renderEmptyImportPrompt(){
+  var box=$('emptyImportCard'); if(!box) return;
+  if(IFILTER || (Q && Q.length) || !LEADS || LEADS.length>2){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML='<div class="card" style="border-color:var(--gold)">'
+    +'<div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Bring in your existing clients</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin-bottom:11px">Switching from a spreadsheet or another tool? Import your whole client list as leads in one step — optional, and you can do it anytime.</div>'
+    +'<button class="save" style="margin:0" onclick="openLeadImport()">&#8681;&nbsp; Import from a spreadsheet</button>'
+    +'</div>';
+  box.style.display='';
+}
 function renderLeads(){
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   renderTodayShow();
@@ -3009,6 +3109,7 @@ function renderLeads(){
   renderPartnerCheckInCard();
   renderDecemberRebook();
   renderTodayDigest();
+  renderEmptyImportPrompt();
   var t=today0(), h='';
 
   if(IFILTER){
@@ -4654,16 +4755,52 @@ function deleteLeadUI(){
 
 /* ---------- Recycle bin ---------- */
 function toggleRecycleBin(){
-  var w=$('rbin_wrap'), open=w.style.display==='none';
+  var w=$('rbin_wrap'), btn=$('rbin_toggle'), open=w.style.display==='none';
   w.style.display=open?'':'none';
-  $('rbin_chev').innerHTML=open?'&#9652;':'&#9662;';
+  if(btn) btn.classList.toggle('open', open);
+}
+function toggleGContacts(){
+  var w=$('gcontacts_wrap'), btn=$('gcontacts_toggle'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  if(btn) btn.classList.toggle('open', open);
+}
+// Export all clients/leads to a CSV — client-side, same mechanism as the
+// Expenses export (build from the already-loaded LEADS, download via a Blob).
+// The natural companion to Import; a one-tap backup you can open in any sheet.
+function exportLeadsCsv(){
+  var rows=(LEADS||[]).slice();
+  if(!rows.length){ toast('No clients to export yet'); return; }
+  rows.sort(function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); });
+  var cols=[
+    ['Name',C.name],['Company',C.company],['Phone',C.phone],['Email',C.email],
+    ['Status',C.status],['Event Date',C.eventDate],['Service',C.service],
+    ['Event Type',C.eventType],['Lead Source',C.source],['Quoted Price',C.price],
+    ['Location',C.location],['Next Follow-up',C.followup],['Notes',C.notes]
+  ];
+  var dateCol={}; dateCol[C.eventDate]=1; dateCol[C.followup]=1;
+  var lines=[cols.map(function(c){ return csvField_(c[0]); }).join(',')];
+  rows.forEach(function(L){
+    lines.push(cols.map(function(c){
+      var v=L[c[1]];
+      if(dateCol[c[1]]){ var d=pd(v); return csvField_(d?ymd(d):''); }
+      return csvField_(v==null?'':v);
+    }).join(','));
+  });
+  var csv=lines.join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='clients-'+ymd(new Date())+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  toast('Exported '+rows.length+' client'+(rows.length===1?'':'s'));
 }
 function renderRecycleBin(){
   var badge=$('rbin_badge'), list=$('rbin_list');
   if(!badge||!list) return;
   badge.innerHTML = TRASH.length
     ? '<span class="pill gold">'+TRASH.length+'</span>'
-    : '<span class="pill gold">Empty</span>';
+    : '';
   if(!TRASH.length){ list.innerHTML='<p class="note" style="text-align:left">Nothing in the bin.</p>'; return; }
   // Group by the month each lead was deleted, keeping the server's
   // newest-first order so the most recent month leads.
@@ -5209,13 +5346,21 @@ function renderInsights(){
   if(storeEnabledClient_()) renderStoreSales();
 }
 
-function toggleLeadSource(){ var w=$('lsrc_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lsrc_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleServiceChart(){ var w=$('lsvc_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lsvc_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleEventType(){ var w=$('levt_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('levt_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleBestSources(){ var w=$('lbest_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lbest_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleAdRoi(){ var w=$('lroi_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lroi_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleNonactive(){ var w=$('lnon_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lnon_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleReferrals(){ var w=$('lref_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('lref_chev').innerHTML=open?'&#9652;':'&#9662;'; }
+// Insights section toggles — the .more-row expand pattern (rotate chevron via the
+// 'open' class, drop the detail open inline), shared by every Insights section.
+function toggleInsight(key){
+  var w=$(key+'_wrap'), btn=$(key+'_row'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  if(btn) btn.classList.toggle('open', open);
+}
+function toggleLeadSource(){ toggleInsight('lsrc'); }
+function toggleServiceChart(){ toggleInsight('lsvc'); }
+function toggleEventType(){ toggleInsight('levt'); }
+function toggleBestSources(){ toggleInsight('lbest'); }
+function toggleAdRoi(){ toggleInsight('lroi'); }
+function toggleNonactive(){ toggleInsight('lnon'); }
+function toggleReferrals(){ toggleInsight('lref'); }
 function toggleTasksDone(){ var w=$('tdone_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('tdone_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 function toggleAskOracle(){ var w=$('oracle_ask_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('oracle_ask_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 
@@ -5708,15 +5853,15 @@ function renderAdRoi(all, $m){
 }
 
 /* ---------- Money: profit, expense breakdown, top vendors, tax estimate ---------- */
-function toggleProfitSummary(){ var w=$('profit_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('profit_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleExpenseBreakdown(){ var w=$('exbrk_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('exbrk_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleTopVendors(){ var w=$('topvendors_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('topvendors_chev').innerHTML=open?'&#9652;':'&#9662;'; }
-function toggleTaxEstimate(){ var w=$('tax_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('tax_chev').innerHTML=open?'&#9652;':'&#9662;'; }
+function toggleProfitSummary(){ toggleInsight('profit'); }
+function toggleExpenseBreakdown(){ toggleInsight('exbrk'); }
+function toggleTopVendors(){ toggleInsight('topvendors'); }
+function toggleTaxEstimate(){ toggleInsight('tax'); }
 
 /* ---------- Store Sales (Insights money; owner-facing, only when store enabled) ---------- */
 var STORE_SALE_ADDING=false, STORE_SALE_EDITING=null, STORE_SALE_DEL_ARM=null;
 function ssFmt_(n){ return '$'+Math.round(Number(n)||0).toLocaleString(); }
-function toggleStoreSales(){ var w=$('storesales_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('storesales_chev').innerHTML=open?'&#9652;':'&#9662;'; }
+function toggleStoreSales(){ toggleInsight('storesales'); }
 function refreshMoneyAfterSale_(){ renderStoreSales(); if($('profit_summary')) renderProfitSummary(function(n){ return ssFmt_(n); }); }
 function renderStoreSales(){
   var box=$('storesales_list'); if(!box) return;
@@ -6413,10 +6558,10 @@ function expStatHtml_(v,l,o){
     +'<div class="l">'+l+'</div></div>';
 }
 function toggleExpenseFilters(){
-  var w=$('expenseFilterWrap'); if(!w) return;
+  var w=$('expenseFilterWrap'), btn=$('expfilter_row'); if(!w) return;
   var open=w.style.display==='none';
   w.style.display=open?'':'none';
-  var chev=$('expfilter_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
+  if(btn) btn.classList.toggle('open', open);
 }
 function toggleExpenseReceiptBadge(){
   EXPENSE_RECEIPT_FILTER = (EXPENSE_RECEIPT_FILTER==='missing') ? 'all' : 'missing';
@@ -6755,18 +6900,23 @@ function renderRecurringList(){
       +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--crimson);color:#E9927B;flex-shrink:0" onclick="stopRecurring('+r.row+')">Stop</button>'
     +'</div>';
   }).join('');
-  box.innerHTML = '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleRecurring()">'
-    +'<span class="httitle">Recurring &#8635;</span>'
-    +'<span class="htright"><span style="font-size:11px;font-weight:600;color:var(--muted);margin-right:6px">'+RECURRING.length+'</span><span id="recur_chev">'+(RECUR_OPEN?'&#9652;':'&#9662;')+'</span></span>'
+  box.innerHTML = '<div class="more-list" style="margin-top:12px">'
+    +'<button type="button" class="more-row'+(RECUR_OPEN?' open':'')+'" id="recur_row" onclick="toggleRecurring()">'
+      +'<span class="ic"><svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></span>'
+      +'<span class="t"><span>Recurring</span></span>'
+      +'<span class="pill gold">'+RECURRING.length+'</span>'
+      +'<span class="chev">&#8250;</span>'
     +'</button>'
-    +'<div id="recur_wrap" style="'+(RECUR_OPEN?'':'display:none;')+'margin-top:10px">'
-    +'<p class="note" style="text-align:left;margin:0 0 2px">These post to your expenses automatically. Stop keeps everything already logged.</p>'
-    + items + '</div>';
+    +'<div id="recur_wrap" class="more-detail"'+(RECUR_OPEN?'':' style="display:none"')+'>'
+      +'<p class="note" style="text-align:left;margin:0 0 10px">These post to your expenses automatically. Stop keeps everything already logged.</p>'
+      + items
+    +'</div>'
+    +'</div>';
 }
 function toggleRecurring(){
   RECUR_OPEN = !RECUR_OPEN;
   var w=$('recur_wrap'); if(w) w.style.display = RECUR_OPEN ? '' : 'none';
-  var c=$('recur_chev'); if(c) c.innerHTML = RECUR_OPEN ? '&#9652;' : '&#9662;';
+  var btn=$('recur_row'); if(btn) btn.classList.toggle('open', RECUR_OPEN);
 }
 var EXPENSE_DEL_ARM = false;
 function deleteExpenseUI(){
@@ -7248,8 +7398,7 @@ function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
   body.innerHTML = 'Loading…';
-  var _ic=$('setupImportCard'); if(_ic) _ic.style.display='none';
-  var _fc=$('feedbackCard'); if(_fc) _fc.style.display='none';
+  var _sm=$('settingsMore'); if(_sm) _sm.style.display='none';
   google.script.run.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
@@ -7299,8 +7448,7 @@ function renderSettings(){
       body.addEventListener('change', onSettingsFieldChange);
       body._autosaveWired=true;
     }
-    var ic=$('setupImportCard'); if(ic) ic.style.display='';
-    var fc=$('feedbackCard'); if(fc) fc.style.display='';
+    var sm=$('settingsMore'); if(sm) sm.style.display='';
   }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
     .getSettings();
 }
@@ -7810,6 +7958,110 @@ function depositpctEditorHtml(f, val, cfg){
 function depositPctExample(){
   var el=$('set_DEPOSIT_PERCENT'), box=$('depositPctEx'); if(!el||!box) return;
   box.textContent=depositPctExampleText(el.value);
+}
+
+/* ---------- Help & Guides (in-app) ----------
+   Longer, visual walkthroughs live in living docs Rich maintains (so the content
+   can change without shipping an app release) — set each URL below and the link
+   appears; leave it '' and that link is simply hidden (never a dead link). The
+   quick fixes are short, self-contained answers to the questions most likely to
+   otherwise strand a customer, kept inline so they work even mid-problem. */
+var HELP_GUIDES = [
+  { title:'How to apply an update',            desc:'Getting the newest version when the update banner appears.', url:'https://www.crawfordmagic.com/update-page' },
+  { title:'Connect your website forms (Zapier)', desc:'Send new inquiries from your site straight into Magic Manager.', url:'https://www.crawfordmagic.com/zapier-guide' }
+];
+// Version history shown in Help. The newest entry's version is treated as the
+// current app version, so it must match APP_VERSION in Code.js. PREPEND a new
+// entry here at each release (see RELEASE.md). Baked in (not fetched), so it
+// works offline and shows history up through the installed version.
+var CHANGELOG_ = [
+  { v:'1.5.30', d:'Sep 2026', notes:[
+    'New built-in Help center (Settings → Help & guides): update and website-form guides, quick fixes, and your version with a "What’s changed" history.',
+    'A cleaner, more consistent look — Insights, Expenses, and lead management now share one tidy, tap-to-expand list style.',
+    'Export my clients (CSV) added under Leads → Manage — a one-tap backup of your client list.',
+    '"Bring in your existing clients" is easier to find when you need it, tucked away when you don’t.'
+  ]},
+  { v:'1.5.29', d:'Sep 2026', notes:[
+    'A calmer home screen: your daily reminders gather into one "Today" summary with counts and previews.',
+    'Faster lead entry: start with just name, contact, and price — the rest tucks under "Event details."',
+    'Clearer Insights: opens with your booked value and count; tiles that do something are marked.',
+    'Tidier Expenses: "+ Add Expense" is front and center; the filters tuck away until needed.',
+    'Settings save automatically — no more Save button.'
+  ]},
+  { v:'1.5.28', d:'Sep 2026', notes:[
+    'Snappier "Mark done" and payment confirm/dismiss buttons.',
+    'More accurate receipts: the real payment date, method-change refresh, and a card-amount check.'
+  ]}
+];
+var HELP_FIXES = [
+  { q:'I applied an update, but nothing looks different',
+    a:'Fully close and reopen the app — on a phone, swipe it away and open it again; on a computer, refresh the page. Magic Manager only checks for a new version about once a day, so the change usually appears right after a refresh. If the "Update available" banner keeps showing even after you’ve applied the update, it’s safe to ignore until the next daily check clears it.' },
+  { q:'I see a "version limit reached" / "200 versions" error',
+    a:'<b>This is rare</b> — most people will never see it, since it only appears after you’ve applied a great many updates over time. If you do: Google Apps Script keeps a snapshot of every version you’ve ever deployed and caps it at 200, so you just clear out old ones you no longer need:<ol><li>Open your Magic Manager Google Sheet → <b>Extensions → Apps Script</b>.</li><li>Open the <b>project history</b> (the clock icon in the left toolbar).</li><li>Select older versions you don’t need and delete them. Versions currently in use are protected and can’t be selected, so you can’t break anything.</li><li>Return to Magic Manager and apply your update again.</li></ol>This only removes old saved snapshots — never your app, your settings, or your data.' },
+  { q:'My logo isn’t showing up',
+    a:'Your logo has to be a <b>direct, public image link</b>. In <b>Settings → Your business</b>, either upload a PNG or JPG, or paste a direct image URL (on your website, right-click the logo and choose “Copy image address”). If a warning appears under the logo, the link isn’t public yet. SVG and iPhone HEIC photos aren’t supported — save the image as a PNG or JPG first.' },
+  { q:'A client says they paid, but I don’t see it',
+    a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' }
+];
+function openHelp(){
+  var sc=$('helpScreen'); if(sc) sc.classList.add('open');
+  renderHelp(null); // paint immediately with the baked-in version…
+  // …then refresh the up-to-date / update-available status in the background.
+  google.script.run.withSuccessHandler(function(info){ renderHelp(info); })
+    .withFailureHandler(function(){}).getUpdateInfo();
+}
+function closeHelp(){ var sc=$('helpScreen'); if(sc) sc.classList.remove('open'); }
+function toggleHelpFix(i){ var el=$('helpfix_'+i); if(el) el.classList.toggle('open'); }
+function toggleHelpHistory(){
+  var w=$('help_history'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  var chev=$('help_hist_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
+}
+function renderHelp(info){
+  var box=$('helpBody'); if(!box) return;
+  var html='';
+  // About / version — the newest changelog entry is the installed version.
+  var ver=(CHANGELOG_[0]&&CHANGELOG_[0].v)||'';
+  var status='';
+  if(info){
+    if(info.updateAvailable && info.latest){
+      var ulink=(/^https?:\/\//i.test(info.url||''))?info.url:'';
+      status='<div class="help-status up">Update available — v'+esc(info.latest)
+        + (ulink?' · <a href="'+esc(ulink)+'" target="_blank" rel="noopener">how to update →</a>':'')+'</div>';
+    } else {
+      status='<div class="help-status ok">You’re up to date ✓</div>';
+    }
+  }
+  html+='<div class="help-sec">About</div>'
+    + '<div class="help-about">'
+    +   '<div class="help-ver">Magic Manager · <b>v'+esc(ver)+'</b></div>'
+    +   status
+    +   '<button type="button" class="help-hist-btn" onclick="toggleHelpHistory()">What’s changed <span id="help_hist_chev">&#9662;</span></button>'
+    +   '<div id="help_history" style="display:none">'
+    +     CHANGELOG_.map(function(c){
+            return '<div class="help-verentry"><div class="help-verh">v'+esc(c.v)+' <span>'+esc(c.d)+'</span></div><ul>'
+              + c.notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join('') + '</ul></div>';
+          }).join('')
+    +   '</div>'
+    + '</div>';
+  var guides=HELP_GUIDES.filter(function(g){ return g.url; });
+  if(guides.length){
+    html+='<div class="help-sec" style="margin-top:18px">Guides</div>'
+      + guides.map(function(g){
+          return '<a class="help-link" href="'+esc(g.url)+'" target="_blank" rel="noopener">'
+            +'<div class="t">'+esc(g.title)+' →</div><div class="d">'+esc(g.desc)+'</div></a>';
+        }).join('');
+  }
+  html+='<div class="help-sec" style="margin-top:18px">Quick fixes</div>'
+    + HELP_FIXES.map(function(f,i){
+        return '<div class="help-fix" id="helpfix_'+i+'">'
+          +'<button type="button" class="q" onclick="toggleHelpFix('+i+')"><span>'+esc(f.q)+'</span><span class="chev">&#8250;</span></button>'
+          +'<div class="a">'+f.a+'</div></div>';  // f.a is trusted, hand-written HTML
+      }).join('');
+  html+='<div class="help-sec" style="margin-top:18px">Still stuck?</div>'
+    +'<button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="closeHelp();openFeedback()">✎&nbsp; Send feedback</button>';
+  box.innerHTML=html;
 }
 
 /* ---------- In-app feedback (embedded form) ---------- */
