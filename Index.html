@@ -550,10 +550,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
         <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
       </button>
-      <button type="button" class="more-row" onclick="openFeedback()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
-        <span class="t">Send feedback</span><span class="chev">&#8250;</span>
-      </button>
     </div>
     </div>
   </div>
@@ -794,7 +790,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="a_details_wrap" style="display:none;margin-top:12px">
       <div class="field"><label>Company / organization</label><input id="a_company"></div>
       <div class="grid2">
-        <div class="field"><label>Date of event</label><input id="a_eventDate" type="date"></div>
+        <div class="field"><label>Date of event</label><input id="a_eventDate" type="date" min="2000-01-01" max="2100-12-31"></div>
         <div class="field"><label>Audience size</label><input id="a_audience" inputmode="numeric"></div>
       </div>
       <div class="grid2">
@@ -811,7 +807,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <div class="grid2">
         <div class="field"><label>Status</label>
           <select id="a_status"><option>New</option><option>Pending</option><option>Booked</option></select></div>
-        <div class="field"><label>Next follow-up</label><input id="a_followup" type="date"></div>
+        <div class="field"><label>Next follow-up</label><input id="a_followup" type="date" min="2000-01-01" max="2100-12-31"></div>
       </div>
       <div class="field"><label>Follow-up time <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional — 9 AM if blank)</span></label><input id="a_followtime" type="time"></div>
       <div class="field"><label>Notes</label><textarea id="a_notes" rows="3"></textarea></div>
@@ -1094,6 +1090,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <p class="note" style="text-align:left;margin:0 0 12px">Have an existing client list? Export it as a CSV (in Excel or Google Sheets: <b>File &rarr; Download / Save As &rarr; CSV</b>), then upload it here. You'll match up the columns and review everything &mdash; nothing is added until you tap Import.</p>
   <p class="note" style="text-align:left;margin:0 0 12px;color:var(--muted)">Any column layout works &mdash; you'll map them on the next screen. Starting from scratch? Handy columns: <b>Customer name</b> (the only required one), Phone, Email, Company, Service, Event type, Event date, Event location, Quoted price, Lead source, Status, Notes.</p>
   <input type="file" id="liFileInput" accept=".csv" onchange="handleLeadCsvFile(event)">
+  <div style="display:flex;align-items:center;gap:12px;margin:16px 0 10px;color:var(--muted);font-size:12px;letter-spacing:.08em">
+    <span style="flex:1;height:1px;background:var(--line)"></span>OR PASTE FROM A SPREADSHEET<span style="flex:1;height:1px;background:var(--line)"></span>
+  </div>
+  <p class="note" style="text-align:left;margin:0 0 8px">No file needed &mdash; in Excel or Google Sheets, select your rows <b>including the header row</b>, copy, and paste below.</p>
+  <textarea id="liPasteBox" rows="4" placeholder="Paste your rows here&#8230;" style="width:100%;font-family:inherit;font-size:13px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical"></textarea>
+  <button class="save" style="margin-top:10px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="handleLeadPaste()">Use pasted rows &rarr;</button>
   <div id="li_stage_map" style="display:none">
     <div class="sec-title" style="margin-top:18px"><span class="t">Match your columns</span><span class="rule"></span></div>
     <p class="note" style="text-align:left;margin:0 0 10px">We guessed these from your headers &mdash; fix any that are wrong, and choose <b>&mdash; Ignore &mdash;</b> for columns you don't want.</p>
@@ -1193,7 +1195,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <div class="field" id="d_followwrap"><label>Next follow-up</label>
     <div class="grid2">
-      <input type="date" id="d_followup" onchange="onFollowupChange()">
+      <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
       <input type="time" id="d_followtime" onblur="onFollowupChange()">
     </div>
     <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
@@ -3806,7 +3808,10 @@ function editKV(i){
   if(F.type==='date'){ var d=pd(v); iv=d? ymd(d):''; }
   else if(F.type==='time'){ var d2=pd(v); iv=d2? hm(d2):''; }
   else iv = v==null? '' : String(v);
-  cell.innerHTML='<input class="kvin" type="'+F.type+'" value="'+esc(iv)+'" id="kvi_'+i+'"'
+  // Guard the native date picker against absurd years (e.g. an empty field's
+  // spinner landing on 1902) — clamp it to a sane range.
+  var dateAttrs = F.type==='date' ? ' min="2000-01-01" max="2100-12-31"' : '';
+  cell.innerHTML='<input class="kvin" type="'+F.type+'" value="'+esc(iv)+'" id="kvi_'+i+'"'+dateAttrs
     +' onchange="saveKV('+i+')" onblur="blurKV('+i+')"'
     +' onkeydown="if(event.key===\'Enter\')this.blur()">';
   $('kvi_'+i).focus();
@@ -7201,6 +7206,10 @@ function liAutoMapField_(header){
 // commas and newlines inside quotes, and CRLF. Returns {header, rows}.
 function liParseCsv_(text){
   var s=String(text||'').replace(/^﻿/, '');
+  // Auto-detect the delimiter: cells copied straight from Excel/Google Sheets are
+  // tab-separated, exported files are comma-separated. Sniff the first line.
+  var firstLine=s.split(/\r?\n/)[0]||'';
+  var delim=((firstLine.split('\t').length-1) > (firstLine.split(',').length-1)) ? '\t' : ',';
   var rows=[], row=[], cur='', inQ=false, i, ch, next;
   for(i=0;i<s.length;i++){
     ch=s[i];
@@ -7209,7 +7218,7 @@ function liParseCsv_(text){
       else { cur+=ch; }
     } else {
       if(ch==='"'){ inQ=true; }
-      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch===delim){ row.push(cur); cur=''; }
       else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
       else if(ch==='\r'){ /* swallow \r; \n ends the row */ }
       else { cur+=ch; }
@@ -7241,23 +7250,34 @@ var LI_GRID=null, LI_MAP={}, LI_ROWS=[];
 function openLeadImport(){
   LI_GRID=null; LI_MAP={}; LI_ROWS=[];
   $('liFileInput').value='';
+  var _pb=$('liPasteBox'); if(_pb) _pb.value='';
   $('li_stage_map').style.display='none'; $('li_stage_review').style.display='none';
   $('li_map').innerHTML=''; $('li_review').innerHTML=''; $('liConfirmBtn').style.display='none';
   $('overlay').classList.add('open'); $('leadImportSheet').classList.add('open');
 }
 function closeLeadImport(){ $('leadImportSheet').classList.remove('open'); syncOverlay(); }
+// Shared by the file upload and the paste box: take a parsed grid, auto-map its
+// columns, and jump to the mapping stage.
+function liLoadGrid_(grid){
+  if(!grid.header.length || !grid.rows.length){ toast('Couldn’t read any rows — make sure the first row is your column headers.'); return false; }
+  LI_GRID=grid; LI_MAP={};
+  grid.header.forEach(function(h,idx){ LI_MAP[idx]=liAutoMapField_(h); });
+  renderLeadMap();
+  $('li_stage_review').style.display='none'; $('li_stage_map').style.display='';
+  return true;
+}
 function handleLeadCsvFile(event){
   var file=event.target.files[0]; if(!file) return;
   var reader=new FileReader();
-  reader.onload=function(e){
-    var grid=liParseCsv_(e.target.result);
-    if(!grid.header.length || !grid.rows.length){ toast('Could not read any rows from that file'); return; }
-    LI_GRID=grid; LI_MAP={};
-    grid.header.forEach(function(h,idx){ LI_MAP[idx]=liAutoMapField_(h); });
-    renderLeadMap();
-    $('li_stage_review').style.display='none'; $('li_stage_map').style.display='';
-  };
+  reader.onload=function(e){ liLoadGrid_(liParseCsv_(e.target.result)); };
   reader.readAsText(file);
+}
+// Paste straight from a spreadsheet — no file export needed. Cells copied from
+// Excel/Google Sheets arrive tab-separated, which liParseCsv_ auto-detects.
+function handleLeadPaste(){
+  var box=$('liPasteBox'); var txt=box?box.value:'';
+  if(!String(txt).trim()){ toast('Paste your rows first'); return; }
+  liLoadGrid_(liParseCsv_(txt));
 }
 function renderLeadMap(){
   if(!LI_GRID) return;
@@ -7975,6 +7995,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.31', d:'Sep 2026', notes:[
+    'Fixed a date-picker glitch where event and follow-up dates could default to the year 1902 — they now open on today.',
+    'Faster client import: paste your list straight from a spreadsheet (no CSV export needed).',
+    'Small polish in the Leads → Manage section and the Help version history.'
+  ]},
   { v:'1.5.30', d:'Sep 2026', notes:[
     'New built-in Help center (Settings → Help & guides): update and website-form guides, quick fixes, and your version with a "What’s changed" history.',
     'A cleaner, more consistent look — Insights, Expenses, and lead management now share one tidy, tap-to-expand list style.',
@@ -8003,6 +8028,21 @@ var HELP_FIXES = [
   { q:'A client says they paid, but I don’t see it',
     a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' }
 ];
+// The "What's changed" history shows the most recent versions and tucks the
+// rest behind "Show older versions", so a long release trail never overwhelms.
+var HELP_HIST_LIMIT = 5;
+function helpVerEntries(list){
+  return (list||[]).map(function(c){
+    return '<div class="help-verentry"><div class="help-verh">v'+esc(c.v)+' <span>'+esc(c.d)+'</span></div><ul>'
+      + c.notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join('') + '</ul></div>';
+  }).join('');
+}
+function toggleHelpOlder(){
+  var w=$('help_older'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  var c=$('help_older_chev'); if(c) c.innerHTML=open?'&#9652;':'&#9662;';
+}
 function openHelp(){
   var sc=$('helpScreen'); if(sc) sc.classList.add('open');
   renderHelp(null); // paint immediately with the baked-in version…
@@ -8039,10 +8079,11 @@ function renderHelp(info){
     +   status
     +   '<button type="button" class="help-hist-btn" onclick="toggleHelpHistory()">What’s changed <span id="help_hist_chev">&#9662;</span></button>'
     +   '<div id="help_history" style="display:none">'
-    +     CHANGELOG_.map(function(c){
-            return '<div class="help-verentry"><div class="help-verh">v'+esc(c.v)+' <span>'+esc(c.d)+'</span></div><ul>'
-              + c.notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join('') + '</ul></div>';
-          }).join('')
+    +     helpVerEntries(CHANGELOG_.slice(0, HELP_HIST_LIMIT))
+    +     (CHANGELOG_.length > HELP_HIST_LIMIT
+            ? '<button type="button" class="help-hist-btn" style="margin-top:8px" onclick="toggleHelpOlder()">Show older versions <span id="help_older_chev">&#9662;</span></button>'
+              + '<div id="help_older" style="display:none">' + helpVerEntries(CHANGELOG_.slice(HELP_HIST_LIMIT)) + '</div>'
+            : '')
     +   '</div>'
     + '</div>';
   var guides=HELP_GUIDES.filter(function(g){ return g.url; });

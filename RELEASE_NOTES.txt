@@ -1,11 +1,7 @@
 What's new in this update:
 
-• A built-in Help center. Tap Settings → Help & guides for step-by-step walkthroughs (updating the app, connecting your website forms), quick fixes for common questions, and your current version with a "What's changed" history — all in one place.
+• Fixed a date bug. Event dates and follow-up dates no longer default to a strange old year (1902) — the date picker now opens on today, as it should.
 
-• A cleaner, more consistent look. Insights, Expenses, and the lead-management tools now share one tidy, tap-to-expand list style, so the whole app feels the same and is easier to scan. Insights opens each section — Lead Source, Best-Performing Sources, Money, and the rest — as a neat card that expands to its chart with a tap.
+• Faster client import. You can now paste your client list straight from a spreadsheet — select your rows in Excel or Google Sheets, copy, and paste, with no CSV export step. (The file upload is still there if you prefer it.)
 
-• Export your clients. A new "Export my clients (CSV)" option (Leads → Manage) gives you a one-tap backup of your whole client list — the companion to Import.
-
-• Easier importing. "Bring in your existing clients" now shows up right where you'd look for it — including a friendly prompt when your account is new — and stays out of the way once you're rolling.
-
-• Small polish and fixes throughout.
+• Small polish. Tidied the Leads → Manage section, and the "What's changed" history in Help stays neat as updates add up.
