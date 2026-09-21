@@ -1,7 +1,5 @@
 What's new in this update:
 
-• Fixed a date bug. Event dates and follow-up dates no longer default to a strange old year (1902) — the date picker now opens on today, as it should.
+• Free-trial signups now ask for a name along with an email, so trial sign-ups are attributed to a person.
 
-• Faster client import. You can now paste your client list straight from a spreadsheet — select your rows in Excel or Google Sheets, copy, and paste, with no CSV export step. (The file upload is still there if you prefer it.)
-
-• Small polish. Tidied the Leads → Manage section, and the "What's changed" history in Help stays neat as updates add up.
+• Otherwise a quiet, behind-the-scenes update — no change to your day-to-day use of the app.

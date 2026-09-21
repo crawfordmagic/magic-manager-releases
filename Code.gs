@@ -329,7 +329,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.31';
+var APP_VERSION = '1.5.32';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -414,7 +414,7 @@ function activateLicense(key) {
 // Self-service free trial. Asks the hub for a trial tied to this email (the hub
 // gives one per email), then activates the returned key. Called from the
 // activation page's "Start free trial" form.
-function startTrial(email) {
+function startTrial(email, name) {
   var props = PropertiesService.getScriptProperties();
   var hub = licenseHubUrl_();
   if (!hub) return { ok: false, message: 'Free trials aren’t available for this app.' };
@@ -429,11 +429,15 @@ function startTrial(email) {
   if (!email || email.indexOf('@') < 1 || email.indexOf('.') < 0) {
     return { ok: false, message: 'Please enter a valid email address.' };
   }
+  name = String(name || '').trim();
+  if (!name) {
+    return { ok: false, message: 'Please enter your name.' };
+  }
   var resp = null;
   try {
     resp = UrlFetchApp.fetch(hub, {
       method: 'post',
-      payload: { action: 'trial', email: email, install: getInstallId_() },
+      payload: { action: 'trial', email: email, name: name, install: getInstallId_() },
       muteHttpExceptions: true,
       followRedirects: true
     });
@@ -449,6 +453,7 @@ function startTrial(email) {
   // Success — store the key + trial state, then activate.
   props.setProperty('LICENSE_KEY', String(data.key));
   props.setProperty('TRIAL_EMAIL', email);
+  props.setProperty('TRIAL_NAME', name);
   if (data.trialEndsAt != null) props.setProperty('TRIAL_ENDS_AT', String(data.trialEndsAt));
   if (data.storeUrl != null) props.setProperty('STORE_URL', String(data.storeUrl));
   try { props.deleteProperty('LICENSE_CACHE'); } catch (e) {}
@@ -636,6 +641,7 @@ function activationPageHtml_(lic) {
   if (showTrial) {
     p.push('<div class="divider">or try it free</div>');
     p.push('<div class="lbl">Start your 14-day free trial</div>');
+    p.push('<input id="tn" placeholder="Your name" autocomplete="name" autocapitalize="words" spellcheck="false">');
     p.push('<input id="te" type="email" placeholder="you@email.com" autocomplete="email" autocapitalize="off" spellcheck="false">');
     p.push('<button id="tb" class="ghost" onclick="startTrialUI()">Start free trial</button>');
     p.push('<div class="err" id="tee"></div>');
@@ -650,11 +656,12 @@ function activationPageHtml_(lic) {
   p.push('.activateLicense(k);}');
   p.push('document.getElementById("k").addEventListener("keydown",function(e){if(e.key==="Enter")act();});');
   if (showTrial) {
-    p.push('function startTrialUI(){var em=document.getElementById("te").value.trim();var tb=document.getElementById("tb");var ee=document.getElementById("tee");ee.textContent="";if(!em){ee.textContent="Enter your email.";return;}');
+    p.push('function startTrialUI(){var nm=document.getElementById("tn").value.trim();var em=document.getElementById("te").value.trim();var tb=document.getElementById("tb");var ee=document.getElementById("tee");ee.textContent="";if(!nm){ee.textContent="Enter your name.";return;}if(!em){ee.textContent="Enter your email.";return;}');
     p.push('tb.disabled=true;tb.textContent="Starting…";');
     p.push('google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{tb.disabled=false;tb.textContent="Start free trial";ee.textContent=(r&&r.message)||"Could not start your trial.";}})');
     p.push('.withFailureHandler(function(){tb.disabled=false;tb.textContent="Start free trial";ee.textContent="Something went wrong — try again.";})');
-    p.push('.startTrial(em);}');
+    p.push('.startTrial(em,nm);}');
+    p.push('document.getElementById("tn").addEventListener("keydown",function(e){if(e.key==="Enter")startTrialUI();});');
     p.push('document.getElementById("te").addEventListener("keydown",function(e){if(e.key==="Enter")startTrialUI();});');
   }
   p.push('</script>');
