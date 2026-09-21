@@ -1101,13 +1101,17 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <p class="note" style="text-align:left;margin:0 0 10px">We guessed these from your headers &mdash; fix any that are wrong, and choose <b>&mdash; Ignore &mdash;</b> for columns you don't want.</p>
     <div id="li_map"></div>
     <div style="margin:14px 0 0;padding:11px 13px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:13px;line-height:1.5;color:var(--cream);text-align:left">
-      <b style="color:var(--gold-bright)">Status maps to a fixed set.</b> Magic Manager uses seven statuses &mdash; New, Pending, Booked, Completed, Lost, Referral, Referred. A mapped <b>Status</b> column is matched to these (case-insensitive), so &ldquo;booked&rdquo; becomes Booked; anything that doesn't match &mdash; or a blank, or no Status column &mdash; comes in as <b>New</b>. Only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights.
+      <b style="color:var(--gold-bright)">Status maps to a fixed set.</b> Magic Manager uses seven statuses &mdash; New, Pending, Booked, Completed, Lost, Referral, Referred. A mapped <b>Status</b> column is matched to these (case-insensitive), so &ldquo;booked&rdquo; becomes Booked; anything that doesn't match &mdash; or a blank, or no Status column &mdash; comes in as <b>New</b>. Only <b>Booked</b> and <b>Completed</b> count toward revenue in Insights.<br><br><b style="color:var(--gold-bright)">Past events come in as Completed.</b> Any booking whose <b>event date is already in the past</b> is brought in as <b>Completed</b> (a gig that's already happened) &mdash; except ones marked Lost, Referral, or Referred, which are kept as-is.
     </div>
     <button class="save" style="margin-top:14px" onclick="leadImportReview()">Continue to review &rarr;</button>
   </div>
   <div id="li_stage_review" style="display:none">
     <div class="sec-title" style="margin-top:18px"><span class="t">Review</span><span class="rule"></span></div>
     <div id="li_review"></div>
+    <label style="display:flex;align-items:flex-start;gap:10px;margin:16px 0 0;font-size:13px;line-height:1.45;color:var(--cream);text-align:left;cursor:pointer">
+      <input type="checkbox" id="liMarkPaid" checked style="width:auto;flex:0 0 auto;margin:2px 0 0">
+      <span>Mark completed past gigs as <b>already paid</b> — keeps your income history accurate and avoids &ldquo;unpaid balance&rdquo; reminders for money that was collected long ago. Uncheck to leave payments blank.</span>
+    </label>
     <button class="save" id="liConfirmBtn" style="margin-top:14px;display:none" onclick="confirmLeadImport()">Import selected</button>
   </div>
 </div>
@@ -7251,6 +7255,7 @@ function openLeadImport(){
   LI_GRID=null; LI_MAP={}; LI_ROWS=[];
   $('liFileInput').value='';
   var _pb=$('liPasteBox'); if(_pb) _pb.value='';
+  var _mp=$('liMarkPaid'); if(_mp) _mp.checked=true;
   $('li_stage_map').style.display='none'; $('li_stage_review').style.display='none';
   $('li_map').innerHTML=''; $('li_review').innerHTML=''; $('liConfirmBtn').style.display='none';
   $('overlay').classList.add('open'); $('leadImportSheet').classList.add('open');
@@ -7313,6 +7318,14 @@ function liBuildRows_(grid, map, existingLeads){
     }
     var nm=String(f[C.name]||'').trim(); if(!nm) return;
     f[C.status]=canonicalLeadStatus_(f[C.status]);
+    // An imported event whose date is already in the past is a gig that has
+    // happened → bring it in as Completed (an old client list is usually past
+    // bookings). Skip Lost/Referral/Referred — those aren't completed gigs, and
+    // flipping a past "Lost" to "Completed" would wrongly count it as income.
+    if(f[C.eventDate] && f[C.status]!=='Lost' && f[C.status]!=='Referral' && f[C.status]!=='Referred'){
+      var _ed=pd(f[C.eventDate]);
+      if(_ed && _ed < today0()) f[C.status]='Completed';
+    }
     var dk=liDupKey_(nm, f[C.email]);
     var isDup=!!existing[dk] || !!seen[dk]; seen[dk]=1;
     out.push({fields:f, name:nm, email:String(f[C.email]||''), phone:String(f[C.phone]||''), eventDate:String(f[C.eventDate]||''), status:String(f[C.status]||'New'), dup:isDup, included:!isDup});
@@ -7356,7 +7369,21 @@ function toggleLeadRow(i){ LI_ROWS[i].included=!LI_ROWS[i].included; renderLeadI
 function confirmLeadImport(){
   var selected=LI_ROWS.filter(function(r){ return r.included; });
   if(!selected.length){ toast('Nothing selected to import'); return; }
-  var payload=selected.map(function(r){ return r.fields; });
+  var markPaid = !!($('liMarkPaid') && $('liMarkPaid').checked);
+  var payload=selected.map(function(r){
+    var f=r.fields;
+    // Old gigs that already happened: mark deposit + balance received, dated to
+    // the event, so income history is right and the "unpaid balance" card stays
+    // quiet. Import writes rows directly (no receipt emails). Completed + past only.
+    if(markPaid && f[C.status]==='Completed' && f[C.eventDate]){
+      var _ed=pd(f[C.eventDate]);
+      if(_ed && _ed < today0()){
+        f[C.depositReceived]='Yes'; f[C.depositReceivedDate]=f[C.eventDate];
+        f[C.balancePaid]='Yes';    f[C.balancePaidDate]=f[C.eventDate];
+      }
+    }
+    return f;
+  });
   closeLeadImport();
   toast('Importing '+selected.length+' client'+(selected.length===1?'':'s')+'…');
   google.script.run.withSuccessHandler(function(json){
@@ -7533,6 +7560,9 @@ function onSettingsFieldChange(e){
   // Store products are separate live data with their own save — leave them out.
   var t=e&&e.target;
   if(t && t.closest && t.closest('#storeProdList')) return;
+  // When the Services list is edited (on blur/change), rebuild the per-service
+  // message boxes below so they mirror the new list — no Settings reopen needed.
+  if(t && t.id==='set_SERVICES' && e.type==='change') refreshServiceMsgEditor();
   queueSettingsAutosave();
 }
 function queueSettingsAutosave(){
@@ -7716,21 +7746,36 @@ function closeWizard(){
 /* ---------- Event-messages-by-service editor (Settings) ---------- */
 // One optional message per Service; shown to a booked client on their event hub after they
 // sign, matched to their booking's service. Stored as a JSON {service: message} map.
+// One message box per Service. Shared by the initial render and the live refresh
+// so the box set always mirrors the current "Services offered" list.
+function serviceMsgRowsHtml(services, map){
+  map = map || {};
+  if(!services.length) return '<div class="note" style="text-align:left;color:var(--muted)">Add your Services above and a message box appears here for each one.</div>';
+  return services.map(function(s){
+    var v = map[s] || '';
+    return '<div class="smg-row"><label class="smg-label">'+esc(s)+'</label>'
+      + '<textarea class="smg-input" data-svc="'+esc(s)+'" rows="3" placeholder="Optional message for '+esc(s)+' clients…" oninput="serviceMsgSync()">'+esc(v)+'</textarea></div>';
+  }).join('');
+}
 function serviceMsgEditorHtml(f, val, cfg){
   var services = parseStatusList((cfg&&cfg.SERVICES)||'');
   var map = {};
   try { var src = (val && String(val).trim()) ? val : ((cfg&&cfg.SERVICE_MESSAGES)||''); if(src) map = JSON.parse(src)||{}; } catch(e){ map={}; }
-  var rows = services.length
-    ? services.map(function(s){
-        var v = map[s] || '';
-        return '<div class="smg-row"><label class="smg-label">'+esc(s)+'</label>'
-          + '<textarea class="smg-input" data-svc="'+esc(s)+'" rows="3" placeholder="Optional message for '+esc(s)+' clients…" oninput="serviceMsgSync()">'+esc(v)+'</textarea></div>';
-      }).join('')
-    : '<div class="note" style="text-align:left;color:var(--muted)">Add your Services above and Save, then a message box appears here for each one.</div>';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+esc(JSON.stringify(map))+'">'
     + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
-    + '<div class="smg-list">'+rows+'</div></div>';
+    + '<div class="smg-list" id="smgList">'+serviceMsgRowsHtml(services, map)+'</div></div>';
+}
+// Live-rebuild the message boxes when the Services list changes, without reopening
+// Settings. Preserves messages for services that still exist (keyed by name);
+// removing a service drops its message, adding one gives it a fresh empty box.
+function refreshServiceMsgEditor(){
+  var list=$('smgList'); if(!list) return;
+  var map={};
+  document.querySelectorAll('.smg-input').forEach(function(t){ var s=t.getAttribute('data-svc'); if(s) map[s]=String(t.value||''); });
+  var svcEl=$('set_SERVICES');
+  list.innerHTML = serviceMsgRowsHtml(parseStatusList(svcEl?svcEl.value:''), map);
+  serviceMsgSync(); // resync the hidden SERVICE_MESSAGES to the new box set
 }
 function serviceMsgSync(){
   var map={};
@@ -7995,6 +8040,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.33', d:'Sep 2026', notes:[
+    'Smarter import: past gigs come in as Completed, with an option to mark them already paid (no "unpaid balance" flood).',
+    'Editing your Services list now updates the per-service message boxes live.'
+  ]},
   { v:'1.5.32', d:'Sep 2026', notes:[
     'Free-trial signups now ask for a name as well as an email.'
   ]},

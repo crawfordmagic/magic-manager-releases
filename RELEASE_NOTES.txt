@@ -1,5 +1,5 @@
 What's new in this update:
 
-• Free-trial signups now ask for a name along with an email, so trial sign-ups are attributed to a person.
+• Smarter client-list import. Importing your past gigs is now much smoother — they come in as Completed automatically, and a new checkbox lets you mark those old bookings as already paid. So you won't get flooded with "unpaid balance" reminders for money collected long ago, and your income history fills in accurately, dated to each event. (Lost and referred leads are left as-is.)
 
-• Otherwise a quiet, behind-the-scenes update — no change to your day-to-day use of the app.
+• Custom services, live. When you edit your Services list in Settings, the "Event messages by service" boxes below now update instantly to match — no need to close and reopen Settings.

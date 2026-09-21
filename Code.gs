@@ -329,7 +329,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.32';
+var APP_VERSION = '1.5.33';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -4305,7 +4305,7 @@ function importLeadsBatch(rowsJson) {
       if (h === 'Timestamp') return now;
       var v = fields[h];
       if (v === undefined || v === null) return '';
-      if ((h === 'Followup' || h === 'Date of Event') && v) return parseYMD_(v);
+      if ((h === 'Followup' || h === 'Date of Event' || h === 'Deposit Received Date' || h === 'Balance Paid Date') && v) return parseYMD_(v);
       return v;
     });
   });
