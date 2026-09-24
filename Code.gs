@@ -28,6 +28,7 @@ var CONFIG_DEFAULTS_ = {
   TAGLINE: 'Professional Services',
   ADDRESS: '',
   SERVICE_MESSAGES: '',
+  PORTAL_THEME: '',
   VENMO_USERNAME: '',
   CASHAPP_CASHTAG: '',
   PAYPAL_USERNAME: '',
@@ -55,6 +56,7 @@ var CONFIG_DEFAULTS_ = {
   AUDIENCES: '',
   CARD_FEE_ENABLED: 'yes',
   PAYMENT_REPORT_EMAIL: 'yes',
+  SIGN_NOTIFY_EMAIL: 'yes',
   STORE_ENABLED: '',
   STORE_PAYMENT_METHODS: '',
   W9_URL: '', W9_FILE_ID: '',
@@ -135,6 +137,7 @@ var CONFIG_FIELDS_ = [
   { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their booking page goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
   { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
   { key: 'PAYMENT_REPORT_EMAIL', label: 'Payment-report emails', help: 'When on, you get an email whenever a client taps "I’ve sent my payment" so you know to verify and confirm it. Turn it off to rely on the "Payments to confirm" card in the app, which always shows regardless. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client reports a payment', section: 'payments' },
+  { key: 'SIGN_NOTIFY_EMAIL', label: 'Contract-signed emails', help: 'When on, you get an email the moment a client signs their contract. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client signs', section: 'payments' },
   { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'payments' },
   { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'payments' },
   { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', section: 'payments' },
@@ -153,6 +156,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
+  { key: 'PORTAL_THEME', label: 'Client portal look', help: 'Optional. Match your brand on the page your clients see — accent color, background, and fonts. Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
@@ -248,6 +252,103 @@ function saveSettings(values) {
   return { ok: true, config: getConfig_() };
 }
 
+/* ---------- Client portal look (Settings -> PORTAL_THEME) ----------
+ * Optional branding for the client-facing event portal (Sign.html): accent color,
+ * background (light / custom color) and a curated font pair. Stored as JSON
+ * {accent,bg,bgColor,font}. Blank/absent = the original dark-and-gold look, so
+ * new installs are unchanged until the owner chooses otherwise. ONE function
+ * computes the CSS variables; the live preview in Settings calls the same code
+ * (previewPortalTheme) so the preview can never drift from the real page. */
+var PORTAL_FONTS_ = {
+  elegant: { label: 'Elegant — Cormorant Garamond + Lato', h: 'Cormorant Garamond', b: 'Lato', hw: '600;700', bw: '400;700' },
+  modern:  { label: 'Modern — Poppins + Inter',            h: 'Poppins',            b: 'Inter', hw: '600;700', bw: '400;500;600;700' },
+  classic: { label: 'Classic — Libre Baskerville + Source Sans 3', h: 'Libre Baskerville', b: 'Source Sans 3', hw: '700', bw: '400;600;700' },
+  bold:    { label: 'Bold — Oswald + Open Sans',           h: 'Oswald',             b: 'Open Sans', hw: '500;700', bw: '400;600;700' },
+  playful: { label: 'Playful — Fredoka + Nunito',          h: 'Fredoka',            b: 'Nunito', hw: '500;600', bw: '400;600;700' }
+};
+function hexOk_(h) { return /^#[0-9a-fA-F]{6}$/.test(String(h || '')); }
+function hexToRgb_(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+function rgbToHex_(c) { return '#' + c.map(function (v) { v = Math.max(0, Math.min(255, Math.round(v))); return (v < 16 ? '0' : '') + v.toString(16); }).join(''); }
+function mixHex_(a, b, t) { var x = hexToRgb_(a), y = hexToRgb_(b); return rgbToHex_([0, 1, 2].map(function (i) { return x[i] + (y[i] - x[i]) * t; })); }
+function lumHex_(h) {
+  var c = hexToRgb_(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function contrast_(a, b) { var l1 = lumHex_(a), l2 = lumHex_(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); }
+// Returns null for the default look, else {vars, fonts:{h,b,href}, extra, warn}.
+function portalTheme_(themeStr) {
+  var t = {};
+  try { t = themeStr ? (JSON.parse(themeStr) || {}) : {}; } catch (e) { t = {}; }
+  var accent = hexOk_(t.accent) ? t.accent : '';
+  var bg = (t.bg === 'light' || t.bg === 'custom') ? t.bg : 'dark';
+  var bgColor = bg === 'light' ? '#F7F4EE' : (bg === 'custom' && hexOk_(t.bgColor) ? t.bgColor : '');
+  if (bg === 'custom' && !bgColor) bg = 'dark';
+  var font = PORTAL_FONTS_[t.font] ? t.font : '';
+  if (!accent && bg === 'dark' && !font) return null;
+
+  var vars = {}, extra = '', warn = '';
+  var acc = accent || '#C9A050';
+  var light = bgColor && lumHex_(bgColor) > 0.4;
+  if (accent || bgColor) {
+    vars['--gold'] = acc;
+    vars['--gold-bright'] = light ? mixHex_(acc, '#000000', 0.25) : mixHex_(acc, '#FFFFFF', 0.28);
+    vars['--gold-deep'] = mixHex_(acc, '#000000', 0.45);
+    var rgb = hexToRgb_(acc).join(',');
+    vars['--line'] = 'rgba(' + rgb + ',' + (light ? '.38' : '.28') + ')';
+    vars['--tint'] = 'rgba(' + rgb + ',.14)';
+    vars['--on-accent'] = contrast_(acc, '#141008') >= contrast_(acc, '#FFFFFF') ? '#141008' : '#FFFFFF';
+  }
+  if (bgColor) {
+    vars['--ink'] = bgColor;
+    if (light) {
+      vars['--panel'] = mixHex_(bgColor, '#FFFFFF', 0.65);
+      vars['--panel2'] = mixHex_(bgColor, '#000000', 0.05);
+      vars['--cream'] = '#1E1B16'; vars['--muted'] = '#6B6558';
+      extra += 'select{color-scheme:light}';
+    } else {
+      vars['--panel'] = mixHex_(bgColor, '#FFFFFF', 0.06);
+      vars['--panel2'] = mixHex_(bgColor, '#FFFFFF', 0.11);
+      vars['--cream'] = '#F4EBD3'; vars['--muted'] = '#A39C88';
+    }
+    if (contrast_(vars['--gold-bright'], bgColor) < 3) warn = 'That accent color is hard to read on this background — try a lighter or darker shade.';
+  } else if (accent && contrast_(vars['--gold-bright'], '#0B0B10') < 3) {
+    warn = 'That accent color is hard to read on a dark background — try a lighter shade.';
+  }
+  var fonts = null;
+  if (font) {
+    var F = PORTAL_FONTS_[font];
+    fonts = {
+      h: F.h, b: F.b,
+      href: 'https://fonts.googleapis.com/css2?family=' + F.h.replace(/ /g, '+') + ':wght@' + F.hw
+        + '&family=' + F.b.replace(/ /g, '+') + ':wght@' + F.bw + '&display=swap'
+    };
+  }
+  return { vars: vars, fonts: fonts, extra: extra, warn: warn };
+}
+// <link>+<style> for the head of Sign.html; '' for the default look.
+function portalThemeHead_(themeStr) {
+  var th = portalTheme_(themeStr);
+  if (!th) return '';
+  var css = '', k;
+  var v = '';
+  for (k in th.vars) v += k + ':' + th.vars[k] + ';';
+  if (v) css += ':root{' + v + '}';
+  var html = '';
+  if (th.fonts) {
+    html += '<link href="' + th.fonts.href + '" rel="stylesheet">';
+    css += "h1,.bookingid .name{font-family:'" + th.fonts.h + "',serif}"
+      + "html,body,input[type=\"text\"],select,button{font-family:'" + th.fonts.b + "',sans-serif}";
+  }
+  css += th.extra;
+  return html + '<style>' + css + '</style>';
+}
+// Settings live preview: same computation as the real page.
+function previewPortalTheme(themeStr) {
+  var th = portalTheme_(themeStr);
+  var d = { vars: {}, fonts: null, warn: '' };
+  return th ? th : d;
+}
+
 /* ---------- Business documents (W-9, proof of insurance) ----------
  * Onboarding upload of the owner's W-9 and proof-of-insurance, stored as real
  * Drive files (far too big for a sheet cell) and shared view-only by link so a
@@ -288,7 +389,7 @@ function uploadBusinessDoc(kind, base64Data, mimeType, fileName) {
     if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType || 'application/octet-stream', fileName || spec.label);
     var file = businessDocsFolder_().createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    shareAnyoneWithLink_(file);
     var vals = {}; vals[spec.urlKey] = file.getUrl(); vals[spec.idKey] = file.getId();
     saveSettings(vals); // persists to the Settings sheet + clears the config cache
     return businessDocsResult_();
@@ -329,7 +430,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.33';
+var APP_VERSION = '1.5.34';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -807,6 +908,7 @@ function doGet(e) {
     for (var ck in signCfg) cfgOut[ck] = signCfg[ck];
     cfgOut.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
     template.cfg = cfgOut;
+    template.themeHtml = portalThemeHead_(signCfg.PORTAL_THEME);
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Event Portal')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -1436,10 +1538,26 @@ function generateReceiptPdf_(kind, get) {
   doc.saveAndClose();
   const pdfBlob = DriveApp.getFileById(doc.getId()).getAs('application/pdf');
   const pdfFile = folder.createFile(pdfBlob).setName(fileName + '.pdf');
-  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  shareAnyoneWithLink_(pdfFile);
   // Only the PDF is needed going forward — clean up the working Doc.
   try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (e) {}
   return pdfFile.getUrl();
+}
+// Share a Drive file as "anyone with the link can view", then VERIFY it actually
+// became public. On Google Workspace accounts that block external sharing, the
+// request gets capped to the org (or blocked), so the owner can open the file but
+// their client can't — the "unable to open the file" error. We record that in a
+// Script Property so the app can warn the owner instead of the client hitting a
+// dead link. Returns true if the file is genuinely public.
+function shareAnyoneWithLink_(file) {
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+  var ok = false;
+  try { var acc = file.getSharingAccess(); ok = (acc === DriveApp.Access.ANYONE_WITH_LINK || acc === DriveApp.Access.ANYONE); } catch (e) {}
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (ok) props.deleteProperty('SHARING_BLOCKED'); else props.setProperty('SHARING_BLOCKED', '1');
+  } catch (e) {}
+  return ok;
 }
 function maybeGenerateReceipt_(sh, rowNum, kind) {
   const heads = headers_(sh);
@@ -1565,7 +1683,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
 
   const pdfBlob = DriveApp.getFileById(copy.getId()).getAs('application/pdf');
   const pdfFile = folder.createFile(pdfBlob).setName(fileName + '.pdf');
-  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  shareAnyoneWithLink_(pdfFile);
 
   return { copy: copy, doc: doc, pdfFile: pdfFile, deposit: depositFinal, balance: balanceFinal, price: price, paymentMethod: paymentMethod };
 }
@@ -1759,10 +1877,30 @@ function submitContractSignature(token, typedName, paymentMethod) {
         try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
       } catch (e) {}
 
+      try { notifyOwnerContractSigned_(heads, sh.getRange(rowNum, 1, 1, heads.length).getValues()[0], typedName, finalPaymentMethod); } catch (e) {}
       return JSON.stringify({ ok: true });
     }
   }
   return JSON.stringify({ ok: false, error: 'Not found' });
+}
+// Emails the owner the moment a client signs (opt-out via SIGN_NOTIFY_EMAIL).
+// Best-effort: a mail failure must never block or undo the signature.
+function notifyOwnerContractSigned_(heads, rowValues, typedName, paymentMethod) {
+  var cfg = getConfig_();
+  if (String(cfg.SIGN_NOTIFY_EMAIL || '').trim().toLowerCase() === 'no') return;
+  var ownerEmail = String(cfg.EMAIL || '').trim();
+  if (!ownerEmail) return;
+  var get = function (name) { var idx = heads.indexOf(name); return idx > -1 ? rowValues[idx] : ''; };
+  var client = String(get('Company or Organization') || get('Customer Name') || typedName || 'A client');
+  var evd = get('Date of Event');
+  var amounts = computeBaseAmounts_(get);
+  var subj = client + ' signed their contract';
+  var body = client + ' just signed their contract (signed as "' + typedName + '").\n\n'
+    + (evd ? ('Event date: ' + Utilities.formatDate(new Date(evd), tz_(), 'EEEE, M/d/yyyy') + '\n') : '')
+    + (amounts && amounts.deposit ? ('Deposit due: $' + Number(amounts.deposit).toFixed(2) + '\n') : '')
+    + (paymentMethod ? ('Payment method chosen: ' + paymentMethod + '\n') : '')
+    + '\nOpen ' + (cfg.BUSINESS_NAME || 'your app') + ' to see the lead. The signed contract is saved to the lead.';
+  MailApp.sendEmail(ownerEmail, subj, body);
 }
 // Deliberately separate from the deposit's payment method — the deposit
 // one gets locked in at signing time and never changes, but the balance
@@ -3779,7 +3917,8 @@ function getLeads() {
     taxRate: getTaxRate_(),
     vendorCategoryMemory: getVendorCategoryMemory_(),
     storeSales: getStoreSales_(),
-    storeProducts: getStoreProducts_()
+    storeProducts: getStoreProducts_(),
+    sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1')
   });
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a

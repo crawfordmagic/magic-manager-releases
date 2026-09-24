@@ -235,8 +235,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   display:flex;align-items:center;gap:11px;padding:12px;cursor:pointer;color:var(--cream);font-family:inherit}
 .td-row .ic{flex:0 0 auto;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(201,160,80,.10);color:var(--gold-bright)}
 .td-row .t{flex:1;min-width:0}
-.td-row .t .a{font-size:13.5px;font-weight:600;color:var(--cream)}
-.td-row .t .b{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-row .t .a{display:block;font-size:13.5px;font-weight:600;color:var(--cream)}
+.td-row .t .b{display:block;font-size:11.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .td-row .pill{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--gold-bright);background:rgba(201,160,80,.14);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums}
 .td-row .chev{color:var(--muted);font-size:16px;transition:transform .2s ease}
 .td-row.open .chev{transform:rotate(90deg)}
@@ -400,6 +400,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .more-row .t{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px}
 .more-row .mr-sub{font-size:11.5px;color:var(--muted);font-weight:400}
 .more-row .mr-sub:empty{display:none}
+.more-row .mr-sub .pill{display:inline-block;margin-top:6px}
 .more-row .chev{flex:0 0 auto;color:var(--muted);font-size:16px;transition:transform .2s ease}
 .more-row.open .chev{transform:rotate(90deg)}
 /* Inline detail that drops open under an expandable .more-row, inside the same card. */
@@ -503,6 +504,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="emptyImportCard" style="display:none"></div>
     <div id="trialBanner" style="display:none"></div>
     <div id="updateBanner" style="display:none"></div>
+    <div id="sharingWarnCard" style="display:none"></div>
     <div id="todayShowCard" style="display:none"></div>
     <!-- "Today" digest: a calm summary that collapses the routine cards below it
          (Showtime stays its own hero above; the Oracle stays ambient below). -->
@@ -1340,6 +1342,7 @@ function refreshConfigDerivedLists(){
   KVF.forEach(function(f){
     if(f.col===C.service) f.opts = cfgList('SERVICES', FALLBACK_SERVICES);
     else if(f.col===C.eventType) f.opts = cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES);
+    else if(f.col===C.source) f.opts = cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES);
     else if(f.col===C.paymentMethod || f.col===C.balancePaymentMethod) f.opts = ownerPayMethods();
   });
 }
@@ -1364,6 +1367,7 @@ var LEADS = [], TASKS = [], LOGS = [], TPL = [], PARTNERS = [], PARTNERLOGS = []
 var RBIN_PURGE_ARM = {};
 var RBIN_EMPTY_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
+var SHARING_BLOCKED=false, SHARING_WARN_DISMISSED=false;
 var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
 function ingest(json){
   var o=JSON.parse(json);
@@ -1378,6 +1382,7 @@ function ingest(json){
   if('partnerTemplates' in o) PARTNERTPL=o.partnerTemplates||[];
   if('partnerTextTemplates' in o) PARTNERTXTPL=o.partnerTextTemplates||[];
   if('oracleGate' in o) ORACLE_GATE_DUE=!!o.oracleGate;
+  if('sharingBlocked' in o) SHARING_BLOCKED=!!o.sharingBlocked;
   if('topClientThreshold' in o) TOP_CLIENT_THRESHOLD=Number(o.topClientThreshold)||2000;
   if('kvfOrder' in o) KVF_ORDER=Array.isArray(o.kvfOrder)?o.kvfOrder:[];
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
@@ -2747,7 +2752,7 @@ function renderFollowupDue(){
   box.innerHTML='<div class="followupdue-card"><div class="followupdue-title">Follow-Ups Due Today</div>'
     + due.map(function(L){
         var idx=followupStageIndex(L), stage=STAGE_LABELS[idx], hint=STAGE_HINTS[idx];
-        var emailBtn = (idx===1 && L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
+        var emailBtn = ((idx===1||idx===2) && L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
         return '<div class="followupdue-row">'
           +'<div class="followupdue-info" onclick="openSheet('+L._row+')">'
             +'<div class="followupdue-name">'+esc(L[C.name]||'Lead')+'</div>'
@@ -3104,6 +3109,26 @@ function renderEmptyImportPrompt(){
     +'</div>';
   box.style.display='';
 }
+// Warns the OWNER (not the client) when the app detected that a receipt/invoice/
+// contract file couldn't be shared publicly — usually a Google Workspace account
+// that blocks external sharing. Turns a client-side "unable to open the file"
+// dead link into a clear, actionable heads-up. Cleared server-side the next time
+// a file shares successfully.
+function renderSharingWarn(){
+  var box=$('sharingWarnCard'); if(!box) return;
+  if(!SHARING_BLOCKED || SHARING_WARN_DISMISSED){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML='<div class="card" style="border-color:var(--crimson);background:rgba(192,82,54,.07)">'
+    +'<div style="font-weight:700;color:#E9927B;display:flex;align-items:center;gap:8px">'
+      +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/></svg>'
+      +'<span>Clients may not be able to open your links</span></div>'
+    +'<div style="font-size:13px;color:var(--cream);margin-top:6px">Your Google account is blocking file sharing, so the receipt, invoice, and contract links you send can show clients an &ldquo;unable to open the file&rdquo; error. This is a Google Drive setting, not Magic Manager &mdash; here’s how to fix it.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
+      +'<button class="followupdue-btn" style="background:var(--gold);color:#141008" onclick="openHelp()">How to fix it</button>'
+      +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--line);color:var(--muted)" onclick="dismissSharingWarn()">Dismiss</button>'
+    +'</div></div>';
+  box.style.display='';
+}
+function dismissSharingWarn(){ SHARING_WARN_DISMISSED=true; var b=$('sharingWarnCard'); if(b){ b.style.display='none'; b.innerHTML=''; } }
 function renderLeads(){
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   renderTodayShow();
@@ -3116,6 +3141,7 @@ function renderLeads(){
   renderDecemberRebook();
   renderTodayDigest();
   renderEmptyImportPrompt();
+  renderSharingWarn();
   var t=today0(), h='';
 
   if(IFILTER){
@@ -3501,7 +3527,7 @@ function deleteTaskUI(id){
 }
 
 var STAGE_OFFSETS=[-30,-7,1], STAGE_LABELS=['30 days out','1 week out','Review request'];
-var STAGE_HINTS=['Prepare the balance invoice', 'Send the client a check-in email', ''];
+var STAGE_HINTS=['Prepare the balance invoice', 'Send the client a check-in email', 'Reach out to the client for a review through their event portal'];
 function followupStageIndex(L){
   if(!isBookedLike(L)) return -1;
   var ed=pd(L[C.eventDate]); if(!ed) return -1;
@@ -3656,7 +3682,7 @@ var KVF=[
   {label:'Start', col:C.start, type:'time'},
   {label:'End', col:C.end, type:'time'},
   {label:'Service', col:C.service, type:'select', opts:cfgList('SERVICES', FALLBACK_SERVICES)},
-  {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES)},
+  {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES), addKey:'EVENT_TYPES', addLabel:'event type'},
   {label:'Audience', col:C.audience, type:'text'},
   {label:'Audience Age Range', col:C.audienceAge, type:'text'},
   {label:'Entertainment budget', col:C.entertainmentBudget, type:'text', money:true},
@@ -3670,7 +3696,7 @@ var KVF=[
   {label:'Balance received date', col:C.balancePaidDate, type:'date'},
   {label:'Travel fee (optional)', col:C.travelFee, type:'text', money:true},
   {label:'Balance due \u2014 days before event (default: due on event date)', col:C.balanceDueDays, type:'text'},
-  {label:'Source', col:C.source, type:'text'},
+  {label:'Source', col:C.source, type:'select', opts:cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), addKey:'LEAD_SOURCES', addLabel:'lead source'},
   {label:'Company', col:C.company, type:'text'},
   {label:'Company address (billing/mailing)', col:C.companyAddress, type:'text'},
   {label:'Location', col:C.location, type:'text'},
@@ -3805,7 +3831,8 @@ function editKV(i){
     var oh='<option value=""'+(cur===''?' selected':'')+'>\u2014</option>';
     F.opts.forEach(function(o){ oh+='<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>'; });
     if(cur && F.opts.indexOf(cur)===-1) oh+='<option selected>'+esc(cur)+'</option>';
-    cell.innerHTML='<select class="kvin" id="kvi_'+i+'" onchange="saveKV('+i+')" onblur="blurKV('+i+')">'+oh+'</select>';
+    if(F.addKey) oh+='<option value="__new__">+ Add new…</option>';
+    cell.innerHTML='<select class="kvin" id="kvi_'+i+'" onchange="'+(F.addKey?'onKVSelect(':'saveKV(')+i+')" onblur="blurKV('+i+')">'+oh+'</select>';
     $('kvi_'+i).focus();
     return;
   }
@@ -3819,6 +3846,32 @@ function editKV(i){
     +' onchange="saveKV('+i+')" onblur="blurKV('+i+')"'
     +' onkeydown="if(event.key===\'Enter\')this.blur()">';
   $('kvi_'+i).focus();
+}
+// "+ Add new…" on a lead's Event type / Source: swap the dropdown for a text box,
+// add the name to the Settings list (case-insensitive de-dupe), then save it on the lead.
+function onKVSelect(i){
+  var sel=$('kvi_'+i); if(!sel) return;
+  if(sel.value!=='__new__'){ saveKV(i); return; }
+  var F=KVF[i], cell=$('kv_'+i);
+  cell.innerHTML='<input class="kvin" id="kvi_'+i+'" placeholder="New '+F.addLabel+'…" onblur="commitAddKV('+i+')" onkeydown="if(event.key===\'Enter\')this.blur()">';
+  $('kvi_'+i).focus();
+}
+function commitAddKV(i){
+  var inp=$('kvi_'+i); if(!inp || inp.dataset.saved==='1') return;
+  var F=KVF[i], name=inp.value.trim().replace(/\s+/g,' ');
+  if(!name){ $('kv_'+i).innerHTML=kvDisplay(F); return; }
+  var list=cfgList(F.addKey, F.addKey==='EVENT_TYPES'?FALLBACK_EVENT_TYPES:FALLBACK_LEAD_SOURCES);
+  var key=sourceKey_(name), hit=list.filter(function(o){ return sourceKey_(o)===key; })[0];
+  if(hit) name=hit;
+  else {
+    list.push(name);
+    var obj={}; obj[F.addKey]=list.join('\n');
+    CFG[F.addKey]=obj[F.addKey]; refreshConfigDerivedLists();
+    google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } })
+      .withFailureHandler(function(){ toast('Could not add to Settings — try again'); }).saveSettings(obj);
+    toast('Added “'+name+'” to your '+F.addLabel+'s in Settings');
+  }
+  inp.value=name; saveKV(i);
 }
 function blurKV(i){
   var inp=$('kvi_'+i);
@@ -7425,6 +7478,7 @@ function settingsFieldHtml(f, raw, cfg){
   raw = raw||{}; cfg = cfg||{};
   var val = (raw[f.key]!=null?raw[f.key]:'');
   if(f.editor==='servicemsgs') return serviceMsgEditorHtml(f, val, cfg);
+  if(f.editor==='portaltheme') return portalThemeEditorHtml(f, val, cfg);
   if(f.editor==='audiences') return audiencesEditorHtml(f, val, cfg);
   if(f.editor==='storefront') return storefrontEditorHtml(f, val, cfg);
   if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
@@ -7486,6 +7540,7 @@ function renderSettings(){
     if($('storeProdList')) storeLoadProducts();
     // Snapshot current values so autosave sends only what actually changes.
     snapshotSettings();
+    portalThemePreview();
     // Delegate once on the persistent container: catches every native input,
     // select, checkbox, and textarea in the form (the custom editors all drive
     // their hidden set_ inputs through native controls). Programmatic writes with
@@ -7786,6 +7841,76 @@ function serviceMsgSync(){
   var h=$('set_SERVICE_MESSAGES'); if(h) h.value=JSON.stringify(map);
 }
 
+/* ---------- Client portal look (Settings) ----------
+   Accent color / background / font pair for the client-facing event portal. One
+   hidden set_PORTAL_THEME carries a JSON {accent,bg,bgColor,font}; blank = the
+   classic dark-and-gold default. The preview asks the SERVER to compute the CSS
+   variables (previewPortalTheme) — the same function the real page uses. */
+var PORTAL_FONT_CHOICES=[['','Default — Playfair Display + Archivo'],['elegant','Elegant — Cormorant Garamond + Lato'],['modern','Modern — Poppins + Inter'],['classic','Classic — Libre Baskerville + Source Sans 3'],['bold','Bold — Oswald + Open Sans'],['playful','Playful — Fredoka + Nunito']];
+var PT_SEQ=0;
+function portalThemeEditorHtml(f, val, cfg){
+  var t={}; try{ t=JSON.parse(val||'{}')||{}; }catch(e){ t={}; }
+  var bg=(t.bg==='light'||t.bg==='custom')?t.bg:'dark';
+  var acc=/^#[0-9a-f]{6}$/i.test(t.accent||'')?t.accent:'';
+  var bgc=/^#[0-9a-f]{6}$/i.test(t.bgColor||'')?t.bgColor:'#1B2A41';
+  var fonts=PORTAL_FONT_CHOICES.map(function(o){ return '<option value="'+o[0]+'"'+((t.font||'')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('');
+  var cs='width:56px;height:40px;padding:2px;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px';
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    +'<input type="hidden" id="set_'+f.key+'" value="'+esc(val||'')+'">'
+    +(f.help?'<div style="margin:4px 0 10px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    +'<div class="smg-label" style="margin-bottom:4px">Accent color</div>'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><input type="color" id="pt_accent" value="'+(acc||'#C9A050')+'" data-set="'+(acc?'1':'')+'" style="'+cs+'" oninput="this.dataset.set=\'1\';portalThemeSync()">'
+    +'<span id="pt_accent_txt" style="font-size:12px;color:var(--muted);flex:1">'+(acc?esc(acc):'Default gold')+'</span></div>'
+    +'<div class="smg-label" style="margin-bottom:4px">Background</div>'
+    +'<select id="pt_bg" onchange="portalThemeSync()" style="margin-bottom:8px"><option value="dark"'+(bg==='dark'?' selected':'')+'>Dark (default)</option><option value="light"'+(bg==='light'?' selected':'')+'>Light</option><option value="custom"'+(bg==='custom'?' selected':'')+'>Custom color</option></select>'
+    +'<div id="pt_bgc_wrap" style="'+(bg==='custom'?'':'display:none;')+'align-items:center;gap:10px;margin-bottom:12px"><input type="color" id="pt_bgc" value="'+bgc+'" style="'+cs+'" oninput="portalThemeSync()"><span style="font-size:12px;color:var(--muted)">Your background color</span></div>'
+    +'<div class="smg-label" style="margin:8px 0 4px">Fonts</div>'
+    +'<select id="pt_font" onchange="portalThemeSync()" style="margin-bottom:12px">'+fonts+'</select>'
+    +'<div id="pt_preview" style="border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center"></div>'
+    +'<div id="pt_warn" style="font-size:12px;color:#E9927B;margin-top:8px;display:none"></div>'
+    +'<button type="button" class="save" style="margin:10px 0 0;background:transparent;border:1px solid var(--line);color:var(--muted)" onclick="portalThemeReset()">Reset to default look</button>'
+    +'</div>';
+}
+function portalThemeValue_(){
+  var a=$('pt_accent'), bg=$('pt_bg'), bc=$('pt_bgc'), fo=$('pt_font'); if(!bg) return '';
+  var t={};
+  if(a && a.dataset.set==='1') t.accent=a.value;
+  if(bg.value!=='dark') t.bg=bg.value;
+  if(bg.value==='custom' && bc) t.bgColor=bc.value;
+  if(fo && fo.value) t.font=fo.value;
+  return Object.keys(t).length?JSON.stringify(t):'';
+}
+function portalThemeSync(){
+  var v=portalThemeValue_(), h=$('set_PORTAL_THEME'); if(!h) return;
+  var bg=$('pt_bg'); var w=$('pt_bgc_wrap'); if(w) w.style.display=(bg&&bg.value==='custom')?'flex':'none';
+  var a=$('pt_accent'), tx=$('pt_accent_txt'); if(tx&&a) tx.textContent=(a.dataset.set==='1')?a.value:'Default gold';
+  h.value=v; queueSettingsAutosave(); portalThemePreview();
+}
+function portalThemeReset(){
+  var a=$('pt_accent'); if(a){ a.value='#C9A050'; a.dataset.set=''; }
+  if($('pt_bg')) $('pt_bg').value='dark'; if($('pt_font')) $('pt_font').value='';
+  portalThemeSync();
+}
+function portalThemePreview(){
+  var box=$('pt_preview'); if(!box) return;
+  var seq=++PT_SEQ, v=portalThemeValue_();
+  google.script.run.withSuccessHandler(function(th){
+    if(seq!==PT_SEQ || !$('pt_preview')) return;
+    var vars=th.vars||{}, css='';
+    var def={'--ink':'#0B0B10','--panel':'#15151E','--panel2':'#1C1C27','--gold':'#C9A050','--gold-bright':'#E4C179','--cream':'#F4EBD3','--muted':'#928A75','--line':'rgba(201,160,80,.28)','--on-accent':'#141008'};
+    Object.keys(def).forEach(function(k){ css+=k+':'+(vars[k]||def[k])+';'; });
+    var hf=th.fonts?"'"+th.fonts.h+"',serif":"'Playfair Display',serif", bf=th.fonts?"'"+th.fonts.b+"',sans-serif":"'Archivo',sans-serif";
+    if(th.fonts && !document.querySelector('link[data-ptfont="'+th.fonts.href+'"]')){
+      var l=document.createElement('link'); l.rel='stylesheet'; l.href=th.fonts.href; l.setAttribute('data-ptfont',th.fonts.href); document.head.appendChild(l);
+    }
+    box.style.cssText='border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;'+css+'background:var(--ink);color:var(--cream);font-family:'+bf+';--line:'+(vars['--line']||def['--line'])+';border-color:'+(vars['--line']||def['--line']);
+    box.innerHTML='<div style="font-family:'+hf+';font-size:22px;font-weight:700;color:var(--cream)">'+esc(CFG.BUSINESS_NAME||'Your Business')+'</div>'
+      +'<div style="font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:4px 0 12px">Your Event Portal</div>'
+      +'<div style="background:var(--panel);border:1px solid '+(vars['--line']||def['--line'])+';border-radius:10px;padding:12px;text-align:left;font-size:13px"><span style="color:var(--muted)">Event date</span> <b style="float:right">Sat, Jun 14</b></div>'
+      +'<div style="background:var(--gold);color:var(--on-accent);font-weight:700;border-radius:8px;padding:10px;margin-top:10px;font-size:14px">Pay deposit</div>';
+    var w=$('pt_warn'); if(w){ w.textContent=th.warn||''; w.style.display=th.warn?'block':'none'; }
+  }).previewPortalTheme(v);
+}
 /* ---------- "Who you perform for" checkboxes (Settings) ---------- */
 // A fixed set of audience/work types the buyer ticks. Stored as a newline list
 // of the ticked labels in the AUDIENCES setting; a hidden input carries the
@@ -8040,6 +8165,13 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.34', d:'Sep 2026', notes:[
+    'New Settings → Client portal look: accent color, light/custom background and font pairings for the page your clients see (default look unchanged).',
+    'Source is now a dropdown, and Source / Event Type have + Add new… that also adds to your Settings lists.',
+    'Email alert the moment a client signs their contract (toggle under Getting paid).',
+    'Day-after-event review reminder now points you to ask for a review through the event portal, with an Email button.',
+    'Today card and Insights spacing fixes; warning if Drive sharing is blocked.'
+  ]},
   { v:'1.5.33', d:'Sep 2026', notes:[
     'Smarter import: past gigs come in as Completed, with an option to mark them already paid (no "unpaid balance" flood).',
     'Editing your Services list now updates the per-service message boxes live.'
@@ -8078,7 +8210,9 @@ var HELP_FIXES = [
   { q:'My logo isn’t showing up',
     a:'Your logo has to be a <b>direct, public image link</b>. In <b>Settings → Your business</b>, either upload a PNG or JPG, or paste a direct image URL (on your website, right-click the logo and choose “Copy image address”). If a warning appears under the logo, the link isn’t public yet. SVG and iPhone HEIC photos aren’t supported — save the image as a PNG or JPG first.' },
   { q:'A client says they paid, but I don’t see it',
-    a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' }
+    a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' },
+  { q:'A client can’t open the invoice, receipt, or contract link',
+    a:'If your client sees <b>&ldquo;Sorry, unable to open the file at this time&rdquo;</b> (a Google page), the file itself is fine — it’s a Google Drive <b>sharing</b> setting on your account. Magic Manager shares every invoice/receipt/contract as &ldquo;anyone with the link can view,&rdquo; but a Google <b>Workspace</b> (business) account can be set to block sharing outside your organization &mdash; so <b>you</b> can open the file, but your client can’t.<ol><li>Open one of the files in your Google Drive → <b>Share</b> → look at <b>&ldquo;General access.&rdquo;</b> If it shows your company name or <b>Restricted</b> instead of <b>Anyone with the link</b>, that’s the cause.</li><li><b>Fix it:</b> if you manage your own Google account, turn on external sharing (<b>Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings</b>). If your email is managed by a company, ask their admin to <b>allow link-sharing outside the organization</b> for Drive.</li><li><b>In the meantime,</b> open the file in Drive, download it as a PDF, and email it to your client directly.</li></ol>A personal @gmail.com account allows this sharing by default, so it never happens there.' }
 ];
 // The "What's changed" history shows the most recent versions and tucks the
 // rest behind "Show older versions", so a long release trail never overwhelms.

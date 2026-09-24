@@ -10,7 +10,7 @@
     --ink:#0B0B10; --panel:#15151E; --panel2:#1C1C27;
     --gold:#C9A050; --gold-bright:#E4C179; --gold-deep:#6E5730;
     --cream:#F4EBD3; --muted:#928A75; --crimson:#C05236;
-    --line:rgba(201,160,80,.28);
+    --line:rgba(201,160,80,.28); --tint:rgba(201,160,80,.14); --on-accent:#141008;
   }
   *{box-sizing:border-box}
   html,body{background:var(--ink);color:var(--cream);font-family:'Archivo',sans-serif;font-size:15px;margin:0;line-height:1.5}
@@ -29,17 +29,17 @@
   select{width:100%;font-family:'Archivo',sans-serif;font-size:16px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;outline:none;color-scheme:dark}
   select:focus{border-color:var(--gold)}
   .feenote{font-size:11.5px;color:var(--gold-bright);margin-top:6px}
-  .paybtn{display:block;text-align:center;text-decoration:none;background:var(--gold);color:#141008;font-weight:700;font-size:15px;border-radius:8px;padding:12px;margin-top:12px}
+  .paybtn{display:block;text-align:center;text-decoration:none;background:var(--gold);color:var(--on-accent);font-weight:700;font-size:15px;border-radius:8px;padding:12px;margin-top:12px}
   .paynote{font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
   .paydetails{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:12px;font-size:13px;line-height:1.7;color:var(--cream)}
   .paydetails-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:4px}
-  .paidbanner{background:rgba(201,160,80,.14);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13.5px;color:var(--gold-bright);text-align:center}
+  .paidbanner{background:var(--tint);border:1px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13.5px;color:var(--gold-bright);text-align:center}
   .bookingid{text-align:center;margin:0 0 10px}
   .bookingid .lead{font-size:11.5px;color:var(--muted);margin-bottom:2px}
   .bookingid .name{font-family:'Playfair Display',serif;font-size:19px;color:var(--cream);font-weight:700}
   .agree{display:flex;align-items:flex-start;gap:10px;margin-top:16px;font-size:13px;color:var(--muted)}
   .agree input{margin-top:3px}
-  button{width:100%;font-family:'Archivo',sans-serif;font-size:16px;font-weight:700;padding:14px;border-radius:10px;border:none;background:var(--gold);color:#141008;margin-top:18px;cursor:pointer}
+  button{width:100%;font-family:'Archivo',sans-serif;font-size:16px;font-weight:700;padding:14px;border-radius:10px;border:none;background:var(--gold);color:var(--on-accent);margin-top:18px;cursor:pointer}
   button:disabled{opacity:.5}
   .note{color:var(--muted);font-size:12px;text-align:center;margin-top:12px}
   .signed{text-align:center;padding:0 10px 26px}
@@ -51,11 +51,12 @@
   .docs{margin-top:16px}
   .docs-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 8px}
   .docbtn{display:flex;align-items:center;gap:12px;text-decoration:none;background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:13px 14px;margin-bottom:8px;color:var(--gold-bright);font-weight:600;font-size:14.5px}
-  .docbtn:active{background:rgba(201,160,80,.14)}
+  .docbtn:active{background:var(--tint)}
   .dic{color:var(--gold);flex:0 0 auto}
   .doclabel{flex:1}
   .docarrow{color:var(--gold);flex:0 0 auto}
 </style>
+<?!= themeHtml ?>
 </head>
 <body>
 <div class="wrap">
@@ -162,14 +163,20 @@ function renderStatusPage(d){
     +'</div>';
 
   // A booked client's per-service message (Settings -> Event messages by service), matched to
-  // this booking's service. Shown once signed.
+  // this booking's service. Shown once signed — but only while the event is still upcoming.
+  // Once the event date has passed, this anticipation note is replaced, in the same spot, by
+  // the post-event review prompt below.
+  var eventPassed = (d.daysUntilEvent !== null && d.daysUntilEvent <= 0);
   var svcMsg='';
   try{ var _sm = CFG.SERVICE_MESSAGES ? JSON.parse(CFG.SERVICE_MESSAGES) : null; if(_sm && d.services) svcMsg = _sm[d.services] || ''; }catch(e){}
-  if(svcMsg){
+  if(svcMsg && !eventPassed){
     var smh = String(svcMsg).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
     html += '<div class="paydetails"><div class="paydetails-title">A Note From '+CFG.OWNER_NAME+'</div>'
       +'<p style="margin:6px 0 0">'+smh+'</p></div>';
   }
+  // Post-event review prompt takes the note's place (feedbackCardHtml returns '' until
+  // the event has passed and the balance is paid).
+  html += feedbackCardHtml(d);
 
   var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — skip straight to the balance
   var showDepositPrompt = !noDeposit && !d.depositPaid;
@@ -187,8 +194,6 @@ function renderStatusPage(d){
   } else if(!d.depositPaid && !noDeposit){
     html += '<div class="paydetails"><div class="paydetails-title">Balance</div><div>Your remaining balance of '+fmtMoney(d.balanceBase)+' will be due once your deposit is received.</div></div>';
   }
-
-  html += feedbackCardHtml(d);
 
   var kind = showDepositPrompt ? 'deposit' : 'balance';
   if(showDepositPrompt || showBalancePrompt){

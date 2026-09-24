@@ -1,5 +1,15 @@
 What's new in this update:
 
-• Smarter client-list import. Importing your past gigs is now much smoother — they come in as Completed automatically, and a new checkbox lets you mark those old bookings as already paid. So you won't get flooded with "unpaid balance" reminders for money collected long ago, and your income history fills in accurately, dated to each event. (Lost and referred leads are left as-is.)
+• Make the client portal yours. New "Client portal look" in Settings lets you set an accent color, a light or custom-color background, and a font pairing for the page your clients see — with a live preview. Leave it alone and you keep the classic dark-and-gold look.
 
-• Custom services, live. When you edit your Services list in Settings, the "Event messages by service" boxes below now update instantly to match — no need to close and reopen Settings.
+• Sources and event types, in sync. A lead's Source is now a dropdown of your Lead Sources, and both Source and Event Type have "+ Add new…" — type a new one on a lead and it's added to your Settings lists automatically (no duplicates).
+
+• Know the moment a client signs. You now get an email as soon as a client signs their contract (on by default; turn it off under Getting paid).
+
+• Review reminder, spelled out. The day after an event, your follow-up now reads "Reach out to the client for a review through their event portal," with a one-tap Email button.
+
+• Cleaner Today card and Insights. Longer names no longer spill outside the box, and the Insights rows have breathing room.
+
+• Heads-up if file sharing is blocked. If your Google account blocks public sharing, the app now warns you instead of sending clients a link they can't open.
+
+• Client portal tweak: after the event date, the pre-event note is replaced by the review request.
