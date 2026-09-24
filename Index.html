@@ -8012,7 +8012,7 @@ function serviceMsgSync(){
    hidden set_PORTAL_THEME carries a JSON {accent,bg,bgColor,font}; blank = the
    classic dark-and-gold default. The preview asks the SERVER to compute the CSS
    variables (previewPortalTheme) — the same function the real page uses. */
-var PORTAL_FONT_CHOICES=[['','Default — Playfair Display + Archivo'],['elegant','Elegant — Cormorant Garamond + Lato'],['modern','Modern — Poppins + Inter'],['classic','Classic — Libre Baskerville + Source Sans 3'],['bold','Bold — Oswald + Open Sans'],['playful','Playful — Fredoka + Nunito']];
+var PORTAL_FONT_CHOICES=[['','Default — Playfair Display + Archivo'],['elegant','Elegant — Cormorant Garamond + Lato'],['modern','Modern — Poppins + Inter'],['opensans','Clean — Open Sans'],['classic','Classic — Libre Baskerville + Source Sans 3'],['bold','Bold — Oswald + Open Sans'],['playful','Playful — Fredoka + Nunito']];
 var PT_SEQ=0;
 function portalThemeEditorHtml(f, val, cfg){
   var t={}; try{ t=JSON.parse(val||'{}')||{}; }catch(e){ t={}; }
@@ -8331,6 +8331,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.36', d:'Sep 2026', notes:[
+    'Transparent logos now get a solid black square behind them on contracts and receipts (only when the logo is transparent; turn off under Settings → Advanced → Logo backing).',
+    'New "Clean — Open Sans" font option for the client portal look.'
+  ]},
   { v:'1.5.35', d:'Sep 2026', notes:[
     'One-tap lead referral: refer a lead to a partner who also uses Magic Manager and they can add it to their app from your email (Settings → Referral link; see Help).',
     'Fixed the "Confirm received" button and other green labels that had lost their color.'

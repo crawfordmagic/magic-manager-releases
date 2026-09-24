@@ -39,6 +39,7 @@ var CONFIG_DEFAULTS_ = {
   CASH_INSTRUCTIONS: '',
   DEPOSIT_PERCENT: '50',
   LOGO_URL: '',
+  LOGO_BACKING: 'yes',
   GOVERNING_LAW: '',
   CANCELLATION_POLICY: '',
   ADDITIONAL_TERMS: '',
@@ -172,6 +173,7 @@ var CONFIG_FIELDS_ = [
   { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', section: 'comms' },
   { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', section: 'comms' },
   // Advanced (optional)
+  { key: 'LOGO_BACKING', label: 'Logo backing', help: 'If your logo has a transparent background, Magic Manager puts a solid black square behind it on your contracts and receipts so it doesn’t look odd on white paper. Logos that aren’t transparent are never touched. Turn this off to always show your logo exactly as-is. On by default.', editor: 'toggle', toggleLabel: 'Put a black square behind a transparent logo', section: 'advanced' },
   { key: 'CONTRACTS_FOLDER', label: 'Contracts folder', help: 'Optional. Blank = "[Business name] Contracts".', section: 'advanced' },
   { key: 'RECEIPTS_FOLDER', label: 'Receipts folder', help: 'Optional. Blank = "[Business name] Receipts".', section: 'advanced' },
   { key: 'CAL_NAME', label: 'Follow-ups calendar', help: 'Optional. Blank = "[Business name] Follow-ups".', section: 'advanced' },
@@ -247,7 +249,7 @@ function saveSettings(values) {
   });
   // A settings change (logo, business info, governing law) must rebuild the
   // cached contract template so the next contract/receipt reflects it.
-  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V4'); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V5'); } catch (e) {}
   getConfig_._cache = null;
   return { ok: true, config: getConfig_() };
 }
@@ -262,6 +264,7 @@ function saveSettings(values) {
 var PORTAL_FONTS_ = {
   elegant: { label: 'Elegant — Cormorant Garamond + Lato', h: 'Cormorant Garamond', b: 'Lato', hw: '600;700', bw: '400;700' },
   modern:  { label: 'Modern — Poppins + Inter',            h: 'Poppins',            b: 'Inter', hw: '600;700', bw: '400;500;600;700' },
+  opensans: { label: 'Clean — Open Sans',                  h: 'Open Sans',          b: 'Open Sans', hw: '600;700', bw: '400;600;700', g: 'sans-serif' },
   classic: { label: 'Classic — Libre Baskerville + Source Sans 3', h: 'Libre Baskerville', b: 'Source Sans 3', hw: '700', bw: '400;600;700' },
   bold:    { label: 'Bold — Oswald + Open Sans',           h: 'Oswald',             b: 'Open Sans', hw: '500;700', bw: '400;600;700' },
   playful: { label: 'Playful — Fredoka + Nunito',          h: 'Fredoka',            b: 'Nunito', hw: '500;600', bw: '400;600;700' }
@@ -317,11 +320,19 @@ function portalTheme_(themeStr) {
   var fonts = null;
   if (font) {
     var F = PORTAL_FONTS_[font];
-    fonts = {
-      h: F.h, b: F.b,
-      href: 'https://fonts.googleapis.com/css2?family=' + F.h.replace(/ /g, '+') + ':wght@' + F.hw
-        + '&family=' + F.b.replace(/ /g, '+') + ':wght@' + F.bw + '&display=swap'
-    };
+    var fam;
+    if (F.h === F.b) {
+      // One typeface for both roles: request it ONCE with the merged weight set
+      // (asking Google Fonts for the same family twice is malformed).
+      var ws = F.hw.split(';').concat(F.bw.split(';')).filter(function (w, i, a) { return a.indexOf(w) === i; })
+        .sort(function (a, b) { return a - b; });
+      fam = 'family=' + F.h.replace(/ /g, '+') + ':wght@' + ws.join(';');
+    } else {
+      fam = 'family=' + F.h.replace(/ /g, '+') + ':wght@' + F.hw
+        + '&family=' + F.b.replace(/ /g, '+') + ':wght@' + F.bw;
+    }
+    // g = generic fallback for headings if the web font can't load (serif unless the pair is all-sans).
+    fonts = { h: F.h, b: F.b, g: F.g || 'serif', href: 'https://fonts.googleapis.com/css2?' + fam + '&display=swap' };
   }
   return { vars: vars, fonts: fonts, extra: extra, warn: warn };
 }
@@ -336,7 +347,7 @@ function portalThemeHead_(themeStr) {
   var html = '';
   if (th.fonts) {
     html += '<link href="' + th.fonts.href + '" rel="stylesheet">';
-    css += "h1,.bookingid .name{font-family:'" + th.fonts.h + "',serif}"
+    css += "h1,.bookingid .name{font-family:'" + th.fonts.h + "'," + (th.fonts.g || 'serif') + "}"
       + "html,body,input[type=\"text\"],select,button{font-family:'" + th.fonts.b + "',sans-serif}";
   }
   css += th.extra;
@@ -430,7 +441,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.35';
+var APP_VERSION = '1.5.36';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1019,12 +1030,12 @@ function contractTemplate_() {
   // changes (like this fee-table rework), so the next contract generated
   // automatically builds a fresh template instead of reusing an old cached
   // copy that doesn't have the new rows/tokens. Nothing to do by hand.
-  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V4');
+  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V5');
   if (savedId) {
     try { return DocumentApp.openById(savedId); } catch (e) {}
   }
   const doc = buildContractTemplate_();
-  props.setProperty('CONTRACT_TEMPLATE_ID_V4', doc.getId());
+  props.setProperty('CONTRACT_TEMPLATE_ID_V5', doc.getId());
   return doc;
 }
 
@@ -1046,6 +1057,249 @@ function getLogoBlob_() {
     }
   } catch (e) {}
   return null;
+}
+
+/* ---------- Black backing for transparent logos ----------
+ * A logo with a see-through background can look wrong on a white contract/receipt (a light logo
+ * vanishes, and some PDF renderers fill transparent areas black on their own). When — and ONLY
+ * when — the logo genuinely has transparency, its header cell gets a solid black backing so it
+ * reads as one deliberate square. Opaque logos are left exactly as they were.
+ * A header flag isn't enough to decide: many PNGs carry an alpha channel that is fully opaque, so
+ * the PNG is actually decoded and its pixels counted (bounded to the top rows so a huge image
+ * can't slow contract generation). The verdict is cached per logo, so this runs once per logo.
+ * Anything we can't analyze falls back to "not transparent" — i.e. today's behavior. */
+var LOGO_TRANSPARENT_MIN_FRACTION_ = 0.01; // >= 1% of pixels not fully opaque => a transparent logo
+var LOGO_SCAN_MAX_ROWS_ = 400;             // decode at most this many rows of the image
+
+var INFLATE_LBASE_ = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+var INFLATE_LEXT_ = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+var INFLATE_DBASE_ = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+var INFLATE_DEXT_ = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+var INFLATE_ORDER_ = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+
+function inflateHuff_(lengths, n) {
+  var count = [], i;
+  for (i = 0; i <= 15; i++) count[i] = 0;
+  for (i = 0; i < n; i++) count[lengths[i]]++;
+  var offs = [0, 0];
+  for (i = 1; i < 15; i++) offs[i + 1] = offs[i] + count[i];
+  var symbol = [];
+  for (i = 0; i < n; i++) if (lengths[i]) symbol[offs[lengths[i]]++] = i;
+  return { count: count, symbol: symbol };
+}
+// Raw DEFLATE (RFC 1951) decoder. Stops once maxOut bytes are produced. Returns a Uint8Array.
+function inflateRaw_(src, start, maxOut) {
+  var out = new Uint8Array(maxOut), op = 0, pos = start, bitBuf = 0, bitCnt = 0, i;
+  function bits(n) {
+    while (bitCnt < n) {
+      if (pos >= src.length) throw new Error('eof');
+      bitBuf |= src[pos++] << bitCnt; bitCnt += 8;
+    }
+    var v = bitBuf & ((1 << n) - 1);
+    bitBuf >>>= n; bitCnt -= n;
+    return v;
+  }
+  function decode(h) {
+    var code = 0, first = 0, index = 0;
+    for (var len = 1; len <= 15; len++) {
+      code |= bits(1);
+      var c = h.count[len];
+      if (code - c < first) return h.symbol[index + (code - first)];
+      index += c; first += c; first <<= 1; code <<= 1;
+    }
+    throw new Error('bad code');
+  }
+  var fixedLit = null, fixedDist = null;
+  var last;
+  do {
+    last = bits(1);
+    var type = bits(2);
+    if (type === 0) {
+      bitBuf = 0; bitCnt = 0; // discard the partial byte
+      if (pos + 4 > src.length) throw new Error('eof');
+      var slen = src[pos] | (src[pos + 1] << 8); pos += 4;
+      for (i = 0; i < slen; i++) {
+        if (op >= maxOut) return out;
+        if (pos >= src.length) throw new Error('eof');
+        out[op++] = src[pos++];
+      }
+    } else if (type === 1 || type === 2) {
+      var lit, dist;
+      if (type === 1) {
+        if (!fixedLit) {
+          var fl = [];
+          for (i = 0; i < 144; i++) fl[i] = 8;
+          for (; i < 256; i++) fl[i] = 9;
+          for (; i < 280; i++) fl[i] = 7;
+          for (; i < 288; i++) fl[i] = 8;
+          fixedLit = inflateHuff_(fl, 288);
+          var fd = []; for (i = 0; i < 30; i++) fd[i] = 5;
+          fixedDist = inflateHuff_(fd, 30);
+        }
+        lit = fixedLit; dist = fixedDist;
+      } else {
+        var nlen = bits(5) + 257, ndist = bits(5) + 1, ncode = bits(4) + 4;
+        var cl = []; for (i = 0; i < 19; i++) cl[i] = 0;
+        for (i = 0; i < ncode; i++) cl[INFLATE_ORDER_[i]] = bits(3);
+        var lencode = inflateHuff_(cl, 19);
+        var all = [], idx = 0, total = nlen + ndist;
+        while (idx < total) {
+          var s = decode(lencode);
+          if (s < 16) { all[idx++] = s; }
+          else {
+            var prev = 0, rep;
+            if (s === 16) { if (idx === 0) throw new Error('bad repeat'); prev = all[idx - 1]; rep = 3 + bits(2); }
+            else if (s === 17) { rep = 3 + bits(3); }
+            else { rep = 11 + bits(7); }
+            if (idx + rep > total) throw new Error('bad lengths');
+            while (rep--) all[idx++] = prev;
+          }
+        }
+        lit = inflateHuff_(all.slice(0, nlen), nlen);
+        dist = inflateHuff_(all.slice(nlen), ndist);
+      }
+      for (;;) {
+        var sym = decode(lit);
+        if (sym < 256) {
+          if (op >= maxOut) return out;
+          out[op++] = sym;
+        } else if (sym === 256) {
+          break;
+        } else {
+          sym -= 257;
+          if (sym >= 29) throw new Error('bad length symbol');
+          var mlen = INFLATE_LBASE_[sym] + bits(INFLATE_LEXT_[sym]);
+          var ds = decode(dist);
+          if (ds >= 30) throw new Error('bad distance symbol');
+          var d = INFLATE_DBASE_[ds] + bits(INFLATE_DEXT_[ds]);
+          if (d > op) throw new Error('bad distance');
+          while (mlen--) {
+            if (op >= maxOut) return out;
+            out[op] = out[op - d]; op++;
+          }
+        }
+      }
+    } else {
+      throw new Error('bad block type');
+    }
+  } while (!last);
+  return out.subarray(0, op);
+}
+function pngPaeth_(a, b, c) {
+  var p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+  return (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
+}
+// Fraction (0..1) of the PNG's pixels that are not fully opaque, or null if it can't be analyzed.
+function pngTransparentFraction_(u) {
+  try {
+    if (u.length < 33 || u[0] !== 137 || u[1] !== 80 || u[2] !== 78 || u[3] !== 71) return null;
+    var u32 = function (p) { return ((u[p] << 24) | (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3]) >>> 0; };
+    var pos = 8, w = 0, h = 0, depth = 0, ctype = -1, interlace = 0, trns = null, chunks = [], zlen = 0;
+    while (pos + 8 <= u.length) {
+      var len = u32(pos), type = String.fromCharCode(u[pos + 4], u[pos + 5], u[pos + 6], u[pos + 7]), d = pos + 8;
+      if (d + len > u.length) break;
+      if (type === 'IHDR') { w = u32(d); h = u32(d + 4); depth = u[d + 8]; ctype = u[d + 9]; interlace = u[d + 12]; }
+      else if (type === 'tRNS') { trns = u.subarray(d, d + len); }
+      else if (type === 'IDAT') { chunks.push(u.subarray(d, d + len)); zlen += len; }
+      else if (type === 'IEND') { break; }
+      pos = d + len + 4;
+    }
+    var channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
+    if (!channels || !w || !h || interlace !== 0) return null;
+    // Only these can hold transparency; everything else is opaque without decoding a byte.
+    var canHaveAlpha = (ctype === 4 || ctype === 6) || (ctype === 3 && trns) || ((ctype === 0 || ctype === 2) && trns && depth === 8);
+    if (!canHaveAlpha) return 0;
+    if ((ctype === 4 || ctype === 6) && depth !== 8 && depth !== 16) return null;
+    if (!zlen) return null;
+    var z = new Uint8Array(zlen), zo = 0;
+    for (var ci = 0; ci < chunks.length; ci++) { z.set(chunks[ci], zo); zo += chunks[ci].length; }
+    if ((z[0] & 15) !== 8 || (z[1] & 32)) return null; // not plain zlib deflate (or preset dictionary)
+    var bitsPP = channels * depth, rowBytes = Math.ceil(w * bitsPP / 8), bpp = Math.max(1, bitsPP >> 3);
+    var rows = Math.min(h, LOGO_SCAN_MAX_ROWS_);
+    var raw = inflateRaw_(z, 2, (rowBytes + 1) * rows);
+    var prev = new Uint8Array(rowBytes), cur = new Uint8Array(rowBytes), total = 0, trans = 0;
+    for (var y = 0; y < rows; y++) {
+      var off = y * (rowBytes + 1);
+      if (off + rowBytes + 1 > raw.length) break; // ran out of data: judge on the complete rows we have
+      var ft = raw[off], x, v, a, b, c, r;
+      for (x = 0; x < rowBytes; x++) {
+        v = raw[off + 1 + x];
+        a = x >= bpp ? cur[x - bpp] : 0; b = prev[x]; c = x >= bpp ? prev[x - bpp] : 0;
+        if (ft === 0) r = v; else if (ft === 1) r = v + a; else if (ft === 2) r = v + b;
+        else if (ft === 3) r = v + ((a + b) >> 1); else if (ft === 4) r = v + pngPaeth_(a, b, c); else return null;
+        cur[x] = r & 255;
+      }
+      for (var px = 0; px < w; px++) {
+        var alpha = 255;
+        if (ctype === 6) alpha = depth === 8 ? cur[px * 4 + 3] : cur[px * 8 + 6];
+        else if (ctype === 4) alpha = depth === 8 ? cur[px * 2 + 1] : cur[px * 4 + 2];
+        else if (ctype === 3) {
+          var pi;
+          if (depth === 8) pi = cur[px];
+          else { var bit = px * depth; pi = (cur[bit >> 3] >> (8 - depth - (bit & 7))) & ((1 << depth) - 1); }
+          alpha = (trns && pi < trns.length) ? trns[pi] : 255;
+        } else if (ctype === 0) { if (cur[px] === trns[1]) alpha = 0; }
+        else if (ctype === 2) { if (cur[px * 3] === trns[1] && cur[px * 3 + 1] === trns[3] && cur[px * 3 + 2] === trns[5]) alpha = 0; }
+        total++; if (alpha < 250) trans++;
+      }
+      var tmp = prev; prev = cur; cur = tmp;
+    }
+    return total ? trans / total : null;
+  } catch (e) { return null; }
+}
+function gifHasTransparency_(u) {
+  var p = 13;
+  if (u[10] & 0x80) p += 3 * (1 << ((u[10] & 7) + 1));
+  while (p < u.length) {
+    if (u[p] === 0x21) { // extension block
+      if (u[p + 1] === 0xF9 && (u[p + 3] & 1)) return true; // graphic control ext. flags a transparent color
+      p += 2;
+      while (p < u.length && u[p] !== 0) p += u[p] + 1;
+      p++;
+    } else { return false; } // reached the image itself (or the trailer)
+  }
+  return false;
+}
+function webpHasAlpha_(u) {
+  if (u[12] === 0x56 && u[13] === 0x50 && u[14] === 0x38) {
+    if (u[15] === 0x58) return (u[20] & 0x10) !== 0;                                   // VP8X: alpha flag
+    if (u[15] === 0x4C && u[20] === 0x2F) return ((u[24] >> 4) & 1) === 1;             // VP8L: alpha_is_used
+  }
+  return false;
+}
+function blobHasTransparency_(blob) {
+  try {
+    var raw = blob.getBytes(), n = raw.length;
+    if (n < 24) return false;
+    var u = new Uint8Array(n);
+    for (var i = 0; i < n; i++) u[i] = raw[i] & 255;
+    if (u[0] === 137 && u[1] === 80 && u[2] === 78 && u[3] === 71) {
+      var f = pngTransparentFraction_(u);
+      return f !== null && f >= LOGO_TRANSPARENT_MIN_FRACTION_;
+    }
+    if (u[0] === 71 && u[1] === 73 && u[2] === 70) return gifHasTransparency_(u);
+    if (u[0] === 82 && u[1] === 73 && u[2] === 70 && u[3] === 70 && u[8] === 87 && u[9] === 69 && u[10] === 66 && u[11] === 80) return webpHasAlpha_(u);
+  } catch (e) {}
+  return false; // JPEG and anything unrecognized: no transparency
+}
+// Should this logo get the black backing? Off if the owner turned it off; otherwise only when the
+// logo really is transparent. Cached per logo (by content hash) so the decode runs once.
+function logoNeedsBacking_(blob) {
+  if (!blob) return false;
+  if (String(getConfig_().LOGO_BACKING || '').trim().toLowerCase() === 'no') return false;
+  var sig = '';
+  try { sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, blob.getBytes())); } catch (e) {}
+  var props = PropertiesService.getScriptProperties();
+  if (sig) {
+    try { var c = JSON.parse(props.getProperty('LOGO_TRANSPARENCY') || 'null'); if (c && c.sig === sig) return !!c.t; } catch (e) {}
+  }
+  var t = blobHasTransparency_(blob);
+  if (sig) { try { props.setProperty('LOGO_TRANSPARENCY', JSON.stringify({ sig: sig, t: t })); } catch (e) {} }
+  return t;
+}
+// Fill the logo's header cell solid black when (and only when) the logo is transparent.
+function applyLogoBacking_(cell, blob) {
+  try { if (logoNeedsBacking_(blob)) cell.setBackgroundColor('#000000'); } catch (e) {}
 }
 
 // Returns the buyer's logo as a browser-ready data: URI (or ''), for pages served to the
@@ -1210,6 +1464,7 @@ function buildContractTemplate_() {
     if (logoBlob) {
       var img = logoPara.appendInlineImage(logoBlob);
       img.setWidth(50); img.setHeight(50);
+      applyLogoBacking_(logoCell, logoBlob); // black square only if the logo is transparent
     }
   } catch (e) {}
   logoCell.setWidth(58);
@@ -1462,6 +1717,7 @@ function generateReceiptPdf_(kind, get) {
     if (logoBlob) {
       const img = logoCell.appendImage(logoBlob);
       img.setWidth(50); img.setHeight(50);
+      applyLogoBacking_(logoCell, logoBlob); // black square only if the logo is transparent
     }
   } catch (e) {}
   logoCell.setWidth(58);

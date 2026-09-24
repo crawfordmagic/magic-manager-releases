@@ -1,5 +1,5 @@
 What's new in this update:
 
-• Send a lead to another Magic Manager user in one tap. When you refer a lead to a partner who also uses Magic Manager, your referral email can now include a link that drops the lead into their app — no retyping. It lands in a new "Referral inbox" on their Leads screen, and they tap Add lead (nothing is added until they do). To set it up, each person copies their link from Settings → Referral link, and the other pastes it onto that partner's record. See Help → "Sending a lead to another Magic Manager user."
+• Transparent logos look right on your paperwork. If your logo has a see-through background, Magic Manager now puts a solid black square behind it on your contracts and payment receipts, so it doesn't look odd on white paper. Logos that aren't transparent are left exactly as they were. Prefer your logo untouched? Turn it off under Settings → Advanced → Logo backing. (Contracts you've already generated aren't changed.)
 
-• Fixed a display bug. Some green "success" elements had lost their color — including the "Confirm received" button on payments waiting for your confirmation, which was hard to see. They're back to normal.
+• A new font for your client portal. "Clean — Open Sans" is now an option under Settings → Client portal look, alongside the other font choices.
