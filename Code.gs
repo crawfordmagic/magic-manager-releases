@@ -430,7 +430,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.34';
+var APP_VERSION = '1.5.35';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -932,6 +932,11 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
+
+  // ?rc=<inbox code>&ref=<lead> — a lead referred by another Magic Manager user. Public by
+  // design (the sender has no access to this app), so it is gated by the inbox code, only
+  // ever writes to the Referral Inbox, and never exposes the app or its access key.
+  if (e && e.parameter && e.parameter.ref) return referralReceivePage_(e.parameter);
 
   // The deployment itself has to be set to "Anyone" so clients without a
   // Google account can reach the sign page above — but that same setting
@@ -3918,7 +3923,8 @@ function getLeads() {
     vendorCategoryMemory: getVendorCategoryMemory_(),
     storeSales: getStoreSales_(),
     storeProducts: getStoreProducts_(),
-    sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1')
+    sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
+    referralInbox: getReferralInbox_()
   });
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a
@@ -4099,7 +4105,10 @@ function partnersSheet_() {
   var sh = ss.getSheetByName(PARTNERS_SHEET);
   if (!sh) {
     sh = ss.insertSheet(PARTNERS_SHEET);
-    sh.appendRow(['Name', 'Email', 'Phone', 'Notes', 'Entry ID']);
+    sh.appendRow(['Name', 'Email', 'Phone', 'Notes', 'Entry ID', 'Referral Link']);
+  } else if (!String(sh.getRange(1, 6).getValue() || '').trim()) {
+    // Older sheets predate the optional partner referral link column.
+    sh.getRange(1, 6).setValue('Referral Link');
   }
   return sh;
 }
@@ -4116,7 +4125,8 @@ function getPartners_() {
       name: String(r[0] || ''),
       email: String(r[1] || ''),
       phone: String(r[2] || ''),
-      notes: String(r[3] || '')
+      notes: String(r[3] || ''),
+      appLink: String(r[5] || '')
     });
   }
   return out;
@@ -4138,11 +4148,13 @@ function addPartner(name, email, phone, notes) {
   return getPartnersScoped_();
 }
 
-function updatePartner(id, name, email, phone, notes) {
+function updatePartner(id, name, email, phone, notes, appLink) {
   const sh = partnersSheet_();
   const rowNum = findPartnerRow_(sh, id);
   if (!rowNum) return getPartnersScoped_();
   sh.getRange(rowNum, 1, 1, 4).setValues([[name || '', email || '', phone || '', notes || '']]);
+  // Only touch the referral link when the caller sent one (older clients don't).
+  if (appLink !== undefined) sh.getRange(rowNum, 6).setValue(normalizeReferralLink_(appLink));
   return getPartnersScoped_();
 }
 
@@ -4151,6 +4163,204 @@ function deletePartner(id) {
   const rowNum = findPartnerRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
   return getPartnersScoped_();
+}
+
+/* ---------- Referral link + inbox (one-tap lead hand-off between Magic Manager users) ----------
+ * The main app is locked behind a private access key, so a referral link can't open the
+ * recipient's app directly (and must never carry that key). Instead each owner has a
+ * separate "referral link" — their app URL + a rotatable inbox code (?rc=…), NOT the
+ * app key. A partner saves it on the referring owner's partner record; the referring
+ * owner's email then includes  <partner link>&ref=<lead>. Opening it drops the lead into
+ * the recipient's Referral Inbox (this sheet), and the recipient reviews it inside their
+ * own app and taps Add. Nothing becomes a lead without that tap; the code gates who can
+ * post; and the code can be reset. */
+const REFERRAL_INBOX_SHEET = 'Referral Inbox';
+var REFERRAL_INBOX_MAX_ = 25;
+// Compact payload key -> lead column header.
+var REFERRAL_KEYS_ = { n: 'Customer Name', p: 'Phone number', e: 'E-mail', c: 'Company or Organization', d: 'Date of Event', s: 'Start Time', en: 'End Time', t: 'Event Type', sv: 'Service', l: 'Event Location', a: 'Audience Size', ag: 'Audience Age Range', q: 'Quoted Price', nt: 'Notes about interaction' };
+var REFERRAL_MAXLEN_ = { n: 120, p: 40, e: 160, c: 160, d: 10, s: 16, en: 16, t: 80, sv: 120, l: 240, a: 40, ag: 60, q: 20, nt: 1500 };
+
+// Keep only a well-formed https Apps Script web-app URL that carries an inbox code (rc).
+// Strips everything else — critically any ?key= (the private app access key) — so a partner
+// who pastes their full app address by mistake can't leak it into this sheet or into emails.
+function normalizeReferralLink_(link) {
+  link = String(link || '').trim();
+  var m = link.match(/^(https:\/\/script\.google\.com\/(?:macros|a\/macros\/[A-Za-z0-9.\-]+)\/s\/[A-Za-z0-9_\-]+\/exec)(?:\?([^#\s]*))?/);
+  if (!m) return '';
+  var rc = ((m[2] || '').match(/(?:^|&)rc=([A-Za-z0-9]+)/) || [])[1];
+  return rc ? (m[1] + '?rc=' + rc) : '';
+}
+function referralInboxCode_(create) {
+  var props = PropertiesService.getScriptProperties();
+  var code = props.getProperty('REFERRAL_INBOX_CODE') || '';
+  if (!code && create) { code = Utilities.getUuid().replace(/-/g, '').slice(0, 14); props.setProperty('REFERRAL_INBOX_CODE', code); }
+  return code;
+}
+// This owner's shareable referral link (created on first use). Called from the app.
+function getReferralInboxLink() {
+  var base = '';
+  try { base = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+  if (!base) return { ok: false, message: 'Could not read your app address. Open the app from its normal link and try again.' };
+  return { ok: true, link: base + '?rc=' + referralInboxCode_(true) };
+}
+// Rotate the code — links partners already saved stop working (use if it was shared by mistake).
+function resetReferralInboxCode() {
+  PropertiesService.getScriptProperties().setProperty('REFERRAL_INBOX_CODE', Utilities.getUuid().replace(/-/g, '').slice(0, 14));
+  return getReferralInboxLink();
+}
+
+// A leading = + - @ in a cell written through the API is evaluated as a formula. Anything a
+// remote sender supplies is untrusted, so defuse it (a phone number's leading + is allowed).
+function neutralizeCell_(v) {
+  v = String(v == null ? '' : v);
+  if (/^[=@\t\r]/.test(v) || (/^[+\-]/.test(v) && !/^\+[\d\s().\-]+$/.test(v))) return ' ' + v;
+  return v;
+}
+function sanitizeReferral_(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var lead = {};
+  Object.keys(REFERRAL_KEYS_).forEach(function (k) {
+    if (raw[k] == null) return;
+    var v = String(raw[k]).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
+    if (!v) return;
+    lead[k] = neutralizeCell_(v.slice(0, REFERRAL_MAXLEN_[k]));
+  });
+  if (!lead.n) return null;
+  // Real calendar dates / clock times only — new Date() would quietly roll 2026-13-99 into 2027.
+  var validYmd = function (s) {
+    var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return false;
+    var y = +m[1], mo = +m[2], d = +m[3], dt = new Date(y, mo - 1, d);
+    return y >= 2000 && y <= 2100 && dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d;
+  };
+  if (lead.d && !(/^\d{4}-\d{2}-\d{2}$/.test(lead.d) && validYmd(lead.d))) delete lead.d;
+  ['s', 'en'].forEach(function (k) {
+    if (!lead[k]) return;
+    var tm = lead[k].match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/);
+    // 1970-01-01 is the app's own "time with no event date" placeholder.
+    if (!tm || +tm[2] > 23 || +tm[3] > 59 || !(tm[1] === '1970-01-01' || validYmd(tm[1]))) delete lead[k];
+  });
+  if (lead.q) { lead.q = lead.q.replace(/[^\d.]/g, ''); if (!lead.q) delete lead.q; }
+  return { lead: lead, from: neutralizeCell_(String(raw.f == null ? '' : raw.f).replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 120)) };
+}
+function referralInboxSheet_(create) {
+  const ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(REFERRAL_INBOX_SHEET);
+  if (!sh && create) {
+    sh = ss.insertSheet(REFERRAL_INBOX_SHEET);
+    sh.appendRow(['Received', 'From', 'Payload', 'Entry ID']);
+  }
+  return sh;
+}
+function referralDupKey_(lead) {
+  return [lead.n, lead.e, lead.p, lead.d].map(function (x) { return String(x || '').trim().toLowerCase(); }).join('|');
+}
+function addReferralToInbox_(clean) {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) {}
+  try {
+    var sh = referralInboxSheet_(true);
+    var last = sh.getLastRow(), pending = 0, key = referralDupKey_(clean.lead);
+    if (last >= 2) {
+      var vals = sh.getRange(2, 3, last - 1, 1).getValues();
+      for (var i = 0; i < vals.length; i++) {
+        pending++;
+        try { if (referralDupKey_(JSON.parse(vals[i][0])) === key) return { ok: true, dup: true }; } catch (e) {}
+      }
+    }
+    if (pending >= REFERRAL_INBOX_MAX_) return { ok: false, full: true };
+    sh.appendRow([new Date(), clean.from, JSON.stringify(clean.lead), Utilities.getUuid()]);
+    return { ok: true };
+  } finally { try { lock.releaseLock(); } catch (e) {} }
+}
+function getReferralInbox_() {
+  var sh = referralInboxSheet_(false);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues(), out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var lead = null;
+    try { lead = JSON.parse(vals[i][2]); } catch (e) {}
+    if (!lead || !lead.n) continue;
+    out.push({
+      id: String(vals[i][3] || ''),
+      received: (vals[i][0] instanceof Date) ? Utilities.formatDate(vals[i][0], tz_(), 'yyyy-MM-dd') : '',
+      from: String(vals[i][1] || '').trim(),
+      lead: lead
+    });
+  }
+  out.reverse(); // newest first
+  return out;
+}
+function findReferralRow_(sh, id) {
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var vals = sh.getRange(2, 4, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < vals.length; i++) if (String(vals[i][0]) === String(id)) return i + 2;
+  return 0;
+}
+// The owner tapped "Add lead" on a received referral: create the lead, then clear it from the inbox.
+function acceptReferral(id) {
+  var sh = referralInboxSheet_(false);
+  var row = findReferralRow_(sh, id);
+  if (!row) return withReferralInbox_(getLeadsScoped_());
+  var r = sh.getRange(row, 1, 1, 4).getValues()[0];
+  var parsed = null;
+  try { var stored = JSON.parse(r[2]); stored.f = r[1]; parsed = sanitizeReferral_(stored); } catch (e) {}
+  if (!parsed) { sh.deleteRow(row); return withReferralInbox_(getLeadsScoped_()); }
+  var fields = {};
+  Object.keys(REFERRAL_KEYS_).forEach(function (k) { if (parsed.lead[k]) fields[REFERRAL_KEYS_[k]] = parsed.lead[k]; });
+  ['Start Time', 'End Time'].forEach(function (h) { if (fields[h]) fields[h] = parseYMD_(fields[h]); });
+  var note = 'Referred by ' + (parsed.from || 'another Magic Manager user') + ' on ' + Utilities.formatDate(new Date(), tz_(), 'M/d/yyyy');
+  fields['Notes about interaction'] = note + (fields['Notes about interaction'] ? '\n\n' + fields['Notes about interaction'] : '');
+  fields['Status'] = 'New';
+  fields['Lead Source'] = 'Referral';
+  fields['Followup'] = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'); // a warm lead — surface it for a same-day reply
+  sh.deleteRow(row);
+  return withReferralInbox_(addLead(fields));
+}
+function dismissReferral(id) {
+  var sh = referralInboxSheet_(false);
+  var row = findReferralRow_(sh, id);
+  if (row) sh.deleteRow(row);
+  return JSON.stringify({ referralInbox: getReferralInbox_() });
+}
+function withReferralInbox_(json) {
+  var o = {}; try { o = JSON.parse(json); } catch (e) {}
+  o.referralInbox = getReferralInbox_();
+  return JSON.stringify(o);
+}
+
+// Public landing page for a referral link (?rc=<code>&ref=<payload>). Reached by the
+// recipient tapping the link in an email; it only ever writes to the Referral Inbox.
+function referralReceivePage_(p) {
+  var esc = function (s) { return escHtml_(String(s == null ? '' : s)); };
+  var page = function (icon, title, msg) {
+    return HtmlService.createHtmlOutput(
+      '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Magic Manager</title></head>'
+      + '<body style="margin:0;background:#0B0B10;color:#F4EBD3;font-family:Arial,Helvetica,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px">'
+      + '<div style="max-width:420px;text-align:center"><div style="font-size:30px;color:#E4C179">' + icon + '</div>'
+      + '<h1 style="color:#E4C179;font-size:21px;margin:8px 0 10px">' + esc(title) + '</h1>'
+      + '<p style="color:#B9AE94;font-size:14.5px;line-height:1.6;margin:0">' + msg + '</p></div></body></html>'
+    ).setTitle('Magic Manager').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  };
+  var code = referralInboxCode_(false);
+  if (!code || String(p.rc || '') !== code) {
+    return page('&#9888;', 'This referral link isn’t valid', 'It may have been reset. Ask whoever sent it to check that your current referral link is saved on their partner record.');
+  }
+  var raw = String(p.ref || '').replace(/\s+/g, '');
+  if (!raw || raw.length > 8000) return page('&#9888;', 'Couldn’t read this referral', 'The link looks incomplete. Ask the sender to send it again.');
+  var parsed = null;
+  try {
+    while (raw.length % 4) raw += '=';
+    parsed = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(raw)).getDataAsString('UTF-8'));
+  } catch (e) {}
+  var clean = sanitizeReferral_(parsed);
+  if (!clean) return page('&#9888;', 'Couldn’t read this referral', 'The link looks incomplete. Ask the sender to send it again.');
+  var res = addReferralToInbox_(clean);
+  if (!res.ok) return page('&#9888;', 'Your referral inbox is full', 'Open Magic Manager and add or dismiss the referrals waiting there, then tap this link again.');
+  var who = clean.from ? ' from <b>' + esc(clean.from) + '</b>' : '';
+  return page('&#10038;', res.dup ? 'Already in your inbox' : 'Referral received',
+    '<b>' + esc(clean.lead.n) + '</b>' + who + (res.dup ? ' is already waiting in your Magic Manager.' : ' is now waiting in your Magic Manager.')
+    + '<br><br>Open your app and look for <b>Referral inbox</b> at the top of Leads to review it and add it as a lead.');
 }
 
 /* ---------- Advertising spend (retired — migrated into Expenses) ---------- */

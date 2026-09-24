@@ -14,7 +14,7 @@
 :root{
   --ink:#0B0B10; --panel:#15151E; --panel2:#1C1C27;
   --gold:#C9A050; --gold-bright:#E4C179; --gold-deep:#6E5730; --oracle-violet:#8FB8E8;
-  --cream:#F4EBD3; --muted:#928A75; --crimson:#C05236;
+  --cream:#F4EBD3; --muted:#928A75; --crimson:#C05236; --sage:#8FA876;
   --line:rgba(201,160,80,.28);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -505,6 +505,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="trialBanner" style="display:none"></div>
     <div id="updateBanner" style="display:none"></div>
     <div id="sharingWarnCard" style="display:none"></div>
+    <div id="referralInboxCard" style="display:none"></div>
     <div id="todayShowCard" style="display:none"></div>
     <!-- "Today" digest: a calm summary that collapses the routine cards below it
          (Showtime stays its own hero above; the Oracle stays ambient below). -->
@@ -831,6 +832,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
           <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
           <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
         </button>
+        <button type="button" class="more-row" onclick="openRefLink()">
+          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
+          <span class="t">Referral link</span><span class="chev">&#8250;</span>
+        </button>
         <button type="button" class="more-row" onclick="openHelp()">
           <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
           <span class="t">Help &amp; guides</span><span class="chev">&#8250;</span>
@@ -914,6 +919,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="field"><label>Email</label><input id="pt_email" type="email" onchange="queuePartnerSave()"></div>
   </div>
   <div class="field"><label>Notes</label><textarea id="pt_notes" rows="3" oninput="queuePartnerSave()"></textarea></div>
+  <div class="field"><label>Their Magic Manager referral link <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional)</span></label>
+    <input id="pt_applink" placeholder="Paste their link (from their Settings &rarr; Referral link)" autocapitalize="off" spellcheck="false" onchange="queuePartnerSave()">
+    <div id="pt_applink_hint" style="margin:4px 0 0;font-size:11px;color:var(--muted)">If this partner also uses Magic Manager, your referral emails to them will include a one-tap &ldquo;add this lead&rdquo; link.</div>
+  </div>
 
   <button class="htoggle" style="margin-top:12px" onclick="togglePartnerHistory()">
     <span id="pth_count">Contact history &#183; 0</span><span id="pth_chev">&#9662;</span>
@@ -1084,6 +1093,18 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <input type="file" id="csvFileInput" accept=".csv" onchange="handleCsvFile(event)">
   <div id="importPreview"></div>
   <button class="save" id="importConfirmBtn" style="display:none;margin-top:14px" onclick="confirmImport()">Import Selected</button>
+</div>
+<div class="sheet" id="refLinkSheet" style="z-index:56">
+  <div class="grab"></div>
+  <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeRefLink()">&#8592; Back</a>
+  <h2>Your referral link</h2>
+  <p class="note" style="text-align:left;margin:0 0 12px">Other Magic Manager users can use this link to send you leads. Give it to your referral partners &mdash; they paste it onto your partner record in their app. When they refer someone to you, the lead lands in your <b>Referral inbox</b> (top of Leads) and you tap <b>Add lead</b>.</p>
+  <p class="note" style="text-align:left;margin:0 0 12px;color:var(--muted)">This is <b>not</b> your app address &mdash; it can only drop leads into your inbox. It can&rsquo;t open your app or see anything in it.</p>
+  <div class="field"><label>Your link</label><input id="rl_link" readonly onclick="this.select()"></div>
+  <button class="save" onclick="copyRefLink()">Copy link</button>
+  <button class="save" id="rl_share" style="display:none;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="shareRefLink()">Share&hellip;</button>
+  <button class="save" id="rl_reset" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="resetRefLink()">Reset link</button>
+  <p class="note" style="text-align:left">Resetting makes every link you&rsquo;ve already given out stop working &mdash; use it only if the link was shared by mistake.</p>
 </div>
 <div class="sheet" id="leadImportSheet" style="z-index:56">
   <div class="grab"></div>
@@ -1368,6 +1389,7 @@ var RBIN_PURGE_ARM = {};
 var RBIN_EMPTY_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
 var SHARING_BLOCKED=false, SHARING_WARN_DISMISSED=false;
+var REFERRAL_INBOX=[];
 var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
 function ingest(json){
   var o=JSON.parse(json);
@@ -1383,6 +1405,7 @@ function ingest(json){
   if('partnerTextTemplates' in o) PARTNERTXTPL=o.partnerTextTemplates||[];
   if('oracleGate' in o) ORACLE_GATE_DUE=!!o.oracleGate;
   if('sharingBlocked' in o) SHARING_BLOCKED=!!o.sharingBlocked;
+  if('referralInbox' in o) REFERRAL_INBOX=Array.isArray(o.referralInbox)?o.referralInbox:[];
   if('topClientThreshold' in o) TOP_CLIENT_THRESHOLD=Number(o.topClientThreshold)||2000;
   if('kvfOrder' in o) KVF_ORDER=Array.isArray(o.kvfOrder)?o.kvfOrder:[];
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
@@ -3129,6 +3152,49 @@ function renderSharingWarn(){
   box.style.display='';
 }
 function dismissSharingWarn(){ SHARING_WARN_DISMISSED=true; var b=$('sharingWarnCard'); if(b){ b.style.display='none'; b.innerHTML=''; } }
+// Leads another Magic Manager user sent to this app through a referral link. Nothing becomes
+// a lead until the owner taps Add here; Dismiss just clears it.
+function renderReferralInbox(){
+  var box=$('referralInboxCard'); if(!box) return;
+  if(!REFERRAL_INBOX.length){ box.style.display='none'; box.innerHTML=''; return; }
+  var rows=REFERRAL_INBOX.map(function(r){
+    var L=r.lead||{};
+    var meta=[L.d?fmtDateY(L.d):'', L.sv||L.t||'', L.l||''].filter(Boolean).join(' · ');
+    var nm=String(L.n||'').trim().toLowerCase();
+    var dup=!!nm && LEADS.some(function(x){ return String(x[C.name]||'').trim().toLowerCase()===nm; });
+    return '<div style="border-top:1px solid var(--line);padding:10px 0">'
+      +'<div style="font-weight:600;color:var(--cream)">'+esc(L.n)+(L.q?' <span style="color:var(--gold-bright);font-size:12.5px">'+esc(fmtMoney(Number(L.q)))+'</span>':'')+'</div>'
+      +'<div style="font-size:12.5px;color:var(--muted);margin:2px 0 8px">From '+esc(r.from||'another Magic Manager user')+(meta?' · '+esc(meta):'')+'</div>'
+      +(dup?'<div style="font-size:12px;color:#E9927B;margin:0 0 8px">You already have a lead with this name.</div>':'')
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button class="followupdue-btn" style="background:var(--sage);color:#141008" onclick="acceptReferralUI(\''+esc(r.id)+'\')">Add lead</button>'
+        +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--line);color:var(--muted)" onclick="dismissReferralUI(\''+esc(r.id)+'\')">Dismiss</button>'
+      +'</div></div>';
+  }).join('');
+  box.innerHTML='<div class="card" style="border-color:var(--gold)">'
+    +'<div style="font-weight:700;color:var(--gold-bright)">Referral inbox <span style="color:var(--muted);font-weight:400;font-size:12px">'+REFERRAL_INBOX.length+'</span></div>'
+    +'<div style="font-size:12.5px;color:var(--muted);margin-top:2px">Leads other Magic Manager users sent you. Review each one, then add it.</div>'
+    +rows+'</div>';
+  box.style.display='';
+}
+function acceptReferralUI(id){
+  var item=REFERRAL_INBOX.find(function(x){ return x.id===id; }); if(!item) return;
+  var prev=REFERRAL_INBOX;
+  REFERRAL_INBOX=REFERRAL_INBOX.filter(function(x){ return x.id!==id; });
+  renderReferralInbox(); toast('Adding lead…');
+  google.script.run.withSuccessHandler(function(json){
+    ingest(json); renderChips(); renderLeads(); renderInsights(); toast('Lead added ✦');
+  }).withFailureHandler(function(){ REFERRAL_INBOX=prev; renderReferralInbox(); toast('Could not add — try again'); })
+  .acceptReferral(id);
+}
+function dismissReferralUI(id){
+  var prev=REFERRAL_INBOX;
+  REFERRAL_INBOX=REFERRAL_INBOX.filter(function(x){ return x.id!==id; });
+  renderReferralInbox();
+  google.script.run.withSuccessHandler(function(json){ ingest(json); renderReferralInbox(); })
+  .withFailureHandler(function(){ REFERRAL_INBOX=prev; renderReferralInbox(); toast('Could not dismiss — try again'); })
+  .dismissReferral(id);
+}
 function renderLeads(){
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   renderTodayShow();
@@ -3142,6 +3208,7 @@ function renderLeads(){
   renderTodayDigest();
   renderEmptyImportPrompt();
   renderSharingWarn();
+  renderReferralInbox();
   var t=today0(), h='';
 
   if(IFILTER){
@@ -3375,6 +3442,7 @@ function openPartner(id){
   buildPartnerActions(p);
   $('pt_name').value=p.name||''; $('pt_phone').value=p.phone||'';
   $('pt_email').value=p.email||''; $('pt_notes').value=p.notes||'';
+  $('pt_applink').value=p.appLink||''; showAppLinkHint_(p.appLink||'');
   $('pt_stat').innerHTML='Changes save automatically &#10038;';
   $('pt_noteprompt').style.display='none'; PT_CT_TYPE=null;
   $('pth_wrap').style.display='none'; $('pth_chev').innerHTML='&#9662;';
@@ -3397,7 +3465,9 @@ function doPartnerSave(){
   if(!PTCUR) return;
   var id=PTCUR.id;
   var name=$('pt_name').value.trim(), phone=$('pt_phone').value.trim(), email=$('pt_email').value.trim(), notes=$('pt_notes').value.trim();
-  PTCUR.name=name; PTCUR.phone=phone; PTCUR.email=email; PTCUR.notes=notes;
+  var rawLink=$('pt_applink').value.trim(), appLink=normReferralLink_(rawLink);
+  showAppLinkHint_(rawLink);
+  PTCUR.name=name; PTCUR.phone=phone; PTCUR.email=email; PTCUR.notes=notes; PTCUR.appLink=appLink;
   $('pt_title').textContent=name||'Partner';
   buildPartnerActions(PTCUR);
   renderChips();
@@ -3408,7 +3478,24 @@ function doPartnerSave(){
     var el=$('pt_stat'); if(el) el.innerHTML='Saved \u2726';
   }).withFailureHandler(function(){
     var el=$('pt_stat'); if(el) el.innerHTML='Save failed \u2014 check connection';
-  }).updatePartner(id, name, email, phone, notes);
+  }).updatePartner(id, name, email, phone, notes, appLink);
+}
+// Same rules as the server's normalizeReferralLink_: an https Apps Script web-app address
+// that carries an inbox code (rc). Everything else \u2014 notably a private ?key= \u2014 is dropped.
+function normReferralLink_(link){
+  link=String(link||'').trim();
+  var m=link.match(/^(https:\/\/script\.google\.com\/(?:macros|a\/macros\/[A-Za-z0-9.\-]+)\/s\/[A-Za-z0-9_\-]+\/exec)(?:\?([^#\s]*))?/);
+  if(!m) return '';
+  var rc=((m[2]||'').match(/(?:^|&)rc=([A-Za-z0-9]+)/)||[])[1];
+  return rc ? (m[1]+'?rc='+rc) : '';
+}
+function showAppLinkHint_(raw){
+  var el=$('pt_applink_hint'); if(!el) return;
+  raw=String(raw||'').trim();
+  if(!raw){ el.style.color='var(--muted)'; el.innerHTML='If this partner also uses Magic Manager, your referral emails to them will include a one-tap &ldquo;add this lead&rdquo; link.'; return; }
+  if(normReferralLink_(raw)){ el.style.color='var(--sage)'; el.innerHTML='&#10003; Referral emails to this partner will include the one-tap link.'; return; }
+  el.style.color='#E9927B';
+  el.innerHTML='That doesn\u2019t look like a referral link. Ask your partner to copy theirs from <b>Settings &rarr; Referral link</b> (it\u2019s not their normal app address).';
 }
 var DELARM3=false;
 function deletePartnerUI(){
@@ -4278,8 +4365,50 @@ var MERGE_FIELDS=[
   {key:'contractlink', label:'Signed contract link', get:function(L){ return String(L[C.contractPdfUrl]||''); }},
   {key:'signlink', label:'Event portal link (send before they sign)', get:function(L){ return String(L[C.contractSignUrl]||''); }}
 ];
+/* ---------- One-tap referral link (for partners who also use Magic Manager) ----------
+   When a partner has a saved referral link, referral emails to them get a link that drops
+   the lead into THEIR Magic Manager's Referral Inbox (they review it and tap Add). The
+   payload rides in the link itself, so no client details pass through any third party. */
+function referralPayload_(L){
+  var o={}, put=function(k,v){ v=String(v==null?'':v).trim(); if(v && v!=='—') o[k]=v; };
+  var ed=pd(L[C.eventDate]), edStr=ed?ymd(ed):'';
+  put('n',L[C.name]); put('p',L[C.phone]); put('e',L[C.email]); put('c',L[C.company]);
+  put('d',edStr);
+  var sd=timeToday(L[C.start]); if(sd) put('s',(edStr||'1970-01-01')+' '+hm(sd));
+  var en=timeToday(L[C.end]); if(en) put('en',(edStr||'1970-01-01')+' '+hm(en));
+  put('t',L[C.eventType]); put('sv',svcLabel(L[C.service])); put('l',L[C.location]);
+  put('a',L[C.audience]); put('ag',L[C.audienceAge]);
+  var q=money(L[C.price]); if(q) o.q=String(q);
+  put('nt',L[C.notes]);
+  var who=[(CFG&&CFG.OWNER_NAME)||'',(CFG&&CFG.BUSINESS_NAME)||''].filter(Boolean);
+  put('f', who.length===2 && who[0]!==who[1] ? who[0]+' · '+who[1] : who.join(''));
+  return o;
+}
+function b64url_(str){ return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function buildReferralUrl_(appLink, L){
+  var o=referralPayload_(L);
+  if(!o.n) return '';
+  var make=function(){ return appLink+(appLink.indexOf('?')>-1?'&':'?')+'ref='+b64url_(JSON.stringify(o)); };
+  var url=make();
+  // Keep the link a sane length for mail apps: trim notes first, then the least important fields.
+  while(url.length>1900 && o.nt){ o.nt = o.nt.length>60 ? o.nt.slice(0,Math.floor(o.nt.length/2)) : ''; if(!o.nt) delete o.nt; url=make(); }
+  ['ag','a','c'].forEach(function(k){ if(url.length>1900 && o[k]){ delete o[k]; url=make(); } });
+  return url;
+}
+function referralLinkBlock_(appLink, L){
+  var url=buildReferralUrl_(appLink, L);
+  return url ? '\n\nMagic Manager user? Tap to add this lead to your app:\n'+url : '';
+}
+// Body for a partner email: the normal template, plus the one-tap link when this partner has
+// one saved and a lead is attached (unless the template already placed it with {referral_link}).
+function partnerEmailBody_(t, pseudo, refLead){
+  var body=fillTpl(t.body, pseudo, refLead);
+  if(pseudo && pseudo._appLink && refLead && !/\{referral_link\}/i.test(String(t.body||''))) body+=referralLinkBlock_(pseudo._appLink, refLead);
+  return body;
+}
 function fillTpl(s, primary, referredLead){
   var out=String(s||'');
+  out=out.replace(/\{referral_link\}/gi, (referredLead && primary && primary._appLink) ? referralLinkBlock_(primary._appLink, referredLead) : '');
   MERGE_FIELDS.forEach(function(f){
     out=out.replace(new RegExp('\\{'+f.key+'\\}','gi'), f.get(primary));
   });
@@ -4309,6 +4438,8 @@ var REF_LEAD_FIELDS=[
     push('Notes', L[C.notes]);
     return lines.join('\n');
   }},
+  // Placeholder only — fillTpl expands this itself (it needs the partner's saved link, not just the lead).
+  {key:'referral_link', label:'★ One-tap "add to Magic Manager" link (partners who use it)', get:function(){ return ''; }},
   {key:'lead_firstname', label:"Referred lead's first name", get:function(L){ return firstName(L[C.name]); }},
   {key:'lead_name', label:"Referred lead's full name", get:function(L){ return String(L[C.name]||''); }},
   {key:'lead_eventdate', label:"Referred lead's event date", get:function(L){ return fmtDateY(L[C.eventDate]); }},
@@ -4336,7 +4467,7 @@ function openPartnerEmailPicker(id){
   var p=PARTNERS.find(function(x){ return x.id===id; }); if(!p) return;
   PTCUR=p; // so the post-send auto-log prompt knows which partner this is for, regardless of what screen this was opened from
   EPICKER_MODE='partner';
-  var pseudo={}; pseudo[C.name]=p.name;
+  var pseudo={}; pseudo[C.name]=p.name; pseudo._appLink=p.appLink||'';
   EPICKER_CTX=pseudo; EPICKER_TO=String(p.email||'').trim(); EPICKER_REFLEAD=null;
   fillRefLeadOptions();
   $('epicker_refwrap').style.display='';
@@ -4583,7 +4714,7 @@ function renderEmailPicker(){
   var reorderable = EPICKER_MODE!=='partner';
   $('epicker_list').innerHTML = list.length
     ? list.map(function(t,i){
-        var url=mailUrl(to, fillTpl(t.subject,pseudoLead,refLead), fillTpl(t.body,pseudoLead,refLead));
+        var url=mailUrl(to, fillTpl(t.subject,pseudoLead,refLead), partnerEmailBody_(t,pseudoLead,refLead));
         return '<div class="card task" style="cursor:pointer">'
         +'<a class="tbody" href="'+esc(url)+'" target="_top" onclick="onEmailSent()" style="text-decoration:none;color:inherit">'
         +'<div class="tname">'+esc(t.name)+'</div>'
@@ -7314,6 +7445,41 @@ function openLeadImport(){
   $('overlay').classList.add('open'); $('leadImportSheet').classList.add('open');
 }
 function closeLeadImport(){ $('leadImportSheet').classList.remove('open'); syncOverlay(); }
+/* ---------- My referral link (Settings) ---------- */
+var RL_RESET_ARM=false;
+function openRefLink(){
+  RL_RESET_ARM=false; $('rl_reset').textContent='Reset link';
+  $('rl_link').value='Loading…';
+  $('rl_share').style.display = (navigator.share ? '' : 'none');
+  $('overlay').classList.add('open'); $('refLinkSheet').classList.add('open');
+  google.script.run.withSuccessHandler(function(r){
+    if(r && r.ok) $('rl_link').value=r.link; else { $('rl_link').value=''; toast((r&&r.message)||'Could not load your link'); }
+  }).withFailureHandler(function(){ $('rl_link').value=''; toast('Could not load your link'); }).getReferralInboxLink();
+}
+function closeRefLink(){ $('refLinkSheet').classList.remove('open'); syncOverlay(); }
+function refLinkValue_(){ var v=$('rl_link').value; return (v && v.indexOf('http')===0) ? v : ''; }
+function copyRefLink(){
+  var v=refLinkValue_(); if(!v){ toast('Link not ready yet'); return; }
+  var done=function(){ toast('Link copied ✦'); };
+  var fallback=function(){ var i=$('rl_link'); i.focus(); i.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('Press and hold the link to copy it'); } };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, fallback); else fallback();
+}
+function shareRefLink(){
+  var v=refLinkValue_(); if(!v || !navigator.share) return;
+  navigator.share({title:'My Magic Manager referral link', text:'Send me leads with my Magic Manager referral link:', url:v}).catch(function(){});
+}
+function resetRefLink(){
+  var b=$('rl_reset');
+  if(!RL_RESET_ARM){
+    RL_RESET_ARM=true; b.textContent='Tap again to reset';
+    setTimeout(function(){ RL_RESET_ARM=false; var x=$('rl_reset'); if(x) x.textContent='Reset link'; }, 3500);
+    return;
+  }
+  RL_RESET_ARM=false; b.textContent='Reset link'; $('rl_link').value='Resetting…';
+  google.script.run.withSuccessHandler(function(r){
+    if(r && r.ok){ $('rl_link').value=r.link; toast('New link ready — share it with your partners'); } else { $('rl_link').value=''; toast('Could not reset — try again'); }
+  }).withFailureHandler(function(){ $('rl_link').value=''; toast('Could not reset — try again'); }).resetReferralInboxCode();
+}
 // Shared by the file upload and the paste box: take a parsed grid, auto-map its
 // columns, and jump to the mapping stage.
 function liLoadGrid_(grid){
@@ -8165,6 +8331,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.35', d:'Sep 2026', notes:[
+    'One-tap lead referral: refer a lead to a partner who also uses Magic Manager and they can add it to their app from your email (Settings → Referral link; see Help).',
+    'Fixed the "Confirm received" button and other green labels that had lost their color.'
+  ]},
   { v:'1.5.34', d:'Sep 2026', notes:[
     'New Settings → Client portal look: accent color, light/custom background and font pairings for the page your clients see (default look unchanged).',
     'Source is now a dropdown, and Source / Event Type have + Add new… that also adds to your Settings lists.',
@@ -8212,7 +8382,9 @@ var HELP_FIXES = [
   { q:'A client says they paid, but I don’t see it',
     a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' },
   { q:'A client can’t open the invoice, receipt, or contract link',
-    a:'If your client sees <b>&ldquo;Sorry, unable to open the file at this time&rdquo;</b> (a Google page), the file itself is fine — it’s a Google Drive <b>sharing</b> setting on your account. Magic Manager shares every invoice/receipt/contract as &ldquo;anyone with the link can view,&rdquo; but a Google <b>Workspace</b> (business) account can be set to block sharing outside your organization &mdash; so <b>you</b> can open the file, but your client can’t.<ol><li>Open one of the files in your Google Drive → <b>Share</b> → look at <b>&ldquo;General access.&rdquo;</b> If it shows your company name or <b>Restricted</b> instead of <b>Anyone with the link</b>, that’s the cause.</li><li><b>Fix it:</b> if you manage your own Google account, turn on external sharing (<b>Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings</b>). If your email is managed by a company, ask their admin to <b>allow link-sharing outside the organization</b> for Drive.</li><li><b>In the meantime,</b> open the file in Drive, download it as a PDF, and email it to your client directly.</li></ol>A personal @gmail.com account allows this sharing by default, so it never happens there.' }
+    a:'If your client sees <b>&ldquo;Sorry, unable to open the file at this time&rdquo;</b> (a Google page), the file itself is fine — it’s a Google Drive <b>sharing</b> setting on your account. Magic Manager shares every invoice/receipt/contract as &ldquo;anyone with the link can view,&rdquo; but a Google <b>Workspace</b> (business) account can be set to block sharing outside your organization &mdash; so <b>you</b> can open the file, but your client can’t.<ol><li>Open one of the files in your Google Drive → <b>Share</b> → look at <b>&ldquo;General access.&rdquo;</b> If it shows your company name or <b>Restricted</b> instead of <b>Anyone with the link</b>, that’s the cause.</li><li><b>Fix it:</b> if you manage your own Google account, turn on external sharing (<b>Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings</b>). If your email is managed by a company, ask their admin to <b>allow link-sharing outside the organization</b> for Drive.</li><li><b>In the meantime,</b> open the file in Drive, download it as a PDF, and email it to your client directly.</li></ol>A personal @gmail.com account allows this sharing by default, so it never happens there.' },
+  { q:'Sending a lead to another Magic Manager user',
+    a:'When you refer a lead to a partner who also uses Magic Manager, your referral email can include a link that drops the lead straight into <b>their</b> app &mdash; no retyping. One-time setup:<ol><li><b>Your partner</b> opens <b>Settings → Referral link</b> and taps <b>Copy link</b> (or <b>Share</b>) to send it to you. This is <b>not</b> their app address, so it can’t open or expose their app.</li><li><b>You</b> open that partner (Leads → Partners) and paste it into <b>Their Magic Manager referral link</b>. A green check means it’s saved.</li><li>From then on, referral emails to that partner automatically include a <b>&ldquo;Magic Manager user? Tap to add this lead&rdquo;</b> link. (You can also place it yourself in a partner template with the <b>{referral_link}</b> merge field.)</li></ol><b>When you receive one:</b> tapping the link confirms it landed, then a <b>Referral inbox</b> card appears at the top of your Leads screen. Review it and tap <b>Add lead</b> (it comes in as a New lead, source Referral, with a same-day follow-up) or <b>Dismiss</b>. Nothing is added until you tap Add. If a link was shared by mistake, use <b>Reset link</b> on the Referral link screen.' }
 ];
 // The "What's changed" history shows the most recent versions and tucks the
 // rest behind "Show older versions", so a long release trail never overwhelms.
