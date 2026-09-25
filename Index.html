@@ -2888,12 +2888,14 @@ function upcomingFuHTML(upcoming){
           +'</div>'
           +(meta?'<div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(meta)+'</div>':'')
         +'</div>'
-        +'<span class="pill gold">'+esc(fmtFU(f))+'</span>'
+        +'<span class="pill gold">'+esc(isToday_(f)?todayPill_(f):fmtFU(f))+'</span>'
         +'</div>';
     }).join('')
     +'</div>';
   return h;
 }
+function todayPill_(d){ return (d.getHours()||d.getMinutes()) ? 'Today '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : 'Today'; }
+function isToday_(d){ return !!d && d.getTime()>=today0().getTime() && d.getTime()<today0().getTime()+864e5; }
 function renderFollowupDue(){
   var box=$('followupDueCard'); if(!box) return;
   var t=today0();
@@ -3440,8 +3442,9 @@ function renderLeads(){
     var byF=function(a,b){ return (pd(a[C.followup])||0)-(pd(b[C.followup])||0); };
     overdue.sort(byF); todays.sort(byF); upcoming.sort(byF);
     h+=section('Overdue', overdue, true);
-    h+=section('Due today', todays, false);
-    h+=upcomingFuHTML(upcoming);
+    // Today's follow-ups already have their action card up top (Today digest);
+    // here they just lead the Upcoming list as quiet rows so counts stay complete.
+    h+=upcomingFuHTML(todays.concat(upcoming));
     h+=staleFuHTML(stale);
     h+=compactLeadSection('No follow-up set', noneSet, false, leadRow_NoFollowup);
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>'+
@@ -8592,6 +8595,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.38', d:'Sep 2026', notes:[
+    'Leads list: leads due today now sit at the top of the Upcoming list with a "Today" pill, instead of repeating the Follow-Ups Due card above.'
+  ]},
   { v:'1.5.37', d:'Sep 2026', notes:[
     'Message templates are easier to find: a starter set you can add with one tap, a new Settings → Message templates screen, and a first-use hint in the email/text pickers.',
     'Settings is reorganized by purpose (Tools / Your settings / Help), with "Getting paid" split from "Payment methods".',

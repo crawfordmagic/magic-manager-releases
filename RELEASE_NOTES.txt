@@ -1,13 +1,3 @@
 What's new in this update:
 
-• Message templates are easier to find. Add a ready-made starter set with one tap, manage everything under Settings → Message templates, and get a short hint the first few times you open the email/text pickers. (Your existing templates are never changed.)
-
-• Settings is reorganized by purpose — Tools, Your settings, Help — and "Getting paid" is now separate from "Payment methods".
-
-• Adding a lead is instant. It saves in the background, and if something goes wrong your details come back in the form.
-
-• Add form: "Private Event" is now a default event type, and Event type and Lead source have "+ Add new…".
-
-• Follow-ups are clearer: a "Due today" section, an "Old follow-ups" group you can clear in one tap, and a History pill on Follow-Ups Due that shows your recent contacts right on the card. Cards in the Today summary open directly under their row.
-
-• Fixes: the date field no longer jumps away while you type, the follow-up time popup no longer moves the date to today, and Oracle no longer says nothing is overdue when booked clients have follow-ups due.
+• Cleaner leads list. Leads due today now sit at the top of "Upcoming Follow-ups" with a "Today" pill, instead of showing up twice on the same screen.
