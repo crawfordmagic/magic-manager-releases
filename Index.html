@@ -78,9 +78,6 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .tord:disabled{opacity:.2}
 .lnk{color:var(--gold-bright);text-decoration:underline;word-break:break-all}
 /* contact history */
-.sec-title.tog{cursor:pointer;-webkit-tap-highlight-color:transparent}
-.sec-title.tog .chev{color:var(--muted);font-size:15px;margin-left:8px;transition:transform .2s ease}
-.sec-title.tog.open .chev{transform:rotate(90deg)}
 .htoggle{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;
   padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
   color:var(--gold-bright);font-weight:600;font-size:13px}
@@ -2737,22 +2734,34 @@ function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml)
 }
 function compactLeadSection(title, arr, dangerHeader, rowFn, collapseKey){
   if(!arr.length) return '';
-  var body='<div style="margin-bottom:16px">'+arr.map(rowFn).join('')+'</div>';
-  if(collapseKey) return collapsibleSec_(collapseKey, title, arr.length, body);
+  var body=arr.map(rowFn).join('');
+  if(collapseKey) return '<div class="more-list" style="margin-bottom:16px">'+collapsibleSec_(collapseKey, title, arr.length, body, {noun:['lead','leads']})+'</div>';
+  body='<div style="margin-bottom:16px">'+body+'</div>';
   return '<div class="sec-title'+(dangerHeader?' danger':'')+'"><span class="t">'+title+' \u00b7 '+arr.length+'</span><span class="rule"></span></div>'+body;
 }
 // Long reference lists on the Leads page collapse to just their header + count.
 // Collapsed by default; the choice is remembered per device (localStorage, best
 // effort), and an active search opens them so a match is never hidden.
-function secIsOpen_(key){
-  if(Q && String(Q).trim()) return true;
-  try{ return localStorage.getItem('mm_sec_'+key)==='1'; }catch(e){ return false; }
+// opts: {defaultOpen, forceOpen, noSearch, extra} — defaults keep the Leads behavior.
+function secIsOpen_(key, opts){
+  opts=opts||{};
+  if(opts.forceOpen) return true;
+  if(!opts.noSearch && Q && String(Q).trim()) return true;
+  try{
+    var v=localStorage.getItem('mm_sec_'+key);
+    if(v===null) return !!opts.defaultOpen;
+    return v==='1';
+  }catch(e){ return !!opts.defaultOpen; }
 }
-function collapsibleSec_(key, title, count, bodyHtml){
-  var open=secIsOpen_(key);
-  return '<div class="sec-title tog'+(open?' open':'')+'" id="sec_h_'+key+'" onclick="toggleSec_(\''+key+'\')">'
-    +'<span class="t">'+title+' \u00b7 '+count+'</span><span class="rule"></span><span class="chev">&#8250;</span></div>'
-    +'<div id="sec_b_'+key+'" style="display:'+(open?'block':'none')+'">'+bodyHtml+'</div>';
+// Renders a row + detail panel in the same look as the Insights rows. Callers
+// wrap one or more of these in <div class="more-list">.
+// opts.noun = [singular, plural] for the count line under the title.
+function collapsibleSec_(key, title, count, bodyHtml, opts){
+  opts=opts||{};
+  var open=secIsOpen_(key, opts), noun=opts.noun||['item','items'];
+  return '<button type="button" class="more-row'+(open?' open':'')+'" id="sec_h_'+key+'" onclick="toggleSec_(\''+key+'\')">'
+    +'<span class="t"><span>'+title+'</span><span class="mr-sub">'+count+' '+(count===1?noun[0]:noun[1])+(opts.extra?' \u00b7 '+opts.extra:'')+'</span></span><span class="chev">&#8250;</span></button>'
+    +'<div id="sec_b_'+key+'" class="more-detail" style="padding:4px 12px;display:'+(open?'block':'none')+'">'+bodyHtml+'</div>';
 }
 function toggleSec_(key){
   var h=$('sec_h_'+key), b=$('sec_b_'+key); if(!h||!b) return;
@@ -2897,7 +2906,7 @@ function clearStaleUI(){
 function upcomingFuHTML(upcoming){
   if(!upcoming.length) return '';
   var h='';
-  h+='<div style="margin-bottom:16px">'
+  h+='<div>'
     +upcoming.map(function(L){
       var f=pd(L[C.followup]);
       var ed=pd(L[C.eventDate]);
@@ -2915,7 +2924,7 @@ function upcomingFuHTML(upcoming){
         +'</div>';
     }).join('')
     +'</div>';
-  return collapsibleSec_('upcoming','Upcoming Follow-ups',upcoming.length,h);
+  return '<div class="more-list" style="margin-bottom:16px">'+collapsibleSec_('upcoming','Upcoming Follow-ups',upcoming.length,h,{noun:['lead','leads']})+'</div>';
 }
 function todayPill_(d){ return (d.getHours()||d.getMinutes()) ? 'Today '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : 'Today'; }
 // True when a lead is already listed in one of the two "Follow-Ups Due" cards
@@ -6969,9 +6978,26 @@ function renderExpenses(){
   var emptyMsg;
   if(EXPENSE_CATEGORY_FILTER!=='all' || EXPENSE_RECEIPT_FILTER!=='all') emptyMsg = 'No expenses match those filters'+(periodLabel?' in '+periodLabel:'')+'.';
   else emptyMsg = periodLabel ? 'No expenses logged in '+periodLabel+'.' : 'No expenses logged yet.';
-  $('expenseList').innerHTML = sorted.length
-    ? sorted.map(expenseRowHtml).join('')
-    : '<div class="empty"><span class="star">&#10038;</span>'+emptyMsg+'</div>';
+  // Whole-year / all-time views group by month (all months collapsed by default;
+  // collapsed, monthly totals in the headers); a single month stays a flat list.
+  var listHtml;
+  if(!sorted.length) listHtml='<div class="empty"><span class="star">&#10038;</span>'+emptyMsg+'</div>';
+  else if(EXPENSE_VIEW_MONTH!=='all') listHtml=sorted.map(expenseRowHtml).join('');
+  else listHtml=expenseMonthGroupsHtml_(sorted, monthNames);
+  $('expenseList').innerHTML = listHtml;
+}
+function expenseMonthGroupsHtml_(sorted, monthNames){
+  var groups=[], byKey={};
+  sorted.forEach(function(E){
+    var d=pd(E.date), key=d ? d.getFullYear()+'-'+d.getMonth() : 'undated';
+    if(!byKey[key]){ byKey[key]={key:key, label:d ? monthNames[d.getMonth()]+' '+d.getFullYear() : 'No date', rows:[], total:0}; groups.push(byKey[key]); }
+    byKey[key].rows.push(E); byKey[key].total+=Number(E.amount)||0;
+  });
+  var filtered = EXPENSE_CATEGORY_FILTER!=='all' || EXPENSE_RECEIPT_FILTER!=='all';
+  return '<div class="more-list" style="margin-bottom:16px">'+groups.map(function(g, i){
+    return collapsibleSec_('exp_'+g.key, esc(g.label), g.rows.length, g.rows.map(expenseRowHtml).join(''),
+      {defaultOpen:false, forceOpen:filtered, noSearch:true, noun:['expense','expenses'], extra:esc(fmtMoney(g.total)||'$0')});
+  }).join('')+'</div>';
 }
 // Shared helpers for the Expenses badges.
 function sumExpensesWhere_(pred){
@@ -8630,6 +8656,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.41', d:'Sep 2026', notes:[
+    'Expenses are grouped by month in the year view: tap a month to open it, with the count and monthly total shown on each row.',
+    'Leads and Expenses collapsible sections now use the same row style as Insights, so everything looks and taps the same.'
+  ]},
   { v:'1.5.40', d:'Sep 2026', notes:[
     'Leads list: "Upcoming Follow-ups" and "No follow-up set" now collapse to a header with a count (tap to open; your choice is remembered, and searching opens them).'
   ]},

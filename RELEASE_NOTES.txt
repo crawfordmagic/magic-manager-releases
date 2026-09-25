@@ -1,3 +1,5 @@
 What's new in this update:
 
-• A shorter leads page. "Upcoming Follow-ups" and "No follow-up set" now fold down to a single line with a count — tap to open. Your choice is remembered, and searching opens them automatically so you never miss a match.
+• Expenses are easier to scan. In the year view, expenses are grouped by month — each month is a single row showing how many expenses it holds and the month's total. Tap a month to open it. (Pick a single month and you still get the plain list.)
+
+• A more consistent look. The collapsible sections on Leads and Expenses now use the same rows as Insights, so everything looks and taps the same way.
