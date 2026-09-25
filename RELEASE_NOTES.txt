@@ -1,3 +1,5 @@
 What's new in this update:
 
-• Date fields handle typing better. Typing a year no longer saves half-typed years along the way, a two-digit year like "26" becomes 2026 when you tab away, and an impossible year (like 1902) is now refused with a message instead of being saved. This applies to the event date and follow-up date on the Add form and in the lead editor.
+• Security: your leads, contacts and settings are now protected on the server by your private app key, not just hidden on the page. Nothing changes in how you use the app, and the links you send clients (contracts, payments, store) work exactly as before.
+
+• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. If a file is missed, the app now shows an "Update not finished" message telling you what to replace (your data is never affected).

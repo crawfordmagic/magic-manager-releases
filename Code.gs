@@ -115,7 +115,7 @@ function cardFeeRate_() {
 
 /* ---------- Settings (per-install onboarding) ----------
  * CONFIG_FIELDS_ drives the in-app Settings screen (labels + help text) and the
- * "Settings" sheet. getSettings()/saveSettings() are called from the UI so a new
+ * "Settings" sheet. getSettings_()/saveSettings_() are called from the UI so a new
  * owner can enter their own info without touching code or the raw sheet.
  */
 // Setup screen is grouped into collapsible sections (SETTINGS_SECTIONS_ below);
@@ -220,11 +220,11 @@ function getRawSettings_() {
   return out;
 }
 
-function getSettings() {
+function getSettings_() {
   return { config: getConfig_(), raw: getRawSettings_(), fields: CONFIG_FIELDS_, sections: SETTINGS_SECTIONS_ };
 }
 
-function saveSettings(values) {
+function saveSettings_(values) {
   var sh = settingsSheet_();
   var last = sh.getLastRow();
   var keyRow = {};
@@ -355,7 +355,7 @@ function portalThemeHead_(themeStr) {
   return html + '<style>' + css + '</style>';
 }
 // Settings live preview: same computation as the real page.
-function previewPortalTheme(themeStr) {
+function previewPortalTheme_(themeStr) {
   var th = portalTheme_(themeStr);
   var d = { vars: {}, fonts: null, warn: '' };
   return th ? th : d;
@@ -391,7 +391,7 @@ function businessDocsResult_() {
 // Upload (or replace) the W-9 / proof of insurance. Stores it in Drive, shares it
 // view-only by link, and records the URL + file id in config so the client page
 // can link to it. Returns the two current doc URLs.
-function uploadBusinessDoc(kind, base64Data, mimeType, fileName) {
+function uploadBusinessDoc_(kind, base64Data, mimeType, fileName) {
   try {
     var spec = BUSINESS_DOC_KINDS_[String(kind)];
     if (!spec) return JSON.stringify({ ok: false, error: 'Unknown document type.' });
@@ -403,7 +403,7 @@ function uploadBusinessDoc(kind, base64Data, mimeType, fileName) {
     var file = businessDocsFolder_().createFile(blob);
     shareAnyoneWithLink_(file);
     var vals = {}; vals[spec.urlKey] = file.getUrl(); vals[spec.idKey] = file.getId();
-    saveSettings(vals); // persists to the Settings sheet + clears the config cache
+    saveSettings_(vals); // persists to the Settings sheet + clears the config cache
     return businessDocsResult_();
   } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
@@ -411,14 +411,14 @@ function uploadBusinessDoc(kind, base64Data, mimeType, fileName) {
 }
 
 // Remove a stored W-9 / proof of insurance: trash the Drive file and clear config.
-function removeBusinessDoc(kind) {
+function removeBusinessDoc_(kind) {
   try {
     var spec = BUSINESS_DOC_KINDS_[String(kind)];
     if (!spec) return JSON.stringify({ ok: false, error: 'Unknown document type.' });
     var oldId = getConfig_()[spec.idKey];
     if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
     var vals = {}; vals[spec.urlKey] = ''; vals[spec.idKey] = '';
-    saveSettings(vals);
+    saveSettings_(vals);
     return businessDocsResult_();
   } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.42';
+var APP_VERSION = '1.5.43';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -517,7 +517,7 @@ function getLicenseState_() {
   return { ok: false, status: 'error', message: 'Could not verify your license. Check your connection and try again.' };
 }
 
-function activateLicense(key) {
+function activateLicense_(key) {
   var props = PropertiesService.getScriptProperties();
   if (typeof key === 'string') props.setProperty('LICENSE_KEY', key.trim());
   try { props.deleteProperty('LICENSE_CACHE'); } catch (e) {}
@@ -527,7 +527,7 @@ function activateLicense(key) {
 // Self-service free trial. Asks the hub for a trial tied to this email (the hub
 // gives one per email), then activates the returned key. Called from the
 // activation page's "Start free trial" form.
-function startTrial(email, name) {
+function startTrial_(email, name) {
   var props = PropertiesService.getScriptProperties();
   var hub = licenseHubUrl_();
   if (!hub) return { ok: false, message: 'Free trials aren’t available for this app.' };
@@ -583,7 +583,7 @@ function startTrial(email, name) {
 // What the in-app trial banner needs: whether this is a trial, days remaining,
 // the purchase link, and which warnings have already been shown (so the 3-day and
 // 1-day notices each appear once). Non-trial installs get {trial:false}.
-function getTrialInfo() {
+function getTrialInfo_() {
   var props = PropertiesService.getScriptProperties();
   var ends = Number(props.getProperty('TRIAL_ENDS_AT')) || 0;
   if (!ends) return { trial: false };
@@ -601,7 +601,7 @@ function getTrialInfo() {
 
 // Remember that a trial warning (the 3-day or 1-day one) has been shown, so it
 // doesn't reappear on every load.
-function markTrialWarned(which) {
+function markTrialWarned_(which) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty(String(which) === '1' ? 'TRIAL_WARN_1' : 'TRIAL_WARN_3', '1');
   return JSON.stringify({ ok: true });
@@ -613,7 +613,7 @@ function markTrialWarned(which) {
 
 // Compares APP_VERSION against the latest version the hub reported (captured on
 // the daily license check) and returns what the "update available" banner needs.
-function getUpdateInfo() {
+function getUpdateInfo_() {
   var props = PropertiesService.getScriptProperties();
   var latest = (props.getProperty('LATEST_VERSION') || '').trim();
   return {
@@ -632,14 +632,14 @@ function getUpdateInfo() {
 // hides it for a number of days (stored as a timestamp in Script Properties, so
 // the choice is remembered across the user's devices for this install).
 // dismissUpdateVersion hides it until a version newer than the skipped one ships.
-function snoozeUpdate(days) {
+function snoozeUpdate_(days) {
   var d = Number(days) || 0;
   if (d < 1) d = 7;
   var until = Date.now() + d * 24 * 60 * 60 * 1000;
   PropertiesService.getScriptProperties().setProperty('UPDATE_SNOOZE_UNTIL', String(until));
   return JSON.stringify({ ok: true, snoozedUntil: until });
 }
-function dismissUpdateVersion() {
+function dismissUpdateVersion_() {
   var props = PropertiesService.getScriptProperties();
   var latest = (props.getProperty('LATEST_VERSION') || '').trim();
   if (latest) props.setProperty('UPDATE_DISMISSED_VERSION', latest);
@@ -687,7 +687,7 @@ function checkForUpdatesNow() {
     ui.alert('Check for updates', 'Couldn’t reach the update server just now — check your connection and try again in a few minutes.', ui.ButtonSet.OK);
     return;
   }
-  var info = getUpdateInfo();
+  var info = getUpdateInfo_();
   if (info.updateAvailable) {
     var msg = 'Version ' + info.latest + ' is available — you’re on ' + info.current + '.';
     if (info.notes) msg += '\n\nWhat’s new:\n' + info.notes;
@@ -706,7 +706,7 @@ function escHtml_(s) {
   });
 }
 
-function activationPageHtml_(lic) {
+function activationPageHtml_(lic, appKey) {
   var biz = getConfig_().BUSINESS_NAME || 'this app';
   var status = (lic && lic.status) || '';
   var expired = (status === 'expired');
@@ -762,18 +762,19 @@ function activationPageHtml_(lic) {
   }
 
   p.push('<script>');
+  p.push('var K=' + JSON.stringify(String(appKey || '')).replace(/</g, '\\u003c') + ';');
   p.push('function act(){var k=document.getElementById("k").value.trim();if(!k)return;');
   p.push('var b=document.getElementById("b");b.disabled=true;b.textContent="Checking…";document.getElementById("e").textContent="";');
   p.push('google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent=(r&&r.message)||"That key could not be verified.";}})');
   p.push('.withFailureHandler(function(){b.disabled=false;b.textContent="Activate";document.getElementById("e").textContent="Something went wrong — try again.";})');
-  p.push('.activateLicense(k);}');
+  p.push('.api(K,"activateLicense",[k]);}');
   p.push('document.getElementById("k").addEventListener("keydown",function(e){if(e.key==="Enter")act();});');
   if (showTrial) {
     p.push('function startTrialUI(){var nm=document.getElementById("tn").value.trim();var em=document.getElementById("te").value.trim();var tb=document.getElementById("tb");var ee=document.getElementById("tee");ee.textContent="";if(!nm){ee.textContent="Enter your name.";return;}if(!em){ee.textContent="Enter your email.";return;}');
     p.push('tb.disabled=true;tb.textContent="Starting…";');
     p.push('google.script.run.withSuccessHandler(function(r){if(r&&r.ok){location.reload();}else{tb.disabled=false;tb.textContent="Start free trial";ee.textContent=(r&&r.message)||"Could not start your trial.";}})');
     p.push('.withFailureHandler(function(){tb.disabled=false;tb.textContent="Start free trial";ee.textContent="Something went wrong — try again.";})');
-    p.push('.startTrial(em,nm);}');
+    p.push('.api(K,"startTrial",[em,nm]);}');
     p.push('document.getElementById("tn").addEventListener("keydown",function(e){if(e.key==="Enter")startTrialUI();});');
     p.push('document.getElementById("te").addEventListener("keydown",function(e){if(e.key==="Enter")startTrialUI();});');
   }
@@ -850,7 +851,7 @@ function promptLicenseKey() {
   var ui = SpreadsheetApp.getUi();
   var r = ui.prompt('Enter license key', 'Paste the license key you received when you purchased:', ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return;
-  var res = activateLicense(r.getResponseText());
+  var res = activateLicense_(r.getResponseText());
   ui.alert(res.ok ? 'License activated ✦' : 'Not activated', res.message || '', ui.ButtonSet.OK);
 }
 
@@ -967,18 +968,89 @@ function doGet(e) {
 
   var lic = getLicenseState_();
   if (!lic.ok) {
-    return HtmlService.createHtmlOutput(activationPageHtml_(lic))
+    return HtmlService.createHtmlOutput(activationPageHtml_(lic, providedKey))
       .setTitle(getConfig_().BUSINESS_NAME + ' — Activate')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   var indexTpl = HtmlService.createTemplateFromFile('Index');
+  // Code.gs and Index.html are updated together by pasting files. If Index.html is still the
+  // old one (it calls server functions that are now private), say so plainly instead of
+  // showing an app that silently can't load anything.
+  if (indexTpl.getRawContent().indexOf('var PAGE_API = ' + PAGE_API_) < 0) {
+    return HtmlService.createHtmlOutput(
+      '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:60px 20px;text-align:center;color:#ddd;background:#0B0B10;min-height:100vh">' +
+      '<h2 style="color:#C9A050">Update not finished</h2>' +
+      '<p>The new <b>Code.gs</b> is in place, but <b>Index.html</b> is still the old version. In the Apps Script editor, replace <b>Index.html</b> with the new file (and Sign.html, Store.html and appsscript.json if you haven\u2019t), save, then choose Deploy \u2192 Manage deployments \u2192 New version.</p>' +
+      '<p style="color:#888;font-size:13px">Your data is safe and untouched.</p></div>'
+    ).setTitle('Update not finished').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
   indexTpl.cfg = getConfig_();
+  indexTpl.appKey = providedKey;
+  indexTpl.serverApi = PAGE_API_;
   return indexTpl.evaluate()
     .setTitle(getConfig_().BUSINESS_NAME + ' — Leads')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ---------- Private API gate ----------
+ * The web app is deployed to run as the owner and open to "Anyone" (so clients can
+ * reach the sign page), which means EVERY top-level function whose name does not end in _
+ * can be called from the browser by anyone who loads any public page. The ?key= check in
+ * doGet only guards the page load, not those calls. So the owner-only functions are all
+ * named with a trailing _ (Apps Script hides those from the browser) and the main app reaches
+ * them ONLY through api(), which checks the private access key first.
+ * To add a new owner-only endpoint: define it as foo_() and add foo: foo_ to API_ below.
+ * The few functions clients and the store page must call directly (sign, pay, store checkout)
+ * stay public on purpose. */
+// Bump when the page<->server call contract changes; Index.html carries the same number.
+var PAGE_API_ = 2;
+
+var API_ = {
+  getSettings: getSettings_, saveSettings: saveSettings_, previewPortalTheme: previewPortalTheme_,
+  uploadBusinessDoc: uploadBusinessDoc_, removeBusinessDoc: removeBusinessDoc_, activateLicense: activateLicense_,
+  startTrial: startTrial_, getTrialInfo: getTrialInfo_, markTrialWarned: markTrialWarned_, getUpdateInfo: getUpdateInfo_,
+  snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_,
+  confirmReportedPayment: confirmReportedPayment_, dismissReportedPayment: dismissReportedPayment_,
+  recordManualStoreSale: recordManualStoreSale_, setStoreSaleStatus: setStoreSaleStatus_, deleteStoreSale: deleteStoreSale_,
+  updateStoreSale: updateStoreSale_, storeListProducts: storeListProducts_, storeSaveProduct: storeSaveProduct_,
+  storeDeleteProduct: storeDeleteProduct_, addExpense: addExpense_, addRecurringExpense: addRecurringExpense_,
+  stopRecurringExpense: stopRecurringExpense_, editRecurringExpense: editRecurringExpense_, importExpensesBatch: importExpensesBatch_,
+  bulkSetAdSource: bulkSetAdSource_, updateExpense: updateExpense_, deleteExpense: deleteExpense_,
+  uploadExpenseReceipt: uploadExpenseReceipt_, deleteExpenseReceipt: deleteExpenseReceipt_, deleteLog: deleteLog_,
+  updateLog: updateLog_, logContact: logContact_, addStarterTemplates: addStarterTemplates_, moveTemplate: moveTemplate_,
+  addTemplate: addTemplate_, updateTemplate: updateTemplate_, deleteTemplate: deleteTemplate_,
+  addPartnerTemplate: addPartnerTemplate_, updatePartnerTemplate: updatePartnerTemplate_, deletePartnerTemplate: deletePartnerTemplate_,
+  moveTextTemplate: moveTextTemplate_, addTextTemplate: addTextTemplate_, updateTextTemplate: updateTextTemplate_,
+  deleteTextTemplate: deleteTextTemplate_, addPartnerTextTemplate: addPartnerTextTemplate_, updatePartnerTextTemplate: updatePartnerTextTemplate_,
+  deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_, getTrash: getTrash_,
+  restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
+  startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, syncContactsToGoogle: syncContactsToGoogle_,
+  setTaxRate: setTaxRate_, getLeads: getLeads_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
+  saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, logPartnerContact: logPartnerContact_,
+  updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
+  updatePartner: updatePartner_, deletePartner: deletePartner_, getReferralInboxLink: getReferralInboxLink_,
+  resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
+  addTask: addTask_, toggleTask: toggleTask_, deleteTask: deleteTask_, updateTask: updateTask_,
+  duplicateLeadAsNewBooking: duplicateLeadAsNewBooking_, updateLead: updateLead_, clearStaleFollowups: clearStaleFollowups_,
+  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_,
+};
+
+function api(key, name, args) {
+  var k = String(PropertiesService.getScriptProperties().getProperty('APP_ACCESS_KEY') || '');
+  if (!k || String(key || '') !== k) throw new Error('Not authorized');
+  if (!Object.prototype.hasOwnProperty.call(API_, name)) throw new Error('Unknown method: ' + name);
+  return API_[name].apply(null, args || []);
+}
+
+/* Editor-only guard for the manual maintenance scripts, which have to keep public names (a
+ * name ending in _ is hidden from the editor's Run menu). Run from the editor, the active
+ * user is the owner; an anonymous web caller has no email. */
+function ownerOnly_() {
+  var a = Session.getActiveUser().getEmail();
+  if (!a || a !== Session.getEffectiveUser().getEmail()) throw new Error('Owner only');
 }
 
 /* ---------- Contract generation ---------- */
@@ -1949,7 +2021,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
 
   return { copy: copy, doc: doc, pdfFile: pdfFile, deposit: depositFinal, balance: balanceFinal, price: price, paymentMethod: paymentMethod };
 }
-function generateContract(rowNum) {
+function generateContract_(rowNum) {
   try {
     const sh = sheet_();
     const heads = headers_(sh);
@@ -2262,7 +2334,7 @@ function notifyOwnerReportedPayment_(heads, rowValues, kind) {
 // Owner confirmed (in the app) that a reported payment really arrived: marks it
 // received + dated and clears the report flag. Reuses updateLead so the receipt
 // generates exactly as it would from a manual "received" flip.
-function confirmReportedPayment(rowNum, kind) {
+function confirmReportedPayment_(rowNum, kind) {
   kind = (kind === 'balance') ? 'balance' : 'deposit';
   rowNum = Number(rowNum);
   // Use the date the client REPORTED paying (≈ when the money actually moved) as
@@ -2277,15 +2349,15 @@ function confirmReportedPayment(rowNum, kind) {
   var updates = kind === 'balance'
     ? { 'Balance Paid': 'Yes', 'Balance Paid Date': dateYmd, 'Balance Reported': '' }
     : { 'Deposit Received': 'Yes', 'Deposit Received Date': dateYmd, 'Deposit Reported': '' };
-  updateLead(rowNum, updates);
+  updateLead_(rowNum, updates);
   return JSON.stringify({ ok: true });
 }
 
 // Owner dismissed a reported payment (mistaken tap, or they'll handle it manually)
 // — just clears the report flag; nothing is marked received.
-function dismissReportedPayment(rowNum, kind) {
+function dismissReportedPayment_(rowNum, kind) {
   kind = (kind === 'balance') ? 'balance' : 'deposit';
-  updateLead(Number(rowNum), kind === 'balance' ? { 'Balance Reported': '' } : { 'Deposit Reported': '' });
+  updateLead_(Number(rowNum), kind === 'balance' ? { 'Balance Reported': '' } : { 'Deposit Reported': '' });
   return JSON.stringify({ ok: true });
 }
 
@@ -2432,7 +2504,7 @@ function autoConfirmCardPayment_(token, kind) {
       var recCol = heads.indexOf(kind === 'balance' ? 'Balance Paid' : 'Deposit Received') + 1;
       var already = recCol > 0 && String(sh.getRange(rowNum, recCol).getValue()) === 'Yes';
       if (already) return; // already received — don't re-run / re-generate the receipt
-      confirmReportedPayment(rowNum, kind);
+      confirmReportedPayment_(rowNum, kind);
       return;
     }
   }
@@ -2572,7 +2644,7 @@ function getStoreProducts_() {
 
 // Owner logs a sale by hand — e.g. a Magic Manager sale via the Stripe Payment
 // Link, which never passes through the in-app store. Returns the fresh list.
-function recordManualStoreSale(name, email, product, amount, method, dateYmd, received) {
+function recordManualStoreSale_(name, email, product, amount, method, dateYmd, received) {
   try {
     var nm = String(name || '').trim();
     var amt = Number(String(amount == null ? '' : amount).replace(/[^0-9.]/g, '')) || 0;
@@ -2588,7 +2660,7 @@ function recordManualStoreSale(name, email, product, amount, method, dateYmd, re
 }
 
 // Mark a store sale Received / Pending (Status column). Returns the fresh list.
-function setStoreSaleStatus(row, status) {
+function setStoreSaleStatus_(row, status) {
   try {
     row = Number(row) || 0;
     var sh = storeSalesSheet_();
@@ -2601,7 +2673,7 @@ function setStoreSaleStatus(row, status) {
   }
 }
 
-function deleteStoreSale(row) {
+function deleteStoreSale_(row) {
   try {
     row = Number(row) || 0;
     var sh = storeSalesSheet_();
@@ -2615,7 +2687,7 @@ function deleteStoreSale(row) {
 
 // Edit a store sale in place — e.g. adjust the amount after a discount. Rewrites
 // the whole row (keeps its position). Returns the fresh list.
-function updateStoreSale(row, name, email, product, amount, method, dateYmd, received) {
+function updateStoreSale_(row, name, email, product, amount, method, dateYmd, received) {
   try {
     row = Number(row) || 0;
     var sh = storeSalesSheet_();
@@ -2701,7 +2773,7 @@ function recordStoreOrder(productId, buyerName, buyerEmail, method) {
  * editing. Each save/delete returns the fresh list so the client re-renders
  * from one source of truth. baseUrl lets the client build each product's link. */
 
-function storeListProducts() {
+function storeListProducts_() {
   try {
     var sh = storeProductsSheet_();
     var last = sh.getLastRow();
@@ -2726,7 +2798,7 @@ function storeListProducts() {
 }
 
 // Add (no id) or update (matching id) one product, then return the fresh list.
-function storeSaveProduct(product) {
+function storeSaveProduct_(product) {
   try {
     product = product || {};
     var name = String(product.name || '').trim();
@@ -2750,14 +2822,14 @@ function storeSaveProduct(product) {
       id = newStoreId_();
       sh.appendRow([id, name, price, description, active]);
     }
-    return storeListProducts();
+    return storeListProducts_();
   } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
   }
 }
 
 // Delete one product by id, then return the fresh list.
-function storeDeleteProduct(id) {
+function storeDeleteProduct_(id) {
   try {
     id = String(id || '').trim();
     if (!id) return JSON.stringify({ ok: false, error: 'No product specified.' });
@@ -2769,7 +2841,7 @@ function storeDeleteProduct(id) {
         if (String(ids[i][0]).trim() === id) { sh.deleteRow(i + 2); break; }
       }
     }
-    return storeListProducts();
+    return storeListProducts_();
   } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
   }
@@ -2851,7 +2923,7 @@ function receiptYearFolder_(parentFolder, year) {
   var it = parentFolder.getFoldersByName(name);
   return it.hasNext() ? it.next() : parentFolder.createFolder(name);
 }
-// Shared by updateExpense (when a date edit moves a receipt into a
+// Shared by updateExpense_ (when a date edit moves a receipt into a
 // different year) and the one-time backfill below (for receipts uploaded
 // before year-folders existed at all). Safe to call repeatedly — a no-op
 // once the file is already in the right place.
@@ -2895,7 +2967,7 @@ function migrateReceiptsToYearFolders_() {
         ensureFileInYearFolder_(file, targetFolder);
       } catch (e) { /* skip this one receipt, keep going */ }
     }
-  } catch (e) { /* never let this block getLeads() */ }
+  } catch (e) { /* never let this block getLeads_() */ }
   props.setProperty('RECEIPTS_YEAR_MIGRATED', 'true');
 }
 
@@ -2949,7 +3021,7 @@ function rememberVendorCategory_(vendor, category) {
   props.setProperty('VENDOR_CATEGORY_MEMORY', JSON.stringify(mem));
 }
 
-function addExpense(date, vendor, amount, category, notes, adSource) {
+function addExpense_(date, vendor, amount, category, notes, adSource) {
   const sh = expensesSheet_();
   sh.appendRow([date ? parseYMD_(date) : new Date(), vendor || '', Number(amount) || 0, category || 'Other', notes || '', 'Manual', new Date(), '', '', adSource || '']);
   rememberVendorCategory_(vendor, category);
@@ -3023,7 +3095,7 @@ function generateRecurringExpenses_() {
   if (toAppend.length) exp.getRange(exp.getLastRow() + 1, 1, toAppend.length, 10).setValues(toAppend);
   return generated;
 }
-function addRecurringExpense(vendor, amount, category, notes, adSource, freq, startYmd, endYmd, lastGenYmd) {
+function addRecurringExpense_(vendor, amount, category, notes, adSource, freq, startYmd, endYmd, lastGenYmd) {
   var sh = recurringSheet_();
   var id = 'RX-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   var start = startYmd ? parseYMD_(startYmd) : new Date();
@@ -3058,7 +3130,7 @@ function getRecurring_() {
   }
   return out;
 }
-function stopRecurringExpense(row) {
+function stopRecurringExpense_(row) {
   recurringSheet_().getRange(Number(row), 2).setValue(false); // Active = false
   return JSON.stringify({ expenses: getExpenses_(), recurring: getRecurring_() });
 }
@@ -3068,7 +3140,7 @@ function stopRecurringExpense(row) {
 // altered or re-posted — a changed amount/frequency/end takes effect from the
 // next post forward. Re-runs the generator in case the end date was pushed out
 // or the frequency changed and something is now due.
-function editRecurringExpense(row, vendor, amount, category, notes, adSource, freq, startYmd, endYmd) {
+function editRecurringExpense_(row, vendor, amount, category, notes, adSource, freq, startYmd, endYmd) {
   var sh = recurringSheet_();
   var r = Number(row);
   var start = startYmd ? parseYMD_(startYmd) : new Date();
@@ -3085,7 +3157,7 @@ function editRecurringExpense(row, vendor, amount, category, notes, adSource, fr
 // rather than one appendRow per transaction. Imported rows never carry
 // an ad-source attribution — that's a manual, per-transaction judgment
 // call, not something a bank CSV can tell us.
-function importExpensesBatch(rowsJson) {
+function importExpensesBatch_(rowsJson) {
   const sh = expensesSheet_();
   const rows = JSON.parse(rowsJson);
   const now = new Date();
@@ -3102,7 +3174,7 @@ function importExpensesBatch(rowsJson) {
 // column, never touching date/vendor/amount/category/notes, so a batch
 // backfill can't accidentally clobber anything else on rows it's meant to
 // leave alone otherwise.
-function bulkSetAdSource(updatesJson) {
+function bulkSetAdSource_(updatesJson) {
   const sh = expensesSheet_();
   const updates = JSON.parse(updatesJson);
   updates.forEach(function(u) {
@@ -3113,7 +3185,7 @@ function bulkSetAdSource(updatesJson) {
   return getExpensesScoped_();
 }
 
-function updateExpense(rowNum, date, vendor, amount, category, notes, adSource) {
+function updateExpense_(rowNum, date, vendor, amount, category, notes, adSource) {
   const sh = expensesSheet_();
   if (rowNum < 2 || rowNum > sh.getLastRow()) return getExpensesScoped_();
   sh.getRange(rowNum, 1, 1, 5).setValues([[date ? parseYMD_(date) : '', vendor || '', Number(amount) || 0, category || 'Other', notes || '']]);
@@ -3135,7 +3207,7 @@ function updateExpense(rowNum, date, vendor, amount, category, notes, adSource) 
   return getExpensesScoped_();
 }
 
-function deleteExpense(rowNum) {
+function deleteExpense_(rowNum) {
   const sh = expensesSheet_();
   if (rowNum >= 2 && rowNum <= sh.getLastRow()) {
     // Trash any attached receipt too — otherwise deleting the expense
@@ -3150,7 +3222,7 @@ function deleteExpense(rowNum) {
 // Receipts are stored as real Drive files (not inline in the sheet — a
 // base64 image/PDF would bloat every read of the sheet even when nobody
 // is looking at it). The row only holds a URL + file ID pointer.
-function uploadExpenseReceipt(rowNum, base64Data, mimeType, fileName) {
+function uploadExpenseReceipt_(rowNum, base64Data, mimeType, fileName) {
   const sh = expensesSheet_();
   if (rowNum < 2 || rowNum > sh.getLastRow()) return getExpensesScoped_();
   // Replacing an existing receipt: trash the old file first so re-uploads
@@ -3167,7 +3239,7 @@ function uploadExpenseReceipt(rowNum, base64Data, mimeType, fileName) {
   return getExpensesScoped_();
 }
 
-function deleteExpenseReceipt(rowNum) {
+function deleteExpenseReceipt_(rowNum) {
   const sh = expensesSheet_();
   if (rowNum < 2 || rowNum > sh.getLastRow()) return getExpensesScoped_();
   var fileId = sh.getRange(rowNum, 9).getValue();
@@ -3288,14 +3360,14 @@ function findLogRow_(sh, id) {
   return 0;
 }
 
-function deleteLog(id) {
+function deleteLog_(id) {
   const sh = logSheet_();
   const rowNum = findLogRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
   return getLogsScoped_();
 }
 
-function updateLog(id, whenStr, note) {
+function updateLog_(id, whenStr, note) {
   const sh = logSheet_();
   const rowNum = findLogRow_(sh, id);
   if (!rowNum) return getLogsScoped_();
@@ -3316,6 +3388,7 @@ function updateLog(id, whenStr, note) {
  * history. Safe to run more than once.
  */
 function migrateContactLogKeys() {
+  ownerOnly_();
   const ls = logSheet_();
   const last = ls.getLastRow();
   if (last < 2) return 'Nothing to migrate.';
@@ -3342,7 +3415,7 @@ function migrateContactLogKeys() {
   return 'Migrated ' + fixed + ', already fine ' + alreadyOk + ', could not match ' + orphaned + '.';
 }
 
-function logContact(leadKey, customer, type, note) {
+function logContact_(leadKey, customer, type, note) {
   logSheet_().appendRow([new Date(), leadKey, customer, type, note || '', Utilities.getUuid()]);
   return getLogsScoped_();
 }
@@ -3404,7 +3477,7 @@ function templateNamesOn_(sheetName) {
   return have;
 }
 // The opt-in "Add starter templates" button (Settings -> Message templates).
-function addStarterTemplates() {
+function addStarterTemplates_() {
   var lock = LockService.getScriptLock();
   try { lock.waitLock(10000); } catch (e) {}
   try {
@@ -3454,7 +3527,7 @@ function getTemplates_() {
   t.sort(function (a, b) { return a._so - b._so; });
   return t.map(function (x) { return { id: x.id, name: x.name, subject: x.subject, body: x.body }; });
 }
-function moveTemplate(id, direction) {
+function moveTemplate_(id, direction) {
   const sh = templatesSheet_();
   const values = sh.getDataRange().getValues();
   var list = [];
@@ -3498,21 +3571,21 @@ function findTemplateRow_(sh, id) {
   }
   return 0;
 }
-function addTemplate(name, subject, body, id) {
+function addTemplate_(name, subject, body, id) {
   const sh = templatesSheet_();
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sh.appendRow([created, name, subject, body]);
   return getTemplatesScoped_();
 }
-function updateTemplate(id, name, subject, body) {
+function updateTemplate_(id, name, subject, body) {
   const sh = templatesSheet_();
   const rowNum = findTemplateRow_(sh, id);
   if (!rowNum) return getTemplatesScoped_();
   sh.getRange(rowNum, 2, 1, 3).setValues([[name, subject, body]]);
   return getTemplatesScoped_();
 }
-function deleteTemplate(id) {
+function deleteTemplate_(id) {
   const sh = templatesSheet_();
   const rowNum = findTemplateRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -3555,21 +3628,21 @@ function findPartnerTemplateRow_(sh, id) {
   }
   return 0;
 }
-function addPartnerTemplate(name, subject, body, id) {
+function addPartnerTemplate_(name, subject, body, id) {
   const sh = partnerTemplatesSheet_();
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sh.appendRow([created, name, subject, body]);
   return getPartnerTemplatesScoped_();
 }
-function updatePartnerTemplate(id, name, subject, body) {
+function updatePartnerTemplate_(id, name, subject, body) {
   const sh = partnerTemplatesSheet_();
   const rowNum = findPartnerTemplateRow_(sh, id);
   if (!rowNum) return getPartnerTemplatesScoped_();
   sh.getRange(rowNum, 2, 1, 3).setValues([[name, subject, body]]);
   return getPartnerTemplatesScoped_();
 }
-function deletePartnerTemplate(id) {
+function deletePartnerTemplate_(id) {
   const sh = partnerTemplatesSheet_();
   const rowNum = findPartnerTemplateRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -3606,7 +3679,7 @@ function getTextTemplates_() {
   t.sort(function (a, b) { return a._so - b._so; });
   return t.map(function (x) { return { id: x.id, name: x.name, body: x.body }; });
 }
-function moveTextTemplate(id, direction) {
+function moveTextTemplate_(id, direction) {
   const sh = textTplSheet_();
   const values = sh.getDataRange().getValues();
   var list = [];
@@ -3645,21 +3718,21 @@ function findTextTplRow_(sh, id) {
   }
   return 0;
 }
-function addTextTemplate(name, body, id) {
+function addTextTemplate_(name, body, id) {
   const sh = textTplSheet_();
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sh.appendRow([created, name, body]);
   return getTextTemplatesScoped_();
 }
-function updateTextTemplate(id, name, body) {
+function updateTextTemplate_(id, name, body) {
   const sh = textTplSheet_();
   const rowNum = findTextTplRow_(sh, id);
   if (!rowNum) return getTextTemplatesScoped_();
   sh.getRange(rowNum, 2, 1, 2).setValues([[name, body]]);
   return getTextTemplatesScoped_();
 }
-function deleteTextTemplate(id) {
+function deleteTextTemplate_(id) {
   const sh = textTplSheet_();
   const rowNum = findTextTplRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -3702,21 +3775,21 @@ function findPartnerTextTplRow_(sh, id) {
   }
   return 0;
 }
-function addPartnerTextTemplate(name, body, id) {
+function addPartnerTextTemplate_(name, body, id) {
   const sh = partnerTextTplSheet_();
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sh.appendRow([created, name, body]);
   return getPartnerTextTemplatesScoped_();
 }
-function updatePartnerTextTemplate(id, name, body) {
+function updatePartnerTextTemplate_(id, name, body) {
   const sh = partnerTextTplSheet_();
   const rowNum = findPartnerTextTplRow_(sh, id);
   if (!rowNum) return getPartnerTextTemplatesScoped_();
   sh.getRange(rowNum, 2, 1, 2).setValues([[name, body]]);
   return getPartnerTextTemplatesScoped_();
 }
-function deletePartnerTextTemplate(id) {
+function deletePartnerTextTemplate_(id) {
   const sh = partnerTextTplSheet_();
   const rowNum = findPartnerTextTplRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -3785,7 +3858,7 @@ function removeBookingEventForTrash_(sh, heads, rowValues) {
   rowValues[idIdx] = '';
 }
 
-function deleteLead(rowNum) {
+function deleteLead_(rowNum) {
   const sh = sheet_();
   const heads = headers_(sh);
   const rowValues = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
@@ -3811,7 +3884,7 @@ function deleteLead(rowNum) {
 // Read-ready trash list for the client — same shape as buildLeadsArray_
 // (header -> formatted value) plus trashId/deletedAt/daysRemaining, so the
 // Recycle Bin UI can render a lead card without any client-side parsing.
-function getTrash() {
+function getTrash_() {
   const sh = trashSheet_();
   const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
   const last = sh.getLastRow();
@@ -3843,9 +3916,9 @@ function getTrash() {
   out.sort(function (a, b) { return a._deletedAt < b._deletedAt ? 1 : -1; });
   return out;
 }
-function getTrashScoped_() { return JSON.stringify({ trash: getTrash() }); }
+function getTrashScoped_() { return JSON.stringify({ trash: getTrash_() }); }
 
-function restoreLead(trashId) {
+function restoreLead_(trashId) {
   const trash = trashSheet_();
   const trashRow = findTrashRow_(trash, trashId);
   if (!trashRow) return getLeadsScoped_();
@@ -3876,7 +3949,7 @@ function restoreLead(trashId) {
   return getLeadsScoped_();
 }
 
-function permanentlyDeleteTrash(trashId) {
+function permanentlyDeleteTrash_(trashId) {
   const trash = trashSheet_();
   const trashRow = findTrashRow_(trash, trashId);
   if (trashRow) trash.deleteRow(trashRow);
@@ -3886,7 +3959,7 @@ function permanentlyDeleteTrash(trashId) {
 // Empty a whole batch at once (used by the Recycle Bin's per-month "Empty").
 // Resolve every id to its current row first, then delete bottom-up so the
 // shifting row numbers never invalidate a pending deletion.
-function permanentlyDeleteTrashBatch(trashIds) {
+function permanentlyDeleteTrashBatch_(trashIds) {
   const trash = trashSheet_();
   const want = {};
   (trashIds || []).forEach(function (id) { want[String(id)] = true; });
@@ -3988,7 +4061,7 @@ const SYNC_TRIGGER_FN = 'runContactSyncJob';
  * exactly how the sync could create duplicate contacts, since two runs could
  * each see the same not-yet-synced lead and both try to create it.
  */
-function startContactSync() {
+function startContactSync_() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(3000)) return { alreadyRunning: true };
   try {
@@ -4009,7 +4082,7 @@ function startContactSync() {
   }
 }
 
-function getContactSyncStatus() {
+function getContactSyncStatus_() {
   const props = PropertiesService.getScriptProperties();
   const raw = props.getProperty(SYNC_STATUS_KEY);
   return raw ? JSON.parse(raw) : { status: 'idle' };
@@ -4035,7 +4108,7 @@ function runContactSyncJob() {
   const prevRaw = props.getProperty(SYNC_STATUS_KEY);
   const prev = prevRaw ? JSON.parse(prevRaw) : { createdSoFar: 0, updatedSoFar: 0, startedAt: Date.now() };
 
-  const result = syncContactsToGoogle();
+  const result = syncContactsToGoogle_();
 
   const totals = {
     status: result.timedOut ? 'running' : 'done',
@@ -4081,7 +4154,7 @@ function buildExistingContactNameMap_(groupRN) {
   return map;
 }
 
-function syncContactsToGoogle() {
+function syncContactsToGoogle_() {
   const sh = sheet_();
   const heads = headers_(sh);
   const idCol = ensureContactColumn_(sh);
@@ -4234,7 +4307,7 @@ function buildLeadsArray_() {
 function getTaxRate_() {
   return Number(PropertiesService.getScriptProperties().getProperty('TAX_RATE')) || 25;
 }
-function setTaxRate(rate) {
+function setTaxRate_(rate) {
   var n = Number(rate);
   if (!isNaN(n) && n >= 0 && n <= 100) {
     PropertiesService.getScriptProperties().setProperty('TAX_RATE', String(n));
@@ -4242,7 +4315,7 @@ function setTaxRate(rate) {
   return JSON.stringify({ taxRate: getTaxRate_() });
 }
 
-function getLeads() {
+function getLeads_() {
   migrateAdSpendToExpenses_();
   migrateReceiptsToYearFolders_();
   return JSON.stringify({
@@ -4250,7 +4323,7 @@ function getLeads() {
     partners: getPartners_(), partnerLogs: getPartnerLog_(),
     textTemplates: getTextTemplates_(), partnerTemplates: getPartnerTemplates_(),
     partnerTextTemplates: getPartnerTextTemplates_(), oracleGate: oracleGateCheck_(),
-    trash: getTrash(), recurring: getRecurring_(),
+    trash: getTrash_(), recurring: getRecurring_(),
     topClientThreshold: Number(PropertiesService.getScriptProperties().getProperty('TOP_CLIENT_THRESHOLD')) || 2000,
     kvfOrder: getKvfOrder_(),
     kvfHidden: getKvfHidden_(),
@@ -4273,7 +4346,7 @@ function getCustomExpenseCategories_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('CUSTOM_EXPENSE_CATEGORIES') || '[]'); }
   catch (e) { return []; }
 }
-function addExpenseCategory(name) {
+function addExpenseCategory_(name) {
   name = String(name || '').trim();
   if (!name) return JSON.stringify({ ok: false, error: 'Category name is empty.' });
   var props = PropertiesService.getScriptProperties();
@@ -4285,7 +4358,7 @@ function addExpenseCategory(name) {
   }
   return JSON.stringify({ ok: true, customExpenseCategories: list });
 }
-function deleteExpenseCategory(name) {
+function deleteExpenseCategory_(name) {
   var props = PropertiesService.getScriptProperties();
   var list = getCustomExpenseCategories_().filter(function(c) { return c !== name; });
   props.setProperty('CUSTOM_EXPENSE_CATEGORIES', JSON.stringify(list));
@@ -4302,7 +4375,7 @@ function getKvfHidden_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('KVF_HIDDEN') || '[]'); }
   catch (e) { return []; }
 }
-function saveFieldSettings(orderJson, hiddenJson) {
+function saveFieldSettings_(orderJson, hiddenJson) {
   var props = PropertiesService.getScriptProperties();
   try {
     var order = JSON.parse(orderJson || '[]');
@@ -4327,7 +4400,7 @@ function oracleGateCheck_(){
   var intervalDays = Number(props.getProperty('ORACLE_TIP_NEXT_INTERVAL') || 7);
   return !last || (Date.now() - last) >= intervalDays*24*60*60*1000;
 }
-function markOracleTipShown(){
+function markOracleTipShown_(){
   var props = PropertiesService.getScriptProperties();
   var nextInterval = 6 + Math.floor(Math.random()*4); // 6-9 days
   props.setProperty('ORACLE_TIP_LAST_SHOWN', String(Date.now()));
@@ -4339,7 +4412,7 @@ function markOracleTipShown(){
 // contact history). Returns just {leads, logs} instead of rebuilding every
 // sheet in the app — the client already holds everything else in memory.
 function getLeadsScoped_() {
-  return JSON.stringify({ leads: buildLeadsArray_(), logs: getLog_(), trash: getTrash(), customFields: customLeadFields_() });
+  return JSON.stringify({ leads: buildLeadsArray_(), logs: getLog_(), trash: getTrash_(), customFields: customLeadFields_() });
 }
 
 // Custom fields the buyer created during a CSV import (tracked explicitly in a
@@ -4413,12 +4486,12 @@ function findPartnerLogRow_(sh, id) {
   return 0;
 }
 
-function logPartnerContact(partnerId, partnerName, type, note) {
+function logPartnerContact_(partnerId, partnerName, type, note) {
   partnerLogSheet_().appendRow([new Date(), partnerId, partnerName, type, note || '', Utilities.getUuid()]);
   return getPartnerLogsScoped_();
 }
 
-function updatePartnerLog(id, whenStr, note) {
+function updatePartnerLog_(id, whenStr, note) {
   const sh = partnerLogSheet_();
   const rowNum = findPartnerLogRow_(sh, id);
   if (!rowNum) return getPartnerLogsScoped_();
@@ -4427,7 +4500,7 @@ function updatePartnerLog(id, whenStr, note) {
   return getPartnerLogsScoped_();
 }
 
-function deletePartnerLog(id) {
+function deletePartnerLog_(id) {
   const sh = partnerLogSheet_();
   const rowNum = findPartnerLogRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -4479,13 +4552,13 @@ function findPartnerRow_(sh, id) {
   return 0;
 }
 
-function addPartner(name, email, phone, notes) {
+function addPartner_(name, email, phone, notes) {
   const sh = partnersSheet_();
   sh.appendRow([name || '', email || '', phone || '', notes || '', Utilities.getUuid()]);
   return getPartnersScoped_();
 }
 
-function updatePartner(id, name, email, phone, notes, appLink) {
+function updatePartner_(id, name, email, phone, notes, appLink) {
   const sh = partnersSheet_();
   const rowNum = findPartnerRow_(sh, id);
   if (!rowNum) return getPartnersScoped_();
@@ -4495,7 +4568,7 @@ function updatePartner(id, name, email, phone, notes, appLink) {
   return getPartnersScoped_();
 }
 
-function deletePartner(id) {
+function deletePartner_(id) {
   const sh = partnersSheet_();
   const rowNum = findPartnerRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -4534,16 +4607,16 @@ function referralInboxCode_(create) {
   return code;
 }
 // This owner's shareable referral link (created on first use). Called from the app.
-function getReferralInboxLink() {
+function getReferralInboxLink_() {
   var base = '';
   try { base = ScriptApp.getService().getUrl() || ''; } catch (e) {}
   if (!base) return { ok: false, message: 'Could not read your app address. Open the app from its normal link and try again.' };
   return { ok: true, link: base + '?rc=' + referralInboxCode_(true) };
 }
 // Rotate the code — links partners already saved stop working (use if it was shared by mistake).
-function resetReferralInboxCode() {
+function resetReferralInboxCode_() {
   PropertiesService.getScriptProperties().setProperty('REFERRAL_INBOX_CODE', Utilities.getUuid().replace(/-/g, '').slice(0, 14));
-  return getReferralInboxLink();
+  return getReferralInboxLink_();
 }
 
 // A leading = + - @ in a cell written through the API is evaluated as a formula. Anything a
@@ -4635,7 +4708,7 @@ function findReferralRow_(sh, id) {
   return 0;
 }
 // The owner tapped "Add lead" on a received referral: create the lead, then clear it from the inbox.
-function acceptReferral(id) {
+function acceptReferral_(id) {
   var sh = referralInboxSheet_(false);
   var row = findReferralRow_(sh, id);
   if (!row) return withReferralInbox_(getLeadsScoped_());
@@ -4652,9 +4725,9 @@ function acceptReferral(id) {
   fields['Lead Source'] = 'Referral';
   fields['Followup'] = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'); // a warm lead — surface it for a same-day reply
   sh.deleteRow(row);
-  return withReferralInbox_(addLead(fields));
+  return withReferralInbox_(addLead_(fields));
 }
-function dismissReferral(id) {
+function dismissReferral_(id) {
   var sh = referralInboxSheet_(false);
   var row = findReferralRow_(sh, id);
   if (row) sh.deleteRow(row);
@@ -4739,7 +4812,7 @@ function getAdSpend_() {
 // ROI-by-channel math keeps working), then archives the old sheet by
 // renaming it rather than deleting it — the raw history stays intact and
 // inspectable, it just stops being read by the app. Runs automatically
-// on every getLeads() call but only actually does anything once, guarded
+// on every getLeads_() call but only actually does anything once, guarded
 // by a Script Property flag.
 function migrateAdSpendToExpenses_() {
   const props = PropertiesService.getScriptProperties();
@@ -4770,7 +4843,7 @@ function migrateAdSpendToExpenses_() {
   props.setProperty('ADSPEND_MIGRATED', 'true');
 }
 
-function addTask(name, due, repeat, id) {
+function addTask_(name, due, repeat, id) {
   const sh = tasksSheet_();
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
@@ -4792,7 +4865,7 @@ function findTaskRow_(sh, id) {
   return 0;
 }
 
-function toggleTask(id) {
+function toggleTask_(id) {
   const sh = tasksSheet_();
   const rowNum = findTaskRow_(sh, id);
   if (!rowNum) return getTasksScoped_();
@@ -4815,7 +4888,7 @@ function toggleTask(id) {
   return getTasksScoped_();
 }
 
-function deleteTask(id) {
+function deleteTask_(id) {
   const sh = tasksSheet_();
   const rowNum = findTaskRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
@@ -4824,7 +4897,7 @@ function deleteTask(id) {
   return getTasksScoped_();
 }
 
-function updateTask(id, name, due, repeat) {
+function updateTask_(id, name, due, repeat) {
   const sh = tasksSheet_();
   const rowNum = findTaskRow_(sh, id);
   if (!rowNum) return getTasksScoped_();
@@ -4845,7 +4918,7 @@ function updateTask(id, name, due, repeat) {
 // else is left as a blank cell in the new row, which stays correct even
 // as new columns get added to the sheet later, since there's no list of
 // "fields to clear" to maintain.
-function duplicateLeadAsNewBooking(row) {
+function duplicateLeadAsNewBooking_(row) {
   try {
     const sh = sheet_();
     const heads = headers_(sh);
@@ -4873,13 +4946,13 @@ function duplicateLeadAsNewBooking(row) {
     sh.appendRow(newRow);
     const newRowNum = sh.getLastRow();
 
-    return JSON.stringify({ ok: true, newRow: newRowNum, leads: JSON.parse(getLeads()).leads });
+    return JSON.stringify({ ok: true, newRow: newRowNum, leads: JSON.parse(getLeads_()).leads });
   } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
   }
 }
 
-function updateLead(rowNum, updates) {
+function updateLead_(rowNum, updates) {
   const sh = sheet_();
   const heads = headers_(sh);
   const statusColIdx = heads.indexOf('Status');
@@ -4934,7 +5007,7 @@ function updateLead(rowNum, updates) {
 
 // Clears the Followup date on Completed/Lost leads whose date has passed
 // (re-checked here so a stale client list can never wipe a live follow-up).
-function clearStaleFollowups(rowsJson) {
+function clearStaleFollowups_(rowsJson) {
   const sh = sheet_();
   const heads = headers_(sh);
   const fc = heads.indexOf('Followup') + 1, sc = heads.indexOf('Status') + 1;
@@ -4952,7 +5025,7 @@ function clearStaleFollowups(rowsJson) {
   return getLeadsScoped_();
 }
 
-function addLead(fields) {
+function addLead_(fields) {
   const sh = sheet_();
   const heads = headers_(sh);
   const row = heads.map(function (h) {
@@ -4979,7 +5052,7 @@ function addLead(fields) {
 // clients shouldn't fire reminders or spawn calendar events for shows that
 // already happened. Each incoming object is keyed by header name, exactly like
 // addLead's `fields`.
-function importLeadsBatch(rowsJson) {
+function importLeadsBatch_(rowsJson) {
   const sh = sheet_();
   const rows = JSON.parse(rowsJson);
   var heads = headers_(sh);
@@ -5144,6 +5217,7 @@ function calendar_() {
  * rest, then rebuilds all reminders on the keeper.
  */
 function cleanupDuplicateCalendars() {
+  ownerOnly_();
   const all = CalendarApp.getCalendarsByName(getConfig_().CAL_NAME);
   if (all.length) {
     PropertiesService.getScriptProperties().setProperty('CAL_ID', all[0].getId());
@@ -5294,7 +5368,7 @@ function autoManageBookedFollowups_() {
  * lead to the next one's trigger date. If it was already on Review Request,
  * this clears the follow-up entirely — the sequence is complete.
  */
-function markFollowupStageDone(rowNum, note) {
+function markFollowupStageDone_(rowNum, note) {
   const sh = sheet_();
   const heads = headers_(sh);
   const eventCol = heads.indexOf('Date of Event');
@@ -5616,7 +5690,7 @@ function syncFollowUps_() {
   cal.getEvents(today, new Date(today.getFullYear() + 2, 0, 1))
     .forEach(function (ev) { try { ev.deleteEvent(); } catch (e) {} });
 
-  const data = JSON.parse(getLeads());
+  const data = JSON.parse(getLeads_());
   data.leads.forEach(function (L) {
     const raw = L['Followup'];
     if (!raw) return;
@@ -5705,6 +5779,7 @@ function onSheetChangeNormalizeDates_(e) {
  * first full sync immediately.
  */
 function setup() {
+  ownerOnly_();
   ScriptApp.getProjectTriggers().forEach(function (t) {
     const fn = t.getHandlerFunction();
     if (fn === 'syncFollowUps' || fn === 'runFrequentAutomations' || fn === 'onSheetChangeNormalizeDates_') ScriptApp.deleteTrigger(t);

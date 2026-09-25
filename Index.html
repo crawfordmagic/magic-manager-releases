@@ -1340,6 +1340,32 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
 <script>
 var CFG = <?!= JSON.stringify(cfg) ?>;
+/* ---------- Server calls ----------
+   Every owner-only server function is reached through the single api(key, name, args) gate
+   on the server, which checks this page's private access key. GS mimics GS
+   (withSuccessHandler / withFailureHandler / any method name) so call sites read as before. */
+var APP_KEY = <?!= JSON.stringify(appKey) ?>;
+var PAGE_API = 2;   // must equal PAGE_API_ in Code.js (checked both ways so a half-finished update says so)
+var SERVER_API = <?!= JSON.stringify(typeof serverApi === 'undefined' ? 0 : serverApi) ?>;
+if (SERVER_API !== PAGE_API) {
+  document.body.innerHTML = '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:60px 20px;text-align:center;color:#ddd"><h2 style="color:#C9A050">Update not finished</h2><p>This page is newer than the code behind it. In the Apps Script editor, replace <b>Code.gs</b> with the new file, save, then choose Deploy \u2192 Manage deployments \u2192 New version.</p><p style="color:#888;font-size:13px">Your data is safe and untouched.</p></div>';
+  throw new Error('Page and server files are out of sync');
+}
+var GS = (function(){
+  function make(ok, fail){
+    return new Proxy({}, { get: function(_, name){
+      if (name === 'withSuccessHandler') return function(f){ return make(f, fail); };
+      if (name === 'withFailureHandler') return function(f){ return make(ok, f); };
+      return function(){
+        var r = google.script.run;
+        if (ok) r = r.withSuccessHandler(ok);
+        if (fail) r = r.withFailureHandler(fail);
+        r.api(APP_KEY, String(name), Array.prototype.slice.call(arguments));
+      };
+    }});
+  }
+  return make(null, null);
+})();
 /* ---------- Column names (as they appear in the Sheet, trimmed) ---------- */
 var C = {
   name:'Customer Name', phone:'Phone number', company:'Company or Organization',
@@ -1417,7 +1443,7 @@ function onAddFormSelect(id, key, label){
       list.push(name);
       var obj={}; obj[key]=list.join('\n');
       CFG[key]=obj[key];
-      google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); $(id).value=name; } })
+      GS.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); $(id).value=name; } })
         .withFailureHandler(function(){ toast('Could not add to Settings \u2014 try again'); }).saveSettings(obj);
       toast('Added \u201c'+name+'\u201d to your '+label+'s in Settings');
     }
@@ -1693,13 +1719,13 @@ function triggerOraclePreview(){
   scheduleOracleTipFade();
 }
 // Fires the three startup pieces at once instead of waiting on one big
-// sequential load — the browser dispatches all three google.script.run
+// sequential load — the browser dispatches all three GS
 // calls concurrently, so the wait is closer to the slowest single piece
 // than the sum of all six sheet reads combined. Each piece is merged into
 // one combined object as it arrives; only once all three are in does the
 // rest of the normal startup sequence run, unchanged from before.
 function load(){
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     ORACLE_TIP_ACTIVE=null;
     var oracleForcePreview=/[?&]oracle=preview\b/.test(window.location.search);
@@ -1708,7 +1734,7 @@ function load(){
       if(t.length){
         ORACLE_TIP_ACTIVE=t[0];
         if(!oracleForcePreview){
-          google.script.run.withFailureHandler(function(){}).markOracleTipShown();
+          GS.withFailureHandler(function(){}).markOracleTipShown();
         }
       }
     }
@@ -1722,7 +1748,7 @@ function load(){
     // before the Leads view paints, so a new user lands straight on it — no flash here.
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
     checkShowtimePopup();
-    google.script.run.withSuccessHandler(function(r){
+    GS.withSuccessHandler(function(r){
       if(r.status==='running') startSyncPolling();
     }).withFailureHandler(function(){}).getContactSyncStatus();
   }).withFailureHandler(function(e){
@@ -1801,7 +1827,7 @@ function saveTaskDueTime(row){
   var newVal=ymd(new Date())+' '+newTime;
   T.due=newVal;
   renderChips(); renderLeads();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
     toast('Task time updated \u2726');
   }).withFailureHandler(function(){ toast('Could not save \u2014 try again'); refreshQuiet(); })
@@ -1843,7 +1869,7 @@ function gfuPromptLog(note){
   renderUnpaidBalanceCard();
   renderPartnerCheckInCard();
   if(!L) return;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
   }).withFailureHandler(function(){ toast('Could not log \u2014 try again'); refreshQuiet(); })
   .logContact(String(L._tsKey||''), String(L[C.name]||''), type, note||'');
@@ -1983,7 +2009,7 @@ function confirmReferModal(){
   if(CURRENT && CURRENT._row===row) openSheet(row);
 
   var saveLead=function(){
-    google.script.run.withSuccessHandler(function(json){
+    GS.withSuccessHandler(function(json){
       ingest(json); renderChips(); renderLeads(); renderInsights();
       if(CURRENT && CURRENT._row===row) openSheet(row);
     }).withFailureHandler(function(){ toast('Could not save \u2014 try again'); refreshQuiet(); })
@@ -1991,7 +2017,7 @@ function confirmReferModal(){
   };
 
   if(isNewPartner){
-    google.script.run.withSuccessHandler(function(json){ ingest(json); saveLead(); })
+    GS.withSuccessHandler(function(json){ ingest(json); saveLead(); })
       .withFailureHandler(function(){ toast('Could not add partner \u2014 try again'); saveLead(); })
       .addPartner(partnerName, '', '', '');
   } else {
@@ -2016,7 +2042,7 @@ function referNotifyCall(){
   var lead=LEADS.find(function(x){ return x._row===row; });
   dialNumber(p.phone);
   if(p.id){
-    google.script.run.withSuccessHandler(function(json){ ingest(json); })
+    GS.withSuccessHandler(function(json){ ingest(json); })
       .withFailureHandler(function(){})
       .logPartnerContact(p.id, p.name, 'Referral', lead ? 'Referred '+String(lead[C.name]||'a lead')+' via call' : '');
   }
@@ -2095,7 +2121,7 @@ function saveGfuTime(row){
   L[C.followup]=newVal;
   renderChips(); renderLeads();
   var updates={}; updates[C.followup]=newVal;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
     toast('Follow-up time updated \u2726');
   }).withFailureHandler(function(){ toast('Could not save \u2014 try again'); refreshQuiet(); })
@@ -2111,7 +2137,7 @@ function quickBumpFollowup(row, days){
   L[C.followup]=newVal;
   renderChips(); renderLeads();
   var updates={}; updates[C.followup]=newVal;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
     toast('Follow-up moved \u2726');
   }).withFailureHandler(function(){ toast('Could not save \u2014 try again'); refreshQuiet(); })
@@ -2191,7 +2217,7 @@ function snoozeUnpaidBalance(row, days){
   delete UB_SHOW_SNOOZE[row];
   renderUnpaidBalanceCard();
   renderPartnerCheckInCard();
-  google.script.run.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not snooze \u2014 try again'); }).updateLead(row, updates);
+  GS.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not snooze \u2014 try again'); }).updateLead(row, updates);
 }
 var PT_CHECKIN_LEAD_ROW=null; // which check-in-card lead row most recently opened a partner picker — lets the post-send log prompt know which card row to show itself on, since the partner sheet itself isn't open in this flow
 var PT_INLINE_PROMPT_ROW=null, PT_INLINE_PROMPT_TYPE=null;
@@ -2277,7 +2303,7 @@ function ptInlinePromptLog(note){
   var partnerName=String(L[C.referral]||'').trim();
   var p=PARTNERS.find(function(x){ return String(x.name||'').trim()===partnerName; });
   if(!p) return;
-  google.script.run.withSuccessHandler(function(json){ ingest(json); refreshQuiet(); toast('Logged \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); refreshQuiet(); toast('Logged \u2726'); })
     .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
     .logPartnerContact(p.id, String(p.name||''), type, note||'');
 }
@@ -2287,7 +2313,7 @@ function dismissPartnerCheckIn(row){
   L[C.partnerCheckInDismissed]='Yes';
   renderPartnerCheckInCard();
   var updates={}; updates[C.partnerCheckInDismissed]='Yes';
-  google.script.run.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
+  GS.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
 }
 function checkInWithPartnerDone(row){
   var L=LEADS.find(function(x){ return x._row===row; });
@@ -2299,7 +2325,7 @@ function checkInWithPartnerDone(row){
   L[C.referredDate]=todayStr+'T00:00:00';
   renderPartnerCheckInCard();
   var updates={}; updates[C.referredDate]=todayStr;
-  google.script.run.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
+  GS.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
 }
 function renderGenFollowupDue(){
   var box=$('genFollowupCard'); if(!box) return;
@@ -2443,7 +2469,7 @@ function setLeadStatusFromCard(row, newStatus){
   L[C.status]=newStatus;
   renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights();
   toast('Status → '+newStatus);
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .updateLead(row, updates);
 }
@@ -2480,7 +2506,7 @@ function confirmLostReasonModal(){
   closeLostReasonModal();
   renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights();
   toast('Marked Lost'+(reason?' · '+reason:''));
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderGenFollowupDue(); renderChips(); renderLeads(); renderInsights(); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .updateLead(row, updates);
 }
@@ -2493,7 +2519,7 @@ function clientIdentityKey(L){
 function rebookLog(logKey, name, type, note){
   note = note || 'Rebooking outreach';
   LOGS.push({key:logKey, when:new Date().toISOString(), type:type, note:note, id:'', row:0});
-  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+  GS.withSuccessHandler(function(json){ ingest(json); })
     .withFailureHandler(function(){})
     .logContact(logKey, name||'', type, note);
 }
@@ -2842,7 +2868,7 @@ function toggleQuickPayment(row, colKey){
   L[col]=next;
   renderLeads();
   var updates={}; updates[col]=next;
-  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+  GS.withSuccessHandler(function(json){ ingest(json); })
     .withFailureHandler(function(){ L[col]=cur?'Yes':'No'; renderLeads(); toast('Could not update \u2014 try again'); })
     .updateLead(row, updates);
 }
@@ -2898,7 +2924,7 @@ function clearStaleUI(){
     if((st==='Completed'||st==='Lost') && f<t){ rows.push(L._row); L[C.followup]=''; }
   });
   renderChips(); renderLeads();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); toast('Cleared '+rows.length+' old follow-up'+(rows.length===1?'':'s')+' ✦');
   }).withFailureHandler(function(){ toast('Could not clear \u2014 try again'); refreshQuiet(); })
   .clearStaleFollowups(JSON.stringify(rows));
@@ -2975,7 +3001,7 @@ function markStageDone(row){
   renderLeads();
   if(CURRENT && CURRENT._row===row){ var _db=$('d_followdonebtn'); if(_db) _db.style.display='none'; }
   toast((stageLabel||'Follow-up')+' marked done \u2726');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
     if(CURRENT && CURRENT._row===row){
       var refound=LEADS.find(function(L){ return L._row===row; });
@@ -3370,7 +3396,7 @@ function acceptReferralUI(id){
   var prev=REFERRAL_INBOX;
   REFERRAL_INBOX=REFERRAL_INBOX.filter(function(x){ return x.id!==id; });
   renderReferralInbox(); toast('Adding lead…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights(); toast('Lead added ✦');
   }).withFailureHandler(function(){ REFERRAL_INBOX=prev; renderReferralInbox(); toast('Could not add — try again'); })
   .acceptReferral(id);
@@ -3379,7 +3405,7 @@ function dismissReferralUI(id){
   var prev=REFERRAL_INBOX;
   REFERRAL_INBOX=REFERRAL_INBOX.filter(function(x){ return x.id!==id; });
   renderReferralInbox();
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderReferralInbox(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderReferralInbox(); })
   .withFailureHandler(function(){ REFERRAL_INBOX=prev; renderReferralInbox(); toast('Could not dismiss — try again'); })
   .dismissReferral(id);
 }
@@ -3570,7 +3596,7 @@ function addTaskUI(){
     due: d ? (d+'T'+(tm? tm+':00' : '00:00:00')) : '',
     done:false, repeat:rep });
   renderChips(); renderLeads(); toast('Task added \u2726');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
   }).withFailureHandler(function(){
     TASKS=TASKS.filter(function(T){ return T.id!==id; });
@@ -3610,14 +3636,14 @@ function addPartnerUI(){
   renderChips(); renderPartners();
   $('pn_name').value=''; $('pn_phone').value=''; $('pn_email').value=''; $('pn_notes').value='';
   toast('Partner added \u2726');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderChips(); renderPartners(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderChips(); renderPartners(); })
     .withFailureHandler(function(){ PARTNERS=PARTNERS.filter(function(p){ return p.id!==id; }); renderChips(); renderPartners(); toast('Could not add \u2014 try again'); })
     .addPartner(name, email, phone, notes);
 }
 function deletePartnerUIById(id){
   PARTNERS=PARTNERS.filter(function(p){ return p.id!==id; });
   renderChips(); renderPartners(); toast('Partner removed');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderChips(); renderPartners(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderChips(); renderPartners(); })
     .withFailureHandler(function(){ toast('Could not remove \u2014 try again'); refreshQuiet(); })
     .deletePartner(id);
 }
@@ -3667,7 +3693,7 @@ function doPartnerSave(){
   $('pt_title').textContent=name||'Partner';
   buildPartnerActions(PTCUR);
   renderChips();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     var refound=PARTNERS.find(function(p){ return p.id===id; }); if(refound) PTCUR=refound;
     renderChips();
@@ -3709,7 +3735,7 @@ function deletePartnerUI(){
   deletePartnerUIById(id);
 }
 function refreshQuiet(){
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
   }).withFailureHandler(function(){}).getLeads();
 }
@@ -3773,7 +3799,7 @@ function doTaskSave(){
   TCUR.task=n; TCUR.repeat=rep;
   TCUR.due = d ? (d+'T'+(tm? tm+':00' : '00:00:00')) : '';
   renderChips(); renderLeads();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
     var el=$('te_stat'); if(el) el.innerHTML='Saved \u2726 reminder updated';
   }).withFailureHandler(function(){
@@ -3795,7 +3821,7 @@ function toggleTaskUI(id){
     renderChips(); renderLeads();
     if(T.done && T.repeat) toast('Done \u2726 next one scheduled');
   }
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
   }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); refreshQuiet(); })
   .toggleTask(id);
@@ -3803,7 +3829,7 @@ function toggleTaskUI(id){
 function deleteTaskUI(id){
   TASKS=TASKS.filter(function(T){ return T.id!==id; });
   renderChips(); renderLeads(); toast('Task deleted');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads();
   }).withFailureHandler(function(){ toast('Delete failed \u2014 try again'); refreshQuiet(); })
   .deleteTask(id);
@@ -3904,7 +3930,7 @@ function toggleLeadReference(row){
   L['Reference OK']=newVal;
   renderLeadReview(L); renderChips();
   toast(newVal==='Yes'?'Added to References ★':'Removed from References');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+  GS.withSuccessHandler(function(json){ ingest(json); })
     .withFailureHandler(function(){ toast('Could not save — try again'); })
     .updateLead(row, {'Reference OK': newVal});
 }
@@ -4081,7 +4107,7 @@ function toggleFieldHiddenUI(col){
   persistFieldSettings();
 }
 function persistFieldSettings(){
-  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){ toast('Could not save field settings \u2014 try again'); }).saveFieldSettings(JSON.stringify(KVF_ORDER), JSON.stringify(KVF_HIDDEN));
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){ toast('Could not save field settings \u2014 try again'); }).saveFieldSettings(JSON.stringify(KVF_ORDER), JSON.stringify(KVF_HIDDEN));
 }
 function buildKV(){
   $('d_kv').innerHTML = orderedVisibleKVIndices().map(function(i){
@@ -4151,7 +4177,7 @@ function commitAddKV(i){
     list.push(name);
     var obj={}; obj[F.addKey]=list.join('\n');
     CFG[F.addKey]=obj[F.addKey]; refreshConfigDerivedLists();
-    google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } })
+    GS.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } })
       .withFailureHandler(function(){ toast('Could not add to Settings — try again'); }).saveSettings(obj);
     toast('Added “'+name+'” to your '+F.addLabel+'s in Settings');
   }
@@ -4248,7 +4274,7 @@ function saveKV(i, fromBlur){
   if(F.col===C.price || F.col===C.deposit || F.col===C.paymentMethod) renderCardFeeNote();
   $('d_savestat').innerHTML='Saving\u2026';
   renderChips(); renderLeads(); renderInsights();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     if(CURRENT){ var refound=LEADS.find(function(L){ return L._row===row; }); if(refound) CURRENT=refound; }
     renderChips(); renderLeads(); renderInsights();
@@ -4341,7 +4367,7 @@ function doLogSave(){
   var arr = mode==='partner' ? PARTNERLOGS : LOGS;
   var call = mode==='partner' ? 'updatePartnerLog' : 'updateLog';
   var refreshFn = mode==='partner' ? refreshPartnerHistory : refreshHistory;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     var refound=(mode==='partner'?PARTNERLOGS:LOGS).find(function(l){ return l.id===id; }); if(refound) HDCUR=refound;
     refreshFn();
@@ -4360,7 +4386,7 @@ function deleteFromHistoryDetail(){
 function deleteLogUI(id){
   LOGS=LOGS.filter(function(l){ return l.id!==id; });
   refreshHistory(); toast('Entry removed');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); refreshHistory();
   }).withFailureHandler(function(){ toast('Could not remove \u2014 try again'); refreshQuiet(); })
   .deleteLog(id);
@@ -4368,7 +4394,7 @@ function deleteLogUI(id){
 function deletePartnerLogUI(id){
   PARTNERLOGS=PARTNERLOGS.filter(function(l){ return l.id!==id; });
   refreshPartnerHistory(); toast('Entry removed');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); refreshPartnerHistory();
   }).withFailureHandler(function(){ toast('Could not remove \u2014 try again'); refreshQuiet(); })
   .deletePartnerLog(id);
@@ -4396,7 +4422,7 @@ function saveFollowupNote(){
   if(!CURRENT) return;
   var note=$('fu_notetext').value.trim();
   $('fu_noteprompt').style.display='none';
-  google.script.run.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
     .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
     .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), 'Follow-up', note || fuDescribe());
 }
@@ -4424,7 +4450,7 @@ function ctLog(note){
   if(!CURRENT || !CT_TYPE) return;
   var type=CT_TYPE; CT_TYPE=null;
   $('ct_noteprompt').style.display='none';
-  google.script.run.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
     .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
     .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), type, note || '');
 }
@@ -4437,7 +4463,7 @@ function ctSave(){ ctLog($('ct_notetext').value.trim()); }
 function manualLog(){
   if(!CURRENT) return;
   var type=$('h_type').value, note=$('h_note').value.trim();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); $('h_note').value=''; refreshHistory(); toast('Logged \u2726');
   }).withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
   .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), type, note);
@@ -4475,7 +4501,7 @@ function ptLog(note){
   if(!PTCUR || !PT_CT_TYPE) return;
   var type=PT_CT_TYPE; PT_CT_TYPE=null;
   $('pt_noteprompt').style.display='none';
-  google.script.run.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); toast('Logged \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); toast('Logged \u2726'); })
     .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
     .logPartnerContact(PTCUR.id, String(PTCUR.name||''), type, note || '');
 }
@@ -4488,7 +4514,7 @@ function ptSave(){ ptLog($('pt_notetext').value.trim()); }
 function manualLogPartner(){
   if(!PTCUR) return;
   var type=$('pth_type').value, note=$('pth_note').value.trim();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); $('pth_note').value=''; refreshPartnerHistory(); toast('Logged \u2726');
   }).withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
   .logPartnerContact(PTCUR.id, String(PTCUR.name||''), type, note);
@@ -4557,7 +4583,7 @@ function onReferralChange(){
 function addReferralPartnerInline(){
   var name=$('d_referral_new').value.trim();
   if(!name){ $('d_referral').value=''; $('d_referral_new').style.display='none'; return; }
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     fillReferralOptions(name);
     $('d_referral').value=name;
@@ -4720,7 +4746,7 @@ function markLeadReferred(lead){
   var row=lead._row;
   var updates={}; updates[C.status]='Referred'; updates[C.referredDate]=ymd(new Date()); updates[C.partnerCheckInDismissed]='';
   lead[C.status]='Referred'; lead[C.referredDate]=ymd(new Date())+'T00:00:00'; lead[C.partnerCheckInDismissed]='';
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderChips(); renderInsights(); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderChips(); renderInsights(); })
     .withFailureHandler(function(){ refreshQuiet(); })
     .updateLead(row, updates);
 }
@@ -4730,7 +4756,7 @@ function onEmailSent(){
   if(EPICKER_MODE==='partner' && PTCUR){
     if(EPICKER_REFLEAD){
       var refName = String(EPICKER_REFLEAD[C.name]||'a lead');
-      google.script.run.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
+      GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
         .withFailureHandler(function(){})
         .logPartnerContact(PTCUR.id, String(PTCUR.name||''), 'Referral', 'Referred '+refName+' via email');
       markLeadReferred(EPICKER_REFLEAD);
@@ -4796,7 +4822,7 @@ function moveTextTemplateUI(id, direction){
     var tmp=TXTPL[idx]; TXTPL[idx]=TXTPL[swapWith]; TXTPL[swapWith]=tmp;
     renderTextPicker();
   }
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderTextPicker();
   }).withFailureHandler(function(){ toast('Could not reorder \u2014 try again'); refreshQuiet(); }).moveTextTemplate(id, direction);
 }
@@ -4823,7 +4849,7 @@ function ptOrLeadTextLog(){
   if(TXTPICKER_MODE==='partner' && PTCUR){
     if(TXTPICKER_REFLEAD){
       var refName=String(TXTPICKER_REFLEAD[C.name]||'a lead');
-      google.script.run.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
+      GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
         .withFailureHandler(function(){})
         .logPartnerContact(PTCUR.id, String(PTCUR.name||''), 'Referral', 'Referred '+refName+' via text');
       markLeadReferred(TXTPICKER_REFLEAD);
@@ -4897,12 +4923,12 @@ function doTextTplSave(){
   if(isNew){
     TTECUR._new=false;
     (partner?PARTNERTXTPL:TXTPL).push(TTECUR);
-    google.script.run.withSuccessHandler(function(json){ ingest(json);
+    GS.withSuccessHandler(function(json){ ingest(json);
       var el=$('tte_stat'); if(el) el.innerHTML='Saved \u2726'; })
     .withFailureHandler(function(){ var el=$('tte_stat'); if(el) el.innerHTML='Save failed'; })
     [addCall](n, body, TTECUR.id);
   } else {
-    google.script.run.withSuccessHandler(function(json){ ingest(json);
+    GS.withSuccessHandler(function(json){ ingest(json);
       var el=$('tte_stat'); if(el) el.innerHTML='Saved \u2726'; })
     .withFailureHandler(function(){ var el=$('tte_stat'); if(el) el.innerHTML='Save failed'; })
     [updCall](TTECUR.id, n, body);
@@ -4923,7 +4949,7 @@ function deleteTextTplUI(){
   if(partner) PARTNERTXTPL=PARTNERTXTPL.filter(function(t){ return t.id!==id; });
   else TXTPL=TXTPL.filter(function(t){ return t.id!==id; });
   toast('Template deleted');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+  GS.withSuccessHandler(function(json){ ingest(json); })
   .withFailureHandler(function(){ refreshQuiet(); })
   [partner?'deletePartnerTextTemplate':'deleteTextTemplate'](id);
 }
@@ -4972,7 +4998,7 @@ function moveTemplateUI(id, direction){
     var tmp=TPL[idx]; TPL[idx]=TPL[swapWith]; TPL[swapWith]=tmp;
     renderEmailPicker();
   }
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderEmailPicker();
   }).withFailureHandler(function(){ toast('Could not reorder \u2014 try again'); refreshQuiet(); }).moveTemplate(id, direction);
 }
@@ -5054,12 +5080,12 @@ function doTplSave(){
   if(isNew){
     TPLCUR._new=false;
     (partner?PARTNERTPL:TPL).push(TPLCUR);
-    google.script.run.withSuccessHandler(function(json){ ingest(json);
+    GS.withSuccessHandler(function(json){ ingest(json);
       var el=$('te2_stat'); if(el) el.innerHTML='Saved \u2726'; })
     .withFailureHandler(function(){ var el=$('te2_stat'); if(el) el.innerHTML='Save failed'; })
     [addCall](n, subj, body, TPLCUR.id);
   } else {
-    google.script.run.withSuccessHandler(function(json){ ingest(json);
+    GS.withSuccessHandler(function(json){ ingest(json);
       var el=$('te2_stat'); if(el) el.innerHTML='Saved \u2726'; })
     .withFailureHandler(function(){ var el=$('te2_stat'); if(el) el.innerHTML='Save failed'; })
     [updCall](TPLCUR.id, n, subj, body);
@@ -5081,7 +5107,7 @@ function deleteTplUI(){
   if(partner) PARTNERTPL=PARTNERTPL.filter(function(t){ return t.id!==id; });
   else TPL=TPL.filter(function(t){ return t.id!==id; });
   toast('Template deleted');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); })
+  GS.withSuccessHandler(function(json){ ingest(json); })
   .withFailureHandler(function(){ refreshQuiet(); })
   [partner?'deletePartnerTemplate':'deleteTemplate'](id);
 }
@@ -5122,7 +5148,7 @@ function generateContractUI(){
 function doGenerateContract(){
   var btn=$('d_contractbtn'), out=$('d_contract_result');
   btn.disabled=true; btn.textContent='Generating\u2026';
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     btn.disabled=false;
     var r=JSON.parse(json);
     out.style.display='';
@@ -5152,7 +5178,7 @@ function duplicateLeadUI(){
   var row=CURRENT._row;
   var name=CURRENT[C.name]||'this contact';
   toast('Creating a new booking for '+name+'\u2026');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var r=JSON.parse(json);
     if(!r.ok){ toast(r.error||'Could not duplicate \u2014 try again'); return; }
     ingest(json);
@@ -5179,7 +5205,7 @@ function deleteLeadUI(){
   closeSheet();
   LEADS=LEADS.filter(function(L){ return L._row!==row; });
   renderChips(); renderLeads(); renderInsights(); toast('Lead moved to Recycle Bin');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
   }).withFailureHandler(function(){ toast('Delete failed \u2014 refreshing'); refreshQuiet(); })
   .deleteLead(row);
@@ -5268,7 +5294,7 @@ function renderRecycleBin(){
 }
 function restoreLeadUI(trashId){
   toast('Restoring lead\u2026');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
     toast('Lead restored');
   }).withFailureHandler(function(){ toast('Restore failed \u2014 try again'); }).restoreLead(trashId);
@@ -5291,7 +5317,7 @@ function purgeTrashForeverUI(trashId){
   TRASH=TRASH.filter(function(T){ return T._trashId!==trashId; });
   renderRecycleBin();
   toast('Lead permanently deleted');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
   }).withFailureHandler(function(){ toast('Could not delete \u2014 refreshing'); refreshQuiet(); })
   .permanentlyDeleteTrash(trashId);
@@ -5317,7 +5343,7 @@ function emptyTrashMonthUI(key){
   TRASH=TRASH.filter(function(T){ return (T._deletedMonthKey||'')!==key; });
   renderRecycleBin();
   toast(ids.length+(ids.length===1?' lead':' leads')+' permanently deleted');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
   }).withFailureHandler(function(){ toast('Could not delete \u2014 refreshing'); refreshQuiet(); })
   .permanentlyDeleteTrashBatch(ids);
@@ -5352,7 +5378,7 @@ function saveName(){
   finishName();
   renderChips(); renderLeads(); renderInsights();
   $('d_savestat').innerHTML='Saving\u2026';
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     var refound=LEADS.find(function(L){ return L._row===row; }); if(refound && CURRENT) CURRENT=refound;
     renderChips(); renderLeads(); renderInsights();
@@ -5392,7 +5418,7 @@ function doAutoSave(){
   CURRENT[C.lostReason]=updates[C.lostReason];
   if(updates[C.referredDate]){ CURRENT[C.referredDate]=updates[C.referredDate]+'T00:00:00'; CURRENT[C.partnerCheckInDismissed]=''; }
   renderChips(); renderLeads(); renderInsights();
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json);
     var refound=LEADS.find(function(L){ return L._row===row; });
     if(refound){
@@ -5518,7 +5544,7 @@ function submitLead(){
   var _dc=$('a_details_chev'); if(_dc) _dc.innerHTML='&#9662;';
   renderChips(); renderLeads(); renderInsights(); go('leads', document.querySelector('.tab[data-v="leads"]'));
   toast('Lead added ✦');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
   }).withFailureHandler(function(){
     LEADS=LEADS.filter(function(L){ return L!==temp; });
@@ -6259,7 +6285,7 @@ function applyBulkAdSourceSuggestions(){
   var updates = targets.map(function(E){ return {row:E._row, adSource:guessAdSource(E.vendor)}; });
   closeInsightResults();
   toast('Tagging '+updates.length+' expense'+(updates.length===1?'':'s')+'\u2026');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderInsights(); toast('Tagged \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderInsights(); toast('Tagged \u2726'); })
     .withFailureHandler(function(){ toast('Could not tag \u2014 try again'); })
     .bulkSetAdSource(JSON.stringify(updates));
 }
@@ -6415,7 +6441,7 @@ function recordSaleSave(){
   if(!String(name).trim() && !money(amount)){ toast('Add a buyer name or an amount'); return; }
   var editingRow=STORE_SALE_EDITING;
   toast('Saving…');
-  var cb=google.script.run.withSuccessHandler(function(json){
+  var cb=GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ toast((d&&d.error)||'Could not save — try again'); return; }
     STORE_SALES=d.storeSales||[]; STORE_SALE_ADDING=false; STORE_SALE_EDITING=null; STORE_SALE_DEL_ARM=null;
@@ -6426,7 +6452,7 @@ function recordSaleSave(){
 }
 function setStoreSaleReceivedUI(row, status){
   STORE_SALE_DEL_ARM=null;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ toast((d&&d.error)||'Could not update — try again'); return; }
     STORE_SALES=d.storeSales||[]; refreshMoneyAfterSale_();
@@ -6440,7 +6466,7 @@ function deleteStoreSaleUI(row){
     return;
   }
   STORE_SALE_DEL_ARM=null; toast('Deleting…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ toast((d&&d.error)||'Could not delete — try again'); return; }
     STORE_SALES=d.storeSales||[]; refreshMoneyAfterSale_(); toast('Deleted');
@@ -6591,7 +6617,7 @@ function saveTaxRate(){
   if(isNaN(v) || v<0 || v>100){ toast('Enter a rate between 0 and 100'); renderTaxEstimate(function(n){ return '$'+Math.round(n).toLocaleString(); }); return; }
   TAX_RATE = v;
   renderTaxEstimate(function(n){ return '$'+Math.round(n).toLocaleString(); });
-  google.script.run.withSuccessHandler(function(json){ TAX_RATE=JSON.parse(json).taxRate; })
+  GS.withSuccessHandler(function(json){ TAX_RATE=JSON.parse(json).taxRate; })
     .withFailureHandler(function(){ toast('Could not save rate \u2014 try again'); })
     .setTaxRate(v);
 }
@@ -6724,7 +6750,7 @@ function syncContacts(){
   var btn=$('syncBtn'), stat=$('syncStat');
   if(stat) stat.style.display='block';
   btn.disabled=true; btn.textContent='Starting\u2026';
-  google.script.run.withSuccessHandler(function(r){
+  GS.withSuccessHandler(function(r){
     btn.disabled=false; btn.textContent='Sync now';
     stat.innerHTML = r.alreadyRunning
       ? 'A sync is already running in the background \u2014 keep using the app, this updates automatically when it finishes.'
@@ -6742,7 +6768,7 @@ function startSyncPolling(){
   checkSyncStatus();
 }
 function checkSyncStatus(){
-  google.script.run.withSuccessHandler(function(r){
+  GS.withSuccessHandler(function(r){
     var stat=$('syncStat'); if(!stat) return;
     stat.style.display='block';
     if(r.status==='running'){
@@ -6856,7 +6882,7 @@ function addExpenseCategoryUI(){
   var inp = $('newCategoryName');
   var name = (inp.value||'').trim();
   if(!name) return;
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var r = JSON.parse(json);
     CUSTOM_EXPENSE_CATEGORIES = r.customExpenseCategories||[];
     inp.value='';
@@ -6864,7 +6890,7 @@ function addExpenseCategoryUI(){
   }).addExpenseCategory(name);
 }
 function removeExpenseCategory(name){
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var r = JSON.parse(json);
     CUSTOM_EXPENSE_CATEGORIES = r.customExpenseCategories||[];
     renderManageCategories();
@@ -7295,7 +7321,7 @@ function removeReceiptUI(){
   var row = EXPENSE_EDIT_ROW;
   if(!row) return;
   toast('Removing receipt\u2026');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderReceiptPreview(); renderExpenses(); toast('Receipt removed'); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderReceiptPreview(); renderExpenses(); toast('Receipt removed'); })
     .withFailureHandler(function(){ toast('Could not remove receipt \u2014 try again'); })
     .deleteExpenseReceipt(row);
 }
@@ -7314,7 +7340,7 @@ function saveExpenseUI(){
     var rrow = RECUR_EDIT_ROW;
     closeExpenseSheet();
     toast('Updating recurring\u2026');
-    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring updated \u2726'); })
+    GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring updated \u2726'); })
       .withFailureHandler(failHandler)
       .editRecurringExpense(rrow, vendor, amount, category, notes, adSource, repeat, rstart||todayYmd_(), rend);
     return;
@@ -7327,7 +7353,7 @@ function saveExpenseUI(){
   function attachReceiptThen(targetRow){
     if(!receipt){ renderExpenses(); toast('Saved \u2726'); return; }
     toast('Attaching receipt\u2026');
-    google.script.run.withSuccessHandler(function(json2){ ingest(json2); renderExpenses(); toast('Saved \u2726'); })
+    GS.withSuccessHandler(function(json2){ ingest(json2); renderExpenses(); toast('Saved \u2726'); })
       .withFailureHandler(function(){ renderExpenses(); toast('Saved, but the receipt failed to attach \u2014 try again from Edit'); })
       .uploadExpenseReceipt(targetRow, receipt.base64, receipt.mimeType, receipt.fileName);
   }
@@ -7336,10 +7362,10 @@ function saveExpenseUI(){
   // The rule's Last-Generated is set to this expense's date, so the entry that's
   // already here is never re-posted; occurrences start the next period on.
   if(row){
-    google.script.run.withSuccessHandler(function(json){
+    GS.withSuccessHandler(function(json){
       ingest(json);
       if(repeat){
-        google.script.run.withSuccessHandler(function(j2){ ingest(j2); attachReceiptThen(row); toast('Now recurring \u2726'); })
+        GS.withSuccessHandler(function(j2){ ingest(j2); attachReceiptThen(row); toast('Now recurring \u2726'); })
           .withFailureHandler(failHandler)
           .addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart||date, rend, date);
       } else {
@@ -7351,10 +7377,10 @@ function saveExpenseUI(){
 
   // Mode 3 - a brand-new expense, optionally recurring.
   if(repeat){
-    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up \u2726'); })
+    GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up \u2726'); })
       .withFailureHandler(failHandler).addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart||todayYmd_(), rend);
   } else {
-    google.script.run.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
+    GS.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
   }
 }
 function todayYmd_(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -7365,7 +7391,7 @@ function onExpenseRepeatChange(){
 }
 function stopRecurring(row){
   toast('Stopping…');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
     .withFailureHandler(function(){ toast('Couldn’t stop — try again'); })
     .stopRecurringExpense(row);
 }
@@ -7416,7 +7442,7 @@ function deleteExpenseUI(){
   if(recur){
     closeExpenseSheet();
     toast('Stopping\u2026');
-    google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
+    GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring stopped'); })
       .withFailureHandler(function(){ toast('Couldn\u2019t stop \u2014 try again'); })
       .stopRecurringExpense(recur);
     return;
@@ -7425,7 +7451,7 @@ function deleteExpenseUI(){
   if(!row) return;
   closeExpenseSheet();
   toast('Deleting\u2026');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Deleted'); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Deleted'); })
     .withFailureHandler(function(){ toast('Could not delete \u2014 try again'); })
     .deleteExpense(row);
 }
@@ -7610,7 +7636,7 @@ function confirmImport(){
   if(!selected.length){ toast('Nothing selected to import'); return; }
   closeImportExpenses();
   toast('Importing '+selected.length+' expense'+(selected.length===1?'':'s')+'\u2026');
-  google.script.run.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Imported \u2726'); })
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Imported \u2726'); })
     .withFailureHandler(function(){ toast('Could not import \u2014 try again'); })
     .importExpensesBatch(JSON.stringify(selected));
 }
@@ -7772,7 +7798,7 @@ function editMsgTemplate(kind, id){
 function addStarterTemplatesUI(){
   var b=$('mt_starter_btn'); if(b){ b.disabled=true; b.textContent='Adding…'; }
   var reset=function(){ if(b){ b.disabled=false; b.textContent='Add starter templates'; } };
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var r=null; try{ r=JSON.parse(json); }catch(e){}
     reset();
     if(!(r && r.ok)){ toast('Could not add templates — try again'); return; }
@@ -7807,7 +7833,7 @@ function openRefLink(){
   $('rl_link').value='Loading…';
   $('rl_share').style.display = (navigator.share ? '' : 'none');
   $('overlay').classList.add('open'); $('refLinkSheet').classList.add('open');
-  google.script.run.withSuccessHandler(function(r){
+  GS.withSuccessHandler(function(r){
     if(r && r.ok) $('rl_link').value=r.link; else { $('rl_link').value=''; toast((r&&r.message)||'Could not load your link'); }
   }).withFailureHandler(function(){ $('rl_link').value=''; toast('Could not load your link'); }).getReferralInboxLink();
 }
@@ -7831,7 +7857,7 @@ function resetRefLink(){
     return;
   }
   RL_RESET_ARM=false; b.textContent='Reset link'; $('rl_link').value='Resetting…';
-  google.script.run.withSuccessHandler(function(r){
+  GS.withSuccessHandler(function(r){
     if(r && r.ok){ $('rl_link').value=r.link; toast('New link ready — share it with your partners'); } else { $('rl_link').value=''; toast('Could not reset — try again'); }
   }).withFailureHandler(function(){ $('rl_link').value=''; toast('Could not reset — try again'); }).resetReferralInboxCode();
 }
@@ -7960,7 +7986,7 @@ function confirmLeadImport(){
   });
   closeLeadImport();
   toast('Importing '+selected.length+' client'+(selected.length===1?'':'s')+'…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     ingest(json); renderChips(); renderLeads(); renderInsights();
     go('leads', document.querySelector('.tab[data-v="leads"]'));
     toast('Imported '+selected.length+' client'+(selected.length===1?'':'s')+' ✦');
@@ -8020,7 +8046,7 @@ function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
   body.innerHTML = 'Loading…';
-  google.script.run.withSuccessHandler(function(s){
+  GS.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
     var cfg = s.config || {}, raw = s.raw || {};
@@ -8149,7 +8175,7 @@ function doSettingsAutosave(){
   (SETTINGS_FIELDS||[]).forEach(function(f){ var el=$('set_'+f.key); if(el && el.value!==SET_LAST[f.key]) obj[f.key]=el.value; });
   var keys=Object.keys(obj);
   if(!keys.length){ var el0=$('set_savestat'); if(el0) el0.innerHTML='Saved ✦'; return; }
-  google.script.run.withSuccessHandler(function(res){
+  GS.withSuccessHandler(function(res){
     if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); }
     keys.forEach(function(k){ SET_LAST[k]=obj[k]; });
     var el=$('set_savestat'); if(el) el.innerHTML='Saved ✦';
@@ -8210,7 +8236,7 @@ function wizCss(){ return [
 ].join(''); }
 
 function launchWizard(){
-  google.script.run.withSuccessHandler(function(s){
+  GS.withSuccessHandler(function(s){
     var fmap={}; (s.fields||[]).forEach(function(f){ fmap[f.key]=f; });
     WIZ={ i:0, fields:fmap, raw:s.raw||{}, cfg:s.config||{} };
     renderWizard();
@@ -8301,7 +8327,7 @@ function wizCollect_(){ var obj={}; WIZARD_STEPS.forEach(function(st){ st.keys.f
 function wizFinish(skipped){
   var obj=wizCollect_();
   toast('Saving…');
-  google.script.run.withSuccessHandler(function(res){
+  GS.withSuccessHandler(function(res){
     if(res&&res.config) CFG=res.config;
     try{ maybeShowSetupNudge(); }catch(e){}
     if(skipped){ closeWizard(); toast('Saved — finish anytime in Settings'); return; }
@@ -8412,7 +8438,7 @@ function portalThemeReset(){
 function portalThemePreview(){
   var box=$('pt_preview'); if(!box) return;
   var seq=++PT_SEQ, v=portalThemeValue_();
-  google.script.run.withSuccessHandler(function(th){
+  GS.withSuccessHandler(function(th){
     if(seq!==PT_SEQ || !$('pt_preview')) return;
     var vars=th.vars||{}, css='';
     var def={'--ink':'#0B0B10','--panel':'#15151E','--panel2':'#1C1C27','--gold':'#C9A050','--gold-bright':'#E4C179','--cream':'#F4EBD3','--muted':'#928A75','--line':'rgba(201,160,80,.28)','--on-accent':'#141008'};
@@ -8618,7 +8644,7 @@ function handleBusinessDocUpload(kind, input){
   reader.onload=function(){
     var base64=String(reader.result).split(',')[1];
     toast('Uploading…');
-    google.script.run.withSuccessHandler(function(json){
+    GS.withSuccessHandler(function(json){
       var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
       if(applyBizDocsResult_(d)) toast('Uploaded ✦'); else toast((d&&d.error)||'Could not upload — try again');
     }).withFailureHandler(function(){ toast('Could not upload — try again'); })
@@ -8635,7 +8661,7 @@ function removeBizDoc(kind){
     return;
   }
   BIZ_DOC_DEL_ARM=null; toast('Removing…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
     if(applyBizDocsResult_(d)) toast('Removed'); else toast((d&&d.error)||'Could not remove — try again');
   }).withFailureHandler(function(){ toast('Could not remove — try again'); })
@@ -8683,6 +8709,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.43', d:'Sep 2026', notes:[
+    'Security: your leads, contacts and settings are now locked behind your private app key on the server too, not just on the page. Nothing changes in how you use the app.',
+    'When updating, replace ALL FIVE files (Code.gs, Index.html, Sign.html, Store.html, appsscript.json). If only some are replaced, the app now says "Update not finished" and tells you which file is missing.'
+  ]},
   { v:'1.5.42', d:'Sep 2026', notes:[
     'Date fields are sturdier: typing a year no longer saves half-typed years, two-digit years become 20xx, and impossible years (like 1902) are refused with a message instead of being saved.'
   ]},
@@ -8788,7 +8818,7 @@ function openHelp(){
   var sc=$('helpScreen'); if(sc) sc.classList.add('open');
   renderHelp(null); // paint immediately with the baked-in version…
   // …then refresh the up-to-date / update-available status in the background.
-  google.script.run.withSuccessHandler(function(info){ renderHelp(info); })
+  GS.withSuccessHandler(function(info){ renderHelp(info); })
     .withFailureHandler(function(){}).getUpdateInfo();
 }
 function closeHelp(){ var sc=$('helpScreen'); if(sc) sc.classList.remove('open'); }
@@ -8891,7 +8921,7 @@ function closeFeedback(){
 function storeLoadProducts(){
   var box=$('storeProdList'); if(!box) return;
   box.innerHTML='<span style="color:var(--muted)">Loading…</span>';
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ box.innerHTML='<span style="color:#E9927B">'+esc((d&&d.error)||'Could not load products.')+'</span>'; return; }
     STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||'';
@@ -8948,7 +8978,7 @@ function storeSaveRow(){
              description:$('sp_desc').value, active:$('sp_active').checked };
   if(!String(prod.name).trim()){ toast('Give the product a name'); return; }
   toast('Saving…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ toast((d&&d.error)||'Could not save — try again'); return; }
     STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||STORE_BASEURL;
@@ -8964,7 +8994,7 @@ function storeDelProduct(id){
     return;
   }
   STORE_DEL_ARM=null; toast('Deleting…');
-  google.script.run.withSuccessHandler(function(json){
+  GS.withSuccessHandler(function(json){
     var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
     if(!d || !d.ok){ toast((d&&d.error)||'Could not delete — try again'); return; }
     STORE_PRODUCTS=d.products||[]; STORE_BASEURL=d.baseUrl||STORE_BASEURL;
@@ -8981,7 +9011,7 @@ function storeCopyLink(id){
 
 /* ---------- Update-available banner (version check via the license hub) ---------- */
 function checkForUpdate(){
-  google.script.run.withSuccessHandler(function(info){
+  GS.withSuccessHandler(function(info){
     if(!info || !info.updateAvailable || !info.latest) return;
     if(info.dismissedVersion && info.dismissedVersion===info.latest) return; // skipped this version
     if(info.snoozedUntil && Date.now() < Number(info.snoozedUntil)) return;  // snoozed for now
@@ -9013,17 +9043,17 @@ function renderUpdateBanner(info){
 function snoozeUpdateBanner(days){
   var b=$('updateBanner'); if(b){ b.style.display='none'; b.innerHTML=''; }
   toast(Number(days)>=30?'Snoozed — back in a month':'Snoozed — back in a week');
-  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).snoozeUpdate(days);
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).snoozeUpdate(days);
 }
 function skipUpdateVersion(){
   var b=$('updateBanner'); if(b){ b.style.display='none'; b.innerHTML=''; }
   toast('Hidden until the next update');
-  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).dismissUpdateVersion();
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).dismissUpdateVersion();
 }
 
 /* ---------- Free-trial reminder banner (3 days / 1 day left) ---------- */
 function checkTrial(){
-  google.script.run.withSuccessHandler(function(t){
+  GS.withSuccessHandler(function(t){
     if(!t||!t.trial||t.expired) return; // an expired trial is handled by the activation lock on the next load
     var d=t.daysLeft;
     if(d<=1 && !t.warn1Shown){ renderTrialBanner(t,1); }
@@ -9045,7 +9075,7 @@ function renderTrialBanner(t, threshold){
     + '</div>';
   box.style.display='';
   // Mark this threshold shown so it doesn't reappear on every load.
-  google.script.run.withSuccessHandler(function(){}).withFailureHandler(function(){}).markTrialWarned(threshold);
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).markTrialWarned(threshold);
 }
 function dismissTrialBanner(){ var b=$('trialBanner'); if(b){ b.style.display='none'; b.innerHTML=''; } }
 
@@ -9090,7 +9120,7 @@ function confirmPayment(row, kind){
   var old = L ? L[col] : null;
   if(L) L[col]='Yes';
   renderPaymentsToConfirm(); toast('Marked received ✦');
-  google.script.run.withSuccessHandler(function(){ load(); })
+  GS.withSuccessHandler(function(){ load(); })
     .withFailureHandler(function(){ if(L) L[col]=old; renderPaymentsToConfirm(); toast('Could not confirm — try again'); })
     .confirmReportedPayment(row, kind);
 }
@@ -9100,7 +9130,7 @@ function dismissPayment(row, kind){
   var old = L ? L[col] : null;
   if(L) L[col]='';
   renderPaymentsToConfirm();
-  google.script.run.withSuccessHandler(function(){ load(); })
+  GS.withSuccessHandler(function(){ load(); })
     .withFailureHandler(function(){ if(L) L[col]=old; renderPaymentsToConfirm(); toast('Could not dismiss — try again'); })
     .dismissReportedPayment(row, kind);
 }
