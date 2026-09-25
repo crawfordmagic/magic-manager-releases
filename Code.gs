@@ -50,7 +50,7 @@ var CONFIG_DEFAULTS_ = {
   CALL_LINK: '',
   TEXT_LINK: '',
   SERVICES: 'Strolling\nStage\nStage & Strolling',
-  EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nOther',
+  EVENT_TYPES: 'Corporate\nBirthday\nWedding\nBar Mitzvah\nFundraiser\nSchool\nBanquet\nCocktail Party\nPrivate Event\nOther',
   LEAD_SOURCES: 'Bark\nGigsalad\nWebsite\nCurrent Client\nReferral\nOther',
   AD_SOURCES: 'Bark\nGigsalad\nWebsite',
   LOST_REASONS: 'Budget\nNon-responsive\nPostponed\nBooked elsewhere',
@@ -139,20 +139,20 @@ var CONFIG_FIELDS_ = [
   { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
   { key: 'PAYMENT_REPORT_EMAIL', label: 'Payment-report emails', help: 'When on, you get an email whenever a client taps "I’ve sent my payment" so you know to verify and confirm it. Turn it off to rely on the "Payments to confirm" card in the app, which always shows regardless. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client reports a payment', section: 'payments' },
   { key: 'SIGN_NOTIFY_EMAIL', label: 'Contract-signed emails', help: 'When on, you get an email the moment a client signs their contract. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client signs', section: 'payments' },
-  { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'payments' },
-  { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'payments' },
-  { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', section: 'payments' },
-  { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', section: 'payments' },
-  { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', section: 'payments' },
-  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', section: 'payments' },
-  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', section: 'payments' },
-  { key: 'WIRE_BANK', label: 'Wire bank name', help: 'Shown with wire instructions.', section: 'payments' },
-  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', section: 'payments' },
-  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', section: 'payments' },
-  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', section: 'payments' },
-  { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'payments' },
-  { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'payments' },
-  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your client page. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the client page (you can still record a cash payment yourself on a lead).', section: 'payments' },
+  { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', section: 'methods' },
+  { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', section: 'methods' },
+  { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', section: 'methods' },
+  { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', section: 'methods' },
+  { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', section: 'methods' },
+  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', section: 'methods' },
+  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', section: 'methods' },
+  { key: 'WIRE_BANK', label: 'Wire bank name', help: 'Shown with wire instructions.', section: 'methods' },
+  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', section: 'methods' },
+  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', section: 'methods' },
+  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', section: 'methods' },
+  { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'methods' },
+  { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'methods' },
+  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your client page. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the client page (you can still record a cash payment yourself on a lead).', section: 'methods' },
   // Services & client page
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
@@ -185,7 +185,8 @@ var CONFIG_FIELDS_ = [
 var SETTINGS_SECTIONS_ = [
   { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on the page your clients see.', open: false },
   { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client event portal.', open: false },
-  { id: 'payments', title: 'Getting paid', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
+  { id: 'payments', title: 'Getting paid', desc: 'Your deposit, the card processing fee, and the emails you get when a client reports a payment or signs their contract.', open: false },
+  { id: 'methods', title: 'Payment methods', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
   { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
   { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
   { id: 'storefront', title: 'Store (optional)', desc: 'Sell products with a simple public checkout page — merch, gift cards, anything that isn\'t an event booking. Off unless you turn it on.', open: false },
@@ -441,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.36';
+var APP_VERSION = '1.5.37';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -3347,6 +3348,82 @@ function logContact(leadKey, customer, type, note) {
 }
 
 /* ---------- Email templates ---------- */
+/* ---------- Starter message templates ----------
+ * A ready-made set covering the life of a booking, so the Email / Text pickers look like a
+ * menu the first time someone opens them. New installs get these when each templates sheet is
+ * first created; existing users get them only when they tap "Add starter templates"
+ * (Settings -> Message templates). Signatures use {owner}/{business} merge fields (filled in at
+ * send time), not baked-in names. Entries are [name, subject, body] (email) or [name, body] (text). */
+var STARTER_TEMPLATES_ = {
+  email: [
+    ['Thanks for your inquiry', 'Thanks for reaching out!',
+      "Hi {firstname},\n\nThank you for reaching out. I'd love to be part of your event! I'm checking my calendar now and will confirm availability shortly.\n\nIn the meantime, it helps to know a little more: the date and location, roughly how many guests, and the atmosphere you're hoping for. Feel free to reply here, or tell me a good time for a quick call.\n\nBest,\n{owner}\n{business}"],
+    ['Quote & availability', 'Your {service} quote for {eventdate}',
+      "Hi {firstname},\n\nGood news: I'm available on {eventdate} and would be delighted to perform at {location}.\n\nHere's what I have for you:\n• Service: {service}\n• Date: {eventdate}\n• Location: {location}\n• Investment: {quoted}\n\nIf everything looks good, just reply and I'll send over the agreement so we can lock in your date. I'm happy to adjust anything to fit your event.\n\nBest,\n{owner}\n{business}"],
+    ['Agreement ready', 'Your agreement is ready',
+      "Hi {firstname},\n\nYour agreement for {eventdate} is ready. You can review it, sign, and take care of your deposit all in one place:\n\n{signlink}\n\nOnce the deposit is in, your date is officially locked. Let me know if you have any questions!\n\nBest,\n{owner}\n{business}"],
+    ['Getting close', 'Looking forward to {eventdate}!',
+      "Hi {firstname},\n\nJust a quick note as your event gets close! I have you down for {eventdate} at {location}, starting at {starttime}.\n\nTo help me make it great: who's the best contact person on the day, where should I park and check in, and are there any last-minute changes to the schedule or guest count?\n\nCan't wait!\n{owner}\n{business}"],
+    ['Thank you & review', 'Thank you, it was a pleasure!',
+      "Hi {firstname},\n\nThank you for having me at your event. It was a true pleasure, and I hope you and your guests had a wonderful time!\n\nIf you have a moment, I'd be grateful if you'd share a quick review through your event page: {signlink}\n\nReviews mean the world to a small business like mine, and if you ever need entertainment again, I'd love to be part of it.\n\nWith thanks,\n{owner}\n{business}"]
+  ],
+  text: [
+    ['Got your inquiry', "Hi {firstname}, thanks for reaching out about your event! I'm checking my calendar and will get back to you shortly. — {owner}, {business}"],
+    ['Available on your date', "Hi {firstname}, great news: I'm available on {eventdate}! I'll email your details and quote shortly. Any questions, just text me. — {owner}"],
+    ['Deposit reminder', "Hi {firstname}, a quick reminder: your deposit is what officially locks in {eventdate}. You can take care of it here: {signlink} — {owner}"],
+    ['Getting close', "Hi {firstname}! Looking forward to performing for you on {eventdate} at {location}. Let me know if anything changes. See you soon! — {owner}"],
+    ['Thank you', "Thank you, {firstname}! It was a pleasure being part of your event. If you have a moment, a quick review would mean a lot: {signlink} — {owner}, {business}"]
+  ],
+  pemail: [
+    ['Referring a lead to you', 'A lead for you: {lead_name}',
+      "Hi {firstname},\n\nI have a date conflict and can't take this one, and I thought of you. Here are the details:\n\n{lead_details}\n\nThey're expecting to hear from someone, so please reach out to them directly if you're available. Thanks so much!\n\n— {owner}\n{business}"]
+  ],
+  ptext: [
+    ['Referring a lead to you', "Hi {firstname}, I can't take a gig on my date and thought of you. I just emailed the details. Please reach out to {lead_firstname} if you're free! — {owner}"]
+  ]
+};
+// Append any starters whose NAME isn't already on the sheet (case-insensitive). Never edits,
+// reorders, or deletes existing rows. Each new row gets its own timestamp — a template's id IS its
+// Created time, so they must all differ. Returns how many were added.
+function appendMissingStarters_(sh, starters, hasSubject) {
+  var have = {}, last = sh.getLastRow();
+  if (last >= 2) sh.getRange(2, 2, last - 1, 1).getValues().forEach(function (r) { have[String(r[0]).trim().toLowerCase()] = 1; });
+  var base = Date.now(), rows = [];
+  starters.forEach(function (s) {
+    if (have[String(s[0]).toLowerCase()]) return;
+    var created = new Date(base + (rows.length + 1) * 1000);
+    rows.push(hasSubject ? [created, s[0], s[1], s[2]] : [created, s[0], s[1]]);
+  });
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  return rows.length;
+}
+// Lower-cased template names already on a sheet ({} if the sheet doesn't exist yet).
+function templateNamesOn_(sheetName) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(sheetName), have = {};
+  if (sh && sh.getLastRow() >= 2) sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues().forEach(function (r) { have[String(r[0]).trim().toLowerCase()] = 1; });
+  return have;
+}
+// The opt-in "Add starter templates" button (Settings -> Message templates).
+function addStarterTemplates() {
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) {}
+  try {
+    var added = {};
+    [['email', 'Email Templates', templatesSheet_, true], ['text', 'Text Templates', textTplSheet_, false],
+     ['pemail', 'Partner Email Templates', partnerTemplatesSheet_, true], ['ptext', 'Partner Text Templates', partnerTextTplSheet_, false]
+    ].forEach(function (s) {
+      var before = templateNamesOn_(s[1]);
+      appendMissingStarters_(s[2](), STARTER_TEMPLATES_[s[0]], s[3]); // (a brand-new sheet seeds its own starters too)
+      // Report what the user actually gained: starters whose names weren't there before.
+      added[s[0]] = STARTER_TEMPLATES_[s[0]].filter(function (t) { return !before[String(t[0]).toLowerCase()]; }).length;
+    });
+    return JSON.stringify({
+      ok: true, added: added,
+      templates: getTemplates_(), textTemplates: getTextTemplates_(),
+      partnerTemplates: getPartnerTemplates_(), partnerTextTemplates: getPartnerTextTemplates_()
+    });
+  } finally { try { lock.releaseLock(); } catch (e) {} }
+}
 function templatesSheet_() {
   const ss = SpreadsheetApp.getActive();
   var sh = ss.getSheetByName('Email Templates');
@@ -3355,6 +3432,7 @@ function templatesSheet_() {
     sh.appendRow(['Created', 'Name', 'Subject', 'Body']);
     sh.appendRow([new Date(), 'Following up', 'Following up on your magic show inquiry',
       'Hi {firstname},\n\nJust wanted to follow up on your inquiry about booking magic for your event. Do you have a few minutes to chat about details?\n\nBest,\n' + getConfig_().OWNER_NAME + '\n' + getConfig_().BUSINESS_NAME]);
+    appendMissingStarters_(sh, STARTER_TEMPLATES_.email, true); // new installs start with the full starter set
   }
   return sh;
 }
@@ -3448,6 +3526,7 @@ function partnerTemplatesSheet_() {
   if (!sh) {
     sh = ss.insertSheet('Partner Email Templates');
     sh.appendRow(['Created', 'Name', 'Subject', 'Body']);
+    appendMissingStarters_(sh, STARTER_TEMPLATES_.pemail, true);
   }
   return sh;
 }
@@ -3505,6 +3584,7 @@ function textTplSheet_() {
     sh = ss.insertSheet('Text Templates');
     sh.appendRow(['Created', 'Name', 'Body']);
     sh.appendRow([new Date(), 'Quick follow-up', 'Hi {firstname}, just following up on your magic show inquiry \u2014 do you have a few minutes to chat details? \u2014 ' + getConfig_().OWNER_NAME + ', ' + getConfig_().BUSINESS_NAME]);
+    appendMissingStarters_(sh, STARTER_TEMPLATES_.text, false); // new installs start with the full starter set
   }
   return sh;
 }
@@ -3593,6 +3673,7 @@ function partnerTextTplSheet_() {
   if (!sh) {
     sh = ss.insertSheet('Partner Text Templates');
     sh.appendRow(['Created', 'Name', 'Body']);
+    appendMissingStarters_(sh, STARTER_TEMPLATES_.ptext, false);
   }
   return sh;
 }
@@ -4848,6 +4929,26 @@ function updateLead(rowNum, updates) {
       maybeGenerateReceipt_(sh, rowNum, 'balance');
     }
   } catch (e) { /* receipt generation never blocks a save */ }
+  return getLeadsScoped_();
+}
+
+// Clears the Followup date on Completed/Lost leads whose date has passed
+// (re-checked here so a stale client list can never wipe a live follow-up).
+function clearStaleFollowups(rowsJson) {
+  const sh = sheet_();
+  const heads = headers_(sh);
+  const fc = heads.indexOf('Followup') + 1, sc = heads.indexOf('Status') + 1;
+  if (!fc || !sc) return getLeadsScoped_();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  var rows = [];
+  try { rows = JSON.parse(rowsJson) || []; } catch (e) {}
+  rows.slice(0, 2000).forEach(function (r) {
+    r = Number(r);
+    if (!(r > 1) || r > sh.getLastRow()) return;
+    var st = String(sh.getRange(r, sc).getValue() || '');
+    var f = sh.getRange(r, fc).getValue();
+    if ((st === 'Completed' || st === 'Lost') && f instanceof Date && f < today) sh.getRange(r, fc).setValue('');
+  });
   return getLeadsScoped_();
 }
 

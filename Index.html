@@ -274,6 +274,17 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .gfu-item:first-of-type{ border-top:none; }
 .gfu-name{ font-weight:700; font-size:16px; color:var(--cream); font-family:'Playfair Display',serif; cursor:pointer; }
 .gfu-meta{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+.gfu-histbtn{width:auto;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:999px;font-size:11.5px;font-weight:600;padding:4px 10px;cursor:pointer}
+.gfu-histbtn .chev{display:inline-block;transition:transform .2s ease}
+.gfu-histbtn.open{color:var(--gold-bright);border-color:var(--gold)}
+.gfu-histbtn.open .chev{transform:rotate(180deg)}
+.gfu-hist{margin-top:8px;padding:8px 10px;background:rgba(201,160,80,.06);border-radius:8px;font-size:12px}
+.gfu-hist-row{display:flex;gap:8px;padding:4px 0;border-top:1px dashed var(--line)}
+.gfu-hist-row:first-child{border-top:none}
+.gfu-hist-row .w{flex:0 0 auto;color:var(--muted)}
+.gfu-hist-row .ty{flex:0 0 auto;color:var(--gold-bright);font-weight:600}
+.gfu-hist-row .nt{flex:1;min-width:0;color:var(--cream);overflow-wrap:anywhere}
+.gfu-hist-more{display:block;margin-top:6px;color:var(--gold-bright);font-weight:600;text-decoration:none}
 .gfu-last{ font-size:12px; color:var(--muted); margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); }
 .gfu-actions{ display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; }
 .gfu-bumps{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
@@ -433,7 +444,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .sheet .sub{color:var(--muted);font-size:13px;margin-top:2px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 4px}
 .act{display:block;text-align:center;text-decoration:none;color:var(--gold-bright);font-weight:600;font-size:13px;
-  border:1px solid var(--line);border-radius:8px;padding:10px 0;background:var(--panel)}
+  border:1px solid var(--line);border-radius:8px;padding:10px 14px;background:var(--panel)}
 .field{margin-top:13px}
 .autocomplete-box{display:none;position:absolute;left:0;right:0;top:100%;z-index:20;margin-top:4px;
   background:var(--panel2);border:1px solid var(--gold-deep);border-radius:8px;max-height:190px;overflow-y:auto;
@@ -510,6 +521,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <!-- "Today" digest: a calm summary that collapses the routine cards below it
          (Showtime stays its own hero above; the Oracle stays ambient below). -->
     <div id="todaySummary" style="display:none"></div>
+    <div id="todayPark">
     <div id="paymentsToConfirm" style="display:none"></div>
     <div id="unpaidBalanceCard" style="display:none"></div>
     <div id="followupDueCard" style="display:none"></div>
@@ -517,6 +529,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="genFollowupCard" style="display:none"></div>
     <div id="partnerCheckInCard" style="display:none"></div>
     <div id="decRebookCard" style="display:none"></div>
+    </div>
     <div id="oracleNudgeCard" style="display:none;transition:opacity 3s ease"></div>
     <div class="search-wrap">
       <input id="q" type="search" autocomplete="off" placeholder="Search name, company, notes, history&#8230;" oninput="setQ(this.value)">
@@ -800,11 +813,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <div class="field"><label>Service</label>
           <select id="a_service"></select></div>
         <div class="field"><label>Event type</label>
-          <select id="a_eventType"></select></div>
+          <select id="a_eventType" onchange="onAddFormSelect('a_eventType','EVENT_TYPES','event type')"></select></div>
       </div>
       <div class="grid2">
         <div class="field"><label>Lead source</label>
-          <select id="a_source"></select></div>
+          <select id="a_source" onchange="onAddFormSelect('a_source','LEAD_SOURCES','lead source')"></select></div>
         <div class="field"><label>Event location</label><input id="a_location"></div>
       </div>
       <div class="grid2">
@@ -824,27 +837,39 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- SETTINGS VIEW -->
   <div id="view-settings" style="display:none;padding-bottom:40px">
     <div class="sec-title"><span class="t">Settings</span><span class="rule"></span></div>
-    <p class="note" style="text-align:left;margin:0 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> — the rest is optional and can wait. Save anytime; blank fields use the sensible defaults shown.</p>
+    <button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>
+    <p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>
+
+    <div class="insight-group-label">Tools</div>
+    <div class="more-list">
+      <button type="button" class="more-row" onclick="openMsgTemplates()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+        <span class="t">Message templates</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="openRefLink()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
+        <span class="t">Referral link</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="openLeadImport()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
+        <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
+      </button>
+    </div>
+
+    <div class="insight-group-label">Your settings</div>
+    <p class="note" style="text-align:left;margin:-4px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> &mdash; the rest is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
     <div id="settingsBody">Loading&#8230;</div>
-    <div id="settingsMore" style="margin-top:22px;display:none">
-      <div class="more-list">
-        <button type="button" class="more-row" onclick="openLeadImport()">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
-          <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
-        </button>
-        <button type="button" class="more-row" onclick="openRefLink()">
-          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
-          <span class="t">Referral link</span><span class="chev">&#8250;</span>
-        </button>
-        <button type="button" class="more-row" onclick="openHelp()">
-          <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
-          <span class="t">Help &amp; guides</span><span class="chev">&#8250;</span>
-        </button>
-        <button type="button" class="more-row" onclick="openFeedback()">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
-          <span class="t">Send feedback</span><span class="chev">&#8250;</span>
-        </button>
-      </div>
+
+    <div class="insight-group-label">Help</div>
+    <div class="more-list">
+      <button type="button" class="more-row" onclick="openHelp()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
+        <span class="t">Help &amp; guides</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="openFeedback()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+        <span class="t">Send feedback</span><span class="chev">&#8250;</span>
+      </button>
     </div>
   </div>
 </main>
@@ -946,6 +971,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeTextPicker()">&#8592; Back</a>
   <h2>Text</h2>
   <p class="note" style="text-align:left;margin-top:-6px">To: <b id="tpicker_phone">&#8212;</b> &mdash; picking a template opens your texting app with the message ready to send.</p>
+  <div id="tpicker_hint" style="display:none"></div>
   <div class="field" id="tpicker_refwrap" style="display:none"><label>Attach a referred lead's info</label>
     <select id="tpicker_refsel" onchange="onTextRefLeadChange()"></select>
     <p class="note" style="text-align:left;margin-top:6px">Only leads marked Referral show up here. Use <b>{lead_details}</b> or <b>{lead_name}</b>, <b>{lead_eventdate}</b>, etc. in your text.</p>
@@ -1094,6 +1120,15 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div id="importPreview"></div>
   <button class="save" id="importConfirmBtn" style="display:none;margin-top:14px" onclick="confirmImport()">Import Selected</button>
 </div>
+<div class="sheet" id="msgTplSheet" style="z-index:56">
+  <div class="grab"></div>
+  <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeMsgTemplates()">&#8592; Back</a>
+  <h2>Message templates</h2>
+  <p class="note" style="text-align:left;margin:0 0 12px">Ready-made emails and texts for every stage of a booking. They appear when you tap <b>Email</b> or <b>Text</b> on a lead. Tap one to edit it, or add your own. Fields like <b>{firstname}</b> fill in automatically when you send.</p>
+  <button class="save" id="mt_starter_btn" style="margin-top:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="addStarterTemplatesUI()">Add starter templates</button>
+  <p class="note" style="text-align:left;margin:8px 0 0">Adds ready-made templates you don&rsquo;t have yet &mdash; inquiry reply, quote, agreement, reminders, thank-you, and partner referrals. It never changes or removes anything of yours.</p>
+  <div id="mt_list"></div>
+</div>
 <div class="sheet" id="refLinkSheet" style="z-index:56">
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeRefLink()">&#8592; Back</a>
@@ -1155,6 +1190,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeEmailPicker()">&#8592; Back</a>
   <h2>Email</h2>
   <p class="note" style="text-align:left;margin-top:-6px">Pick a template &mdash; the name fills in and your email app opens ready to send.</p>
+  <div id="epicker_hint" style="display:none"></div>
   <div class="field" id="epicker_refwrap" style="display:none"><label>Attach a referred lead's info</label>
     <select id="epicker_refsel" onchange="onRefLeadChange()"></select>
     <p class="note" style="text-align:left;margin-top:6px">Only leads marked Referral show up here. Use <b>{lead_details}</b> in your template to drop in everything at once, or individual fields like <b>{lead_name}</b>, <b>{lead_eventdate}</b>.</p>
@@ -1333,11 +1369,12 @@ function cfgList(key, fallback){
   var arr = raw.split(/[\n,]+/).map(function(x){ return x.trim(); }).filter(Boolean);
   return arr.length ? arr : (fallback || []);
 }
-function fillSelect(id, items, placeholder){
+function fillSelect(id, items, placeholder, addNew){
   var el = document.getElementById(id); if(!el) return;
   var cur = el.value;
   var opts = items.map(function(o){ return '<option>'+esc(o)+'</option>'; });
   if(placeholder) opts.unshift('<option value="">'+esc(placeholder)+'</option>');
+  if(addNew) opts.push('<option value="__new__">+ Add new\u2026</option>');
   el.innerHTML = opts.join('');
   if(cur) el.value = cur;
 }
@@ -1345,13 +1382,50 @@ function fillSelect(id, items, placeholder){
 // the Add form, the lead editor (KVF), the ad-source list, and the post-save
 // refresh all agree — no drift.
 var FALLBACK_SERVICES=['Strolling','Stage','Stage & Strolling'];
-var FALLBACK_EVENT_TYPES=['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Other'];
+var FALLBACK_EVENT_TYPES=['Corporate','Birthday','Wedding','Bar Mitzvah','Fundraiser','School','Banquet','Cocktail Party','Private Event','Other'];
 var FALLBACK_LEAD_SOURCES=['Bark','Gigsalad','Website','Current Client','Referral','Other'];
 var FALLBACK_AD_SOURCES=['Bark','Gigsalad','Website'];
 function populateLeadDropdowns(){
   fillSelect('a_service', cfgList('SERVICES', FALLBACK_SERVICES), 'Choose…');
-  fillSelect('a_eventType', cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES), 'Choose…');
-  fillSelect('a_source', cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), 'Choose…');
+  fillSelect('a_eventType', cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES), 'Choose…', true);
+  fillSelect('a_source', cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), 'Choose…', true);
+  addFormDefaults_();
+}
+// Most gigs are private events, so the Add form starts there (only when the
+// list has it and nothing else has been picked yet).
+function addFormDefaults_(){
+  var el=$('a_eventType');
+  if(el && !el.value && cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES).indexOf('Private Event')>-1) el.value='Private Event';
+}
+// "+ Add new…" on the Add-lead form: swap the dropdown for a text box, then add
+// the value to the Settings list (same rules as the lead editor's version).
+function onAddFormSelect(id, key, label){
+  var el=$(id); if(!el || el.value!=='__new__') return;
+  var inp=document.createElement('input');
+  inp.id=id+'_new'; inp.placeholder='New '+label+'\u2026';
+  el.style.display='none'; el.parentNode.appendChild(inp);
+  var done=false;
+  function finish(){
+    if(done) return; done=true;
+    var name=inp.value.trim().replace(/\s+/g,' ');
+    inp.remove(); el.style.display='';
+    if(!name){ el.value=''; return; }
+    var list=cfgList(key, key==='EVENT_TYPES'?FALLBACK_EVENT_TYPES:FALLBACK_LEAD_SOURCES);
+    var k=sourceKey_(name), hit=list.filter(function(o){ return sourceKey_(o)===k; })[0];
+    if(hit) name=hit;
+    else {
+      list.push(name);
+      var obj={}; obj[key]=list.join('\n');
+      CFG[key]=obj[key];
+      google.script.run.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); $(id).value=name; } })
+        .withFailureHandler(function(){ toast('Could not add to Settings \u2014 try again'); }).saveSettings(obj);
+      toast('Added \u201c'+name+'\u201d to your '+label+'s in Settings');
+    }
+    refreshConfigDerivedLists(); $(id).value=name;
+  }
+  inp.onblur=finish;
+  inp.onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
+  inp.focus();
 }
 // After Settings is saved, CFG is refreshed in memory but the lists derived from
 // it were captured earlier (KVF.opts and AD_SOURCES at load, the Add selects at
@@ -1417,6 +1491,7 @@ function ingest(json){
   if('taxRate' in o) TAX_RATE=Number(o.taxRate)||25;
   if('vendorCategoryMemory' in o) VENDOR_CATEGORY_MEMORY=(o.vendorCategoryMemory && typeof o.vendorCategoryMemory==='object') ? o.vendorCategoryMemory : {};
   if('trash' in o){ TRASH=o.trash||[]; renderRecycleBin(); }
+  if('templates' in o || 'textTemplates' in o || 'partnerTemplates' in o || 'partnerTextTemplates' in o) renderMsgTemplatesIfOpen_();
 }
 function setQ(v){ IFILTER=null; Q=v; renderLeads(); }
 function clearSearch(){
@@ -1969,11 +2044,7 @@ function isWorkingLead(L){
   return s==='Pending'||s==='New'||s==='No response';
 }
 function lastContactFor(L){
-  var key=String(L._tsKey||'');
-  var entries=LOGS.filter(function(l){ return l.key===key; });
-  if(!entries.length) return null;
-  entries.sort(function(a,b){ return (pd(b.when)||0)-(pd(a.when)||0); });
-  return entries[0];
+  return contactEntriesFor(L)[0] || null;
 }
 // Which channel has actually been used most with this lead so far. This is
 // a real pattern from logged history, not a claim about which channel the
@@ -2017,7 +2088,10 @@ function saveGfuTime(row){
   var newTime=inp? inp.value : '';
   var L=LEADS.find(function(x){ return x._row===row; });
   if(!L || !newTime){ renderGenFollowupDue(); renderUnpaidBalanceCard(); renderPartnerCheckInCard(); return; }
-  var newVal=ymd(new Date())+' '+newTime;
+  var cur=pd(L[C.followup]);
+  var curTime = cur && (cur.getHours()||cur.getMinutes()) ? hm(cur) : '';
+  if(newTime===curTime || (!curTime && newTime==='09:00' && cur)){ renderGenFollowupDue(); renderUnpaidBalanceCard(); renderPartnerCheckInCard(); return; }
+  var newVal=ymd(cur||new Date())+' '+newTime;
   L[C.followup]=newVal;
   renderChips(); renderLeads();
   var updates={}; updates[C.followup]=newVal;
@@ -2231,7 +2305,7 @@ function renderGenFollowupDue(){
   var box=$('genFollowupCard'); if(!box) return;
   var t=today0();
   var due=LEADS.filter(function(L){
-    if(!isWorkingLead(L)) return false;
+    if(L._pending || !isWorkingLead(L)) return false;
     var f=pd(L[C.followup]); if(!f) return false;
     var f0=new Date(f); f0.setHours(0,0,0,0);
     return f0<=t; // due today OR overdue — keep late follow-ups pinned at the top, not in the list below
@@ -2309,6 +2383,7 @@ function renderGenFollowupDue(){
           +(meta?'<div class="gfu-meta">'+meta+'</div>':'')
           +statusChipHtml(L)
           +lastHtml
+          +gfuHistoryHtml(L)
           +(actions?'<div class="gfu-actions">'+actions+'</div>':'')
           +promptHtml
           +(!GFU_SHOW_BUMPS[L._row] ? '<button style="background:none;border:none;padding:0;color:var(--muted);font-size:11px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;cursor:pointer;margin-top:8px;display:inline-block" onclick="event.stopPropagation();showGfuBumps('+L._row+')">Reschedule&#8230;</button>' : '')
@@ -2332,7 +2407,29 @@ function statusChipHtml(L){
   var s=String(L[C.status]||'New');
   var cls = s==='Lost' ? 'red' : (s==='Completed' ? 'dim' : 'gold');
   var opts=configuredStatuses().map(function(st){ return '<option'+(st===s?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
-  return '<div style="margin:7px 0 2px"><select class="gfu-statuschip '+cls+'" onclick="event.stopPropagation()" onchange="setLeadStatusFromCard('+L._row+',this.value)">'+opts+'</select></div>';
+  var n=contactEntriesFor(L).length, open=GFU_HIST_ROW===L._row;
+  var hist = n ? '<button type="button" class="gfu-histbtn'+(open?' open':'')+'" onclick="event.stopPropagation();toggleGfuHistory('+L._row+')">History ('+n+') <span class="chev">&#9662;</span></button>' : '';
+  return '<div style="margin:7px 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><select class="gfu-statuschip '+cls+'" onclick="event.stopPropagation()" onchange="setLeadStatusFromCard('+L._row+',this.value)">'+opts+'</select>'+hist+'</div>';
+}
+// Newest-first contact log for a lead (shared by the "last contact" line and
+// the History expander so they can't drift).
+function contactEntriesFor(L){
+  var key=String(L._tsKey||'');
+  return LOGS.filter(function(l){ return l.key===key; })
+    .sort(function(a,b){ return (pd(b.when)||0)-(pd(a.when)||0); });
+}
+var GFU_HIST_ROW=null; // one history open at a time
+function toggleGfuHistory(row){ GFU_HIST_ROW = (GFU_HIST_ROW===row) ? null : row; renderGenFollowupDue(); }
+function gfuHistoryHtml(L){
+  if(GFU_HIST_ROW!==L._row) return '';
+  var all=contactEntriesFor(L), shown=all.slice(0,5);
+  if(!shown.length) return '';
+  return '<div class="gfu-hist">'+shown.map(function(e){
+      return '<div class="gfu-hist-row"><span class="w">'+esc(fmtWhen(e.when))+'</span><span class="ty">'+esc(e.type||'')+'</span>'
+        +(e.note?'<span class="nt">'+esc(e.note)+'</span>':'')+'</div>';
+    }).join('')
+    +(all.length>shown.length?'<a class="gfu-hist-more" href="javascript:void(0)" onclick="openSheet('+L._row+')">View all '+all.length+' →</a>':'')
+    +'</div>';
 }
 function setLeadStatusFromCard(row, newStatus){
   var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
@@ -2717,6 +2814,13 @@ function toggleQuickPayment(row, colKey){
     .withFailureHandler(function(){ L[col]=cur?'Yes':'No'; renderLeads(); toast('Could not update \u2014 try again'); })
     .updateLead(row, updates);
 }
+// Same compact look as "Upcoming Follow-ups"; the pill shows status (there's no follow-up date to show).
+function leadRow_NoFollowup(L){
+  var ed=pd(L[C.eventDate]);
+  var meta=[(ed?fmtDateY(L[C.eventDate]):''), (L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' · ');
+  var st=String(L[C.status]||'New');
+  return compactRow(L[C.name]||'Lead', L[C.price]?fmtMoney(L[C.price]):'', meta, st, st==='Lost'?'red':(st==='Completed'?'dim':'gold'), 'openSheet('+L._row+')', conflictIconHtml(L));
+}
 function leadRow_Show(L){
   var meta=[(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
   var d=pd(L[C.eventDate]);
@@ -2733,6 +2837,39 @@ function leadRow_Referred(L){
   var partner=String(L[C.referral]||'').trim()||'Unassigned';
   var right = s==='Referral' ? partner+' \u00b7 not sent yet' : partner;
   return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, right, s==='Referral'?'dim':'gold', 'openSheet('+L._row+')');
+}
+function staleFuHTML(stale){
+  if(!stale.length) return '';
+  var h='<div class="sec-title"><span class="t">Old follow-ups · '+stale.length+'</span><span class="rule"></span></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin:-4px 0 8px">Completed or lost leads with a follow-up date that has passed \u2014 safe to clear.</div>'
+    +'<button class="act" id="staleClearBtn" style="width:100%;margin-bottom:10px" onclick="clearStaleUI()">Clear all '+stale.length+'</button>'
+    +'<div style="margin-bottom:16px">'
+    +stale.map(function(L){
+      return '<div class="upcomingfu-row" onclick="openSheet('+L._row+')">'
+        +'<div style="flex:1;min-width:0"><span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(L[C.name]||'Lead')+'</span>'
+        +'<div style="font-size:12px;color:var(--muted)">'+esc(String(L[C.status]||''))+'</div></div>'
+        +'<span class="pill dim">'+esc(fmtFU(pd(L[C.followup])))+'</span></div>';
+    }).join('')+'</div>';
+  return h;
+}
+var STALE_ARM=null;
+function clearStaleUI(){
+  var btn=$('staleClearBtn'); if(!btn) return;
+  if(!STALE_ARM){
+    btn.textContent='Tap again to clear'; STALE_ARM=setTimeout(function(){ STALE_ARM=null; renderLeads(); },3500); return;
+  }
+  clearTimeout(STALE_ARM); STALE_ARM=null;
+  var t=today0(), rows=[];
+  LEADS.forEach(function(L){
+    var f=pd(L[C.followup]); if(!f) return;
+    var st=String(L[C.status]||'New');
+    if((st==='Completed'||st==='Lost') && f<t){ rows.push(L._row); L[C.followup]=''; }
+  });
+  renderChips(); renderLeads();
+  google.script.run.withSuccessHandler(function(json){
+    ingest(json); renderChips(); renderLeads(); toast('Cleared '+rows.length+' old follow-up'+(rows.length===1?'':'s')+' ✦');
+  }).withFailureHandler(function(){ toast('Could not clear \u2014 try again'); refreshQuiet(); })
+  .clearStaleFollowups(JSON.stringify(rows));
 }
 function upcomingFuHTML(upcoming){
   if(!upcoming.length) return '';
@@ -2761,7 +2898,7 @@ function renderFollowupDue(){
   var box=$('followupDueCard'); if(!box) return;
   var t=today0();
   var due=LEADS.filter(function(L){
-    if(L._stageDoneOptimistic) return false; // just marked done — hidden instantly, server catching up
+    if(L._stageDoneOptimistic || L._pending) return false; // just marked done — hidden instantly, server catching up
     if(!isBookedLike(L)) return false;
     var stage=followupStageLabel(L);
     if(!stage) return false;
@@ -3101,6 +3238,10 @@ function renderTodayDigest(){
   // Presence is judged by CONTENT (innerHTML), never by display — the digest
   // itself toggles display to collapse/expand, so checking display would make a
   // collapsed card look absent on the next render. Empty cards clear their innerHTML.
+  // Park every card first so rebuilding the summary never destroys them, then
+  // slot each OPEN card directly under its own row.
+  var park=$('todayPark');
+  if(park) cards.forEach(function(c){ var el=$(c[0]); if(el && el.parentNode!==park) park.appendChild(el); });
   var present=cards.filter(function(c){ var el=$(c[0]); return el && (el.innerHTML||'').trim(); });
   if(!present.length){ sum.style.display='none'; return; }
   var rows=present.map(function(c){
@@ -3113,10 +3254,15 @@ function renderTodayDigest(){
       +'<span class="ic">'+tdIcon(id)+'</span>'
       +'<span class="t"><span class="a">'+esc(label)+'</span>'+sub+'</span>'
       +pill
-      +'<span class="chev">&#8250;</span></button>';
+      +'<span class="chev">&#8250;</span></button>'
+      +'<div class="td-slot" id="tdslot_'+id+'"></div>';
   }).join('');
   sum.innerHTML='<div class="td-card"><div class="td-head"><span class="td-star">&#10038;</span><span class="td-lbl">Today</span></div>'+rows+'</div>';
   sum.style.display='';
+  present.forEach(function(c){
+    var slot=$('tdslot_'+c[0]), el=$(c[0]);
+    if(slot && el && TODAY_OPEN[c[0]]) slot.appendChild(el);
+  });
 }
 function toggleToday(id){ TODAY_OPEN[id]=!TODAY_OPEN[id]; renderTodayDigest(); }
 // Empty-state nudge: when the account is nearly empty (and not mid-search or
@@ -3280,7 +3426,7 @@ function renderLeads(){
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No references yet — flag a happy client on their card, or they can opt in after their event.</div>';
 
   } else {
-    var overdue=[], todays=[], upcoming=[], noneSet=[];
+    var overdue=[], todays=[], upcoming=[], noneSet=[], stale=[];
     rows.forEach(function(L){
       var f=pd(L[C.followup]);
       var active = String(L[C.status]||'New')!=='Lost' && String(L[C.status]||'')!=='Completed';
@@ -3288,13 +3434,16 @@ function renderLeads(){
       var f0=new Date(f); f0.setHours(0,0,0,0);
       if(active && f0<t) overdue.push(L);
       else if(active && f0.getTime()===t.getTime()) todays.push(L);
+      else if(!active && f0<t) stale.push(L);
       else upcoming.push(L);
     });
     var byF=function(a,b){ return (pd(a[C.followup])||0)-(pd(b[C.followup])||0); };
     overdue.sort(byF); todays.sort(byF); upcoming.sort(byF);
     h+=section('Overdue', overdue, true);
+    h+=section('Due today', todays, false);
     h+=upcomingFuHTML(upcoming);
-    h+=section('No follow-up set', noneSet, false);
+    h+=staleFuHTML(stale);
+    h+=compactLeadSection('No follow-up set', noneSet, false, leadRow_NoFollowup);
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>'+
       (FILTER==='Follow up' ? 'No leads in play right now. New inquiries land here.' : 'No leads here yet.')+'</div>';
   }
@@ -3541,7 +3690,7 @@ function openTask(id){
   $('overlay').classList.add('open'); $('tsheet').classList.add('open');
 }
 function anyPanelOpen(){
-  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','expenseSheet','importSheet','categorySheet'].some(function(id){
+  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','expenseSheet','importSheet','categorySheet','msgTplSheet','refLinkSheet'].some(function(id){
     var el=$(id); return el && el.classList.contains('open');
   });
 }
@@ -3715,6 +3864,7 @@ function toggleLeadReference(row){
 function openSheet(row){
   CURRENT = LEADS.find(function(L){ return L._row===row; });
   if(!CURRENT) return;
+  if(CURRENT._pending){ CURRENT=null; toast('Still saving — one moment'); return; }
   var L=CURRENT;
   // Rebuild the contract panel from whatever's actually saved on this lead,
   // rather than always clearing it — a contract already generated earlier
@@ -4154,11 +4304,16 @@ function deletePartnerLogUI(id){
   .deletePartnerLog(id);
 }
 function onFollowupChange(presetNote){
+  var v=$('d_followup').value;
+  // Typing a date fires change on every digit (year 0002, 0020...). Ignore
+  // implausible years until the date is complete, and never steal focus
+  // from the field mid-typing (only the quick-bump buttons pass a note).
+  if(v){ var yr=parseInt(v.slice(0,4),10); if(!(yr>=2000 && yr<=2100)) return; }
   queueAutoSave();
-  if($('d_followup').value){
+  if(v){
     $('fu_noteprompt').style.display='';
-    $('fu_notetext').value=presetNote||'';
-    $('fu_notetext').focus();
+    if(presetNote!==undefined || !$('fu_notetext').value) $('fu_notetext').value=presetNote||'';
+    if(presetNote!==undefined) $('fu_notetext').focus();
   }
 }
 function fuDescribe(){
@@ -4363,7 +4518,11 @@ var MERGE_FIELDS=[
   {key:'email', label:'Email', get:function(L){ return String(L[C.email]||''); }},
   {key:'source', label:'Lead source', get:function(L){ return String(L[C.source]||''); }},
   {key:'contractlink', label:'Signed contract link', get:function(L){ return String(L[C.contractPdfUrl]||''); }},
-  {key:'signlink', label:'Event portal link (send before they sign)', get:function(L){ return String(L[C.contractSignUrl]||''); }}
+  {key:'signlink', label:'Event portal link (send before they sign)', get:function(L){ return String(L[C.contractSignUrl]||''); }},
+  // Your own details (filled in when you send, so a signature never goes stale). mine:true puts
+  // them in their own group in the "insert field" dropdown, apart from the recipient's fields.
+  {key:'owner', label:'Your name', mine:true, get:function(){ return String((CFG&&CFG.OWNER_NAME)||''); }},
+  {key:'business', label:'Your business name', mine:true, get:function(){ return String((CFG&&CFG.BUSINESS_NAME)||''); }}
 ];
 /* ---------- One-tap referral link (for partners who also use Magic Manager) ----------
    When a partner has a saved referral link, referral emails to them get a link that drops
@@ -4539,6 +4698,7 @@ function onTextRefLeadChange(){
   TXTPICKER_REFLEAD = key ? LEADS.find(function(L){ return String(L._tsKey)===key; }) : null;
 }
 function renderTextPicker(){
+  var wasOpen=$('tpicker').classList.contains('open'); // re-renders (e.g. reordering) shouldn't count as a fresh open
   $('tpicker_phone').textContent = TXTPICKER_PHONE || 'no phone on file';
   var list = TXTPICKER_MODE==='partner' ? PARTNERTXTPL : TXTPL;
   var reorderable = TXTPICKER_MODE!=='partner';
@@ -4553,9 +4713,10 @@ function renderTextPicker(){
           +'<button class="tord" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveTextTemplateUI(\''+esc(t.id)+'\',\'up\')">&#9650;</button>'
           +'<button class="tord" '+(i===list.length-1?'disabled':'')+' onclick="event.stopPropagation();moveTextTemplateUI(\''+esc(t.id)+'\',\'down\')">&#9660;</button>'
           +'</span>' : '')
-        +'<button class="tdel" onclick="event.stopPropagation();openTextTemplateEditor(\''+esc(t.id)+'\')">&#9998;</button>'
+        +'<button class="tdel" title="Edit this template" aria-label="Edit this template" onclick="event.stopPropagation();openTextTemplateEditor(\''+esc(t.id)+'\')">&#9998;</button>'
         +'</div>'; }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No '+(TXTPICKER_MODE==='partner'?'partner ':'')+'text templates yet &mdash; add one below.</div>';
+  tplHintUpdate_('tpicker_hint', !wasOpen);
   $('overlay').classList.add('open'); $('tpicker').classList.add('open');
 }
 function moveTextTemplateUI(id, direction){
@@ -4614,7 +4775,10 @@ function fillTextMergeFieldOptions(){
   var sel=$('tte_insertfield');
   sel.innerHTML='<option value="">Choose a field to insert&#8230;</option>'
     + '<optgroup label="Recipient (client or partner)">'
-    + MERGE_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
+    + MERGE_FIELDS.filter(function(f){ return !f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
+    + '</optgroup>'
+    + '<optgroup label="Your details">'
+    + MERGE_FIELDS.filter(function(f){ return f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
     + '</optgroup>'
     + '<optgroup label="Referred lead (when texting a partner)">'
     + REF_LEAD_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
@@ -4709,6 +4873,7 @@ function insertTextMergeField(){
   queueTextTplSave();
 }
 function renderEmailPicker(){
+  var wasOpen=$('epicker').classList.contains('open'); // re-renders (e.g. reordering) shouldn't count as a fresh open
   var pseudoLead=EPICKER_CTX, to=EPICKER_TO, refLead=EPICKER_REFLEAD;
   var list = EPICKER_MODE==='partner' ? PARTNERTPL : TPL;
   var reorderable = EPICKER_MODE!=='partner';
@@ -4723,10 +4888,11 @@ function renderEmailPicker(){
           +'<button class="tord" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'up\')">&#9650;</button>'
           +'<button class="tord" '+(i===list.length-1?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'down\')">&#9660;</button>'
           +'</span>' : '')
-        +'<button class="tdel" onclick="event.stopPropagation();openTemplateEditor(\''+esc(t.id)+'\')">&#9998;</button>'
+        +'<button class="tdel" title="Edit this template" aria-label="Edit this template" onclick="event.stopPropagation();openTemplateEditor(\''+esc(t.id)+'\')">&#9998;</button>'
         +'</div>'; }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No '+(EPICKER_MODE==='partner'?'partner ':'')+'templates yet &mdash; add one below.</div>';
   var pl=$('epicker_plain'); pl.href=mailUrl(to,'',''); pl.target='_top';
+  tplHintUpdate_('epicker_hint', !wasOpen);
   $('overlay').classList.add('open'); $('epicker').classList.add('open');
 }
 function moveTemplateUI(id, direction){
@@ -4775,7 +4941,10 @@ function fillMergeFieldOptions(){
   var sel=$('te2_insertfield');
   sel.innerHTML='<option value="">Choose a field to insert&#8230;</option>'
     + '<optgroup label="Recipient (client or partner)">'
-    + MERGE_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
+    + MERGE_FIELDS.filter(function(f){ return !f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
+    + '</optgroup>'
+    + '<optgroup label="Your details">'
+    + MERGE_FIELDS.filter(function(f){ return f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
     + '</optgroup>'
     + '<optgroup label="Referred lead (when emailing a partner)">'
     + REF_LEAD_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
@@ -5251,26 +5420,41 @@ function submitLead(){
   if(!f[C.name]){ toast('Add a customer name first'); return; }
   f[C.phone]=$('a_phone').value; f[C.email]=$('a_email').value; f[C.company]=$('a_company').value;
   f[C.eventDate]=$('a_eventDate').value; f[C.audience]=$('a_audience').value;
-  f[C.service]=$('a_service').value; f[C.eventType]=$('a_eventType').value;
-  f[C.source]=$('a_source').value; f[C.price]=$('a_price').value;
+  f[C.service]=$('a_service').value; f[C.eventType]=$('a_eventType').value; if(f[C.eventType]==='__new__') f[C.eventType]='';
+  f[C.source]=$('a_source').value; if(f[C.source]==='__new__') f[C.source]=''; f[C.price]=$('a_price').value;
   f[C.location]=$('a_location').value; f[C.status]=$('a_status').value;
   var adv=$('a_followup').value, atv=$('a_followtime').value;
   f[C.followup]= adv ? (adv + (atv? ' '+atv : '')) : '';
   f[C.notes]=$('a_notes').value;
-  var btn=$('addBtn'); btn.disabled=true; btn.textContent='Adding\u2026';
+  // Optimistic: show the lead and reset the form right away; the server write
+  // (sheet row + automations + calendar) finishes in the background. On success
+  // the server's full list replaces the temporary lead; on failure we pull it
+  // back out and restore what was typed so nothing is lost.
+  var formIds=['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_price','a_location','a_followup','a_followtime','a_notes','a_service','a_eventType','a_source','a_status'];
+  var saved={}; formIds.forEach(function(id){ saved[id]=$(id).value; });
+  ADD_SEQ_=(ADD_SEQ_||0)+1;
+  var temp={_row:-ADD_SEQ_, _tsKey:'pending'+ADD_SEQ_, _pending:true};
+  Object.keys(f).forEach(function(k){ temp[k]=f[k]; });
+  temp[C.timestamp]=new Date().toISOString();
+  if(!temp[C.status]) temp[C.status]='New';
+  LEADS.unshift(temp);
+  formIds.forEach(function(id){ if(id!=='a_status') $(id).value=''; });
+  addFormDefaults_();
+  var _dw=$('a_details_wrap'); if(_dw) _dw.style.display='none';
+  var _dc=$('a_details_chev'); if(_dc) _dc.innerHTML='&#9662;';
+  renderChips(); renderLeads(); renderInsights(); go('leads', document.querySelector('.tab[data-v="leads"]'));
+  toast('Lead added ✦');
   google.script.run.withSuccessHandler(function(json){
-    ingest(json);
-    btn.disabled=false; btn.textContent='Add lead';
-    ['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_price','a_location','a_followup','a_followtime','a_notes']
-      .forEach(function(id){ $(id).value=''; });
-    ['a_service','a_eventType','a_source'].forEach(function(id){ var el=$(id); if(el) el.value=''; });
-    var _dw=$('a_details_wrap'); if(_dw) _dw.style.display='none';
-    var _dc=$('a_details_chev'); if(_dc) _dc.innerHTML='&#9662;';
-    renderChips(); renderLeads(); renderInsights(); go('leads', document.querySelector('.tab[data-v="leads"]'));
-    toast('Lead added \u2726');
-  }).withFailureHandler(function(){ btn.disabled=false; btn.textContent='Add lead'; toast('Could not add \u2014 try again'); })
-  .addLead(f);
+    ingest(json); renderChips(); renderLeads(); renderInsights();
+  }).withFailureHandler(function(){
+    LEADS=LEADS.filter(function(L){ return L!==temp; });
+    renderChips(); renderLeads(); renderInsights();
+    go('add', document.querySelector('.tab[data-v="add"]'));
+    formIds.forEach(function(id){ $(id).value=saved[id]; });
+    toast('Could not save that lead — your details are back in the form');
+  }).addLead(f);
 }
+var ADD_SEQ_=0;
 
 /* ---------- Insights ---------- */
 /* ---------- Donut chart (no external libs) ---------- */
@@ -5665,11 +5849,16 @@ function oracleConversion(){
 }
 function oracleOverdue(){
   var overdue=LEADS.filter(function(L){
-    var s=String(L[C.status]||'New');
-    if(s!=='Pending'&&s!=='New') return false;
+    if(!isWorkingLead(L)) return false;
     var f=pd(L[C.followup]);
     return f && f<today0();
   });
+  var due=LEADS.filter(function(L){
+    if(L._stageDoneOptimistic || !isBookedLike(L) || !followupStageLabel(L)) return false;
+    var f=pd(L[C.followup]);
+    return f && f<=new Date();
+  });
+  if(!overdue.length && due.length) return '<b>'+due.length+'</b> booked client'+(due.length===1?'':'s')+' ha'+(due.length===1?'s':'ve')+' a follow-up due: '+due.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ')+'. No new inquiries are overdue.';
   if(!overdue.length) return 'Nothing overdue \u2014 you\u2019re caught up.';
   var names=overdue.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ');
   return '<b>'+overdue.length+'</b> overdue: '+names+(overdue.length>5?', and '+(overdue.length-5)+' more':'')+'.';
@@ -5742,6 +5931,17 @@ function computeOracleTips(all){
       '<b>'+atRisk.length+' booked shows this week</b> are missing a price, start time, or location \u2014 worth a quick check before showtime.',
       '<b>'+atRisk.length+' shows coming up this week</b> still have a gap in the details \u2014 price, time, or location.'
     ])});
+  }
+
+  // Data-quality nudge: a lead still marked Booked long after its event date
+  // is almost always one that should be Completed (keeps Insights honest).
+  var stuckBooked=all.filter(function(L){
+    if(String(L[C.status]||'')!=='Booked') return false;
+    var ed=pd(L[C.eventDate]);
+    return ed && Math.round((today0()-ed)/86400000)>=7;
+  });
+  if(stuckBooked.length>0){
+    urgent.push({icon:oIcon('clipboard'), text:'<b>'+stuckBooked.length+' past show'+(stuckBooked.length===1?' is':'s are')+'</b> still marked Booked \u2014 mark '+(stuckBooked.length===1?'it':'them')+' Completed so your Insights stay accurate.'});
   }
 
   var closingSoon=all.filter(function(L){
@@ -7445,6 +7645,70 @@ function openLeadImport(){
   $('overlay').classList.add('open'); $('leadImportSheet').classList.add('open');
 }
 function closeLeadImport(){ $('leadImportSheet').classList.remove('open'); syncOverlay(); }
+/* ---------- Message templates (Settings) ----------
+   One place to see and edit every email/text/partner template without starting a message first.
+   Editing reuses the same editors the Email/Text pickers use (they sit above this screen). */
+function openMsgTemplates(){ renderMsgTemplates(); $('overlay').classList.add('open'); $('msgTplSheet').classList.add('open'); }
+function closeMsgTemplates(){ $('msgTplSheet').classList.remove('open'); syncOverlay(); }
+function renderMsgTemplatesIfOpen_(){ var s=$('msgTplSheet'); if(s && s.classList.contains('open')) renderMsgTemplates(); }
+function renderMsgTemplates(){
+  var box=$('mt_list'); if(!box) return;
+  var groups=[
+    {kind:'email',  title:'Email templates',         list:TPL,          add:'New email template',         sub:function(t){ return t.subject; }},
+    {kind:'text',   title:'Text templates',          list:TXTPL,        add:'New text template',          sub:function(t){ return t.body; }},
+    {kind:'pemail', title:'Partner email templates', list:PARTNERTPL,   add:'New partner email template', sub:function(t){ return t.subject; }},
+    {kind:'ptext',  title:'Partner text templates',  list:PARTNERTXTPL, add:'New partner text template',  sub:function(t){ return t.body; }}
+  ];
+  box.innerHTML=groups.map(function(g){
+    var rows=(g.list||[]).map(function(t){
+      var sub=String(g.sub(t)||'').replace(/\s+/g,' ').slice(0,80);
+      return '<button type="button" class="more-row" onclick="editMsgTemplate(\''+g.kind+'\',\''+esc(t.id)+'\')">'
+        +'<span class="t"><span>'+esc(t.name||'Untitled')+'</span>'
+        +(sub?'<span class="mr-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(sub)+'</span>':'')+'</span>'
+        +'<span class="chev">&#8250;</span></button>';
+    }).join('');
+    rows+='<button type="button" class="more-row" style="color:var(--gold-bright)" onclick="editMsgTemplate(\''+g.kind+'\',null)">'
+      +'<span class="t">+ '+g.add+'</span><span class="chev">&#8250;</span></button>';
+    return '<div class="sec-title" style="margin-top:20px"><span class="t">'+g.title+' &middot; '+(g.list||[]).length+'</span><span class="rule"></span></div>'
+      +'<div class="more-list">'+rows+'</div>';
+  }).join('');
+}
+// The editors decide "partner vs. client" from the picker mode, so set it before opening.
+function editMsgTemplate(kind, id){
+  if(kind==='email' || kind==='pemail'){ EPICKER_MODE = (kind==='pemail') ? 'partner' : 'lead'; openTemplateEditor(id); }
+  else { TXTPICKER_MODE = (kind==='ptext') ? 'partner' : 'lead'; openTextTemplateEditor(id); }
+}
+function addStarterTemplatesUI(){
+  var b=$('mt_starter_btn'); if(b){ b.disabled=true; b.textContent='Adding…'; }
+  var reset=function(){ if(b){ b.disabled=false; b.textContent='Add starter templates'; } };
+  google.script.run.withSuccessHandler(function(json){
+    var r=null; try{ r=JSON.parse(json); }catch(e){}
+    reset();
+    if(!(r && r.ok)){ toast('Could not add templates — try again'); return; }
+    ingest(json);
+    var n=(r.added.email||0)+(r.added.text||0)+(r.added.pemail||0)+(r.added.ptext||0);
+    toast(n ? 'Added '+n+' starter template'+(n===1?'':'s')+' ✦' : 'You already have all the starter templates');
+  }).withFailureHandler(function(){ reset(); toast('Could not add templates — try again'); }).addStarterTemplates();
+}
+/* First-use hint at the top of the Email / Text pickers: shown for the first few times the picker
+   opens (per device), then gone; dismissable. Per-device convenience only — localStorage, try/catch. */
+var TPL_HINT_MAX=4;
+function tplHintUpdate_(boxId, isNewOpen){
+  var box=$(boxId); if(!box) return;
+  var off=false, n=0;
+  try{ off=localStorage.getItem('mm_tplhint_off')==='1'; n=Number(localStorage.getItem('mm_tplhint_n')||0); }catch(e){}
+  if(isNewOpen && !off){ n++; try{ localStorage.setItem('mm_tplhint_n', String(n)); }catch(e){} }
+  if(off || n>TPL_HINT_MAX){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML='<div style="margin:0 0 12px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream);text-align:left">'
+    +'<b style="color:var(--gold-bright)">Tip:</b> tap a template to start your message. Tap the pencil (&#9998;) to edit one, or use <b>Create new template</b> below. Fields like <b>{firstname}</b> fill in automatically. You can manage them all anytime in <b>Settings &rarr; Message templates</b>.'
+    +' <a href="javascript:void(0)" onclick="dismissTplHint()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>';
+  box.style.display='';
+}
+function dismissTplHint(){
+  try{ localStorage.setItem('mm_tplhint_off','1'); }catch(e){}
+  ['epicker_hint','tpicker_hint'].forEach(function(id){ var b=$(id); if(b){ b.style.display='none'; b.innerHTML=''; } });
+}
+
 /* ---------- My referral link (Settings) ---------- */
 var RL_RESET_ARM=false;
 function openRefLink(){
@@ -7665,7 +7929,6 @@ function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
   body.innerHTML = 'Loading…';
-  var _sm=$('settingsMore'); if(_sm) _sm.style.display='none';
   google.script.run.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
@@ -7673,8 +7936,7 @@ function renderSettings(){
     function filled(f){ var v=raw[f.key]; return v!=null && String(v).trim()!==''; }
     function fieldHtml(f){ return settingsFieldHtml(f, raw, cfg); }
     var used = {}, html = '';
-    html += '<button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>'
-      + '<p class="note" style="text-align:left;margin:0 0 8px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>';
+    // (The guided-setup button and the Tools / Help lists are static markup on the page now.)
     sections.forEach(function(sec){
       var fs = SETTINGS_FIELDS.filter(function(f){ return f.section===sec.id; });
       if(!fs.length) return;
@@ -7716,7 +7978,6 @@ function renderSettings(){
       body.addEventListener('change', onSettingsFieldChange);
       body._autosaveWired=true;
     }
-    var sm=$('settingsMore'); if(sm) sm.style.display='';
   }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
     .getSettings();
 }
@@ -8188,7 +8449,7 @@ function storemethodsEditorHtml(f, val, cfg){
   if(methods.length < 2){
     return '<div class="field"><label>'+esc(f.label)+'</label>'
       + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
-      + '<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">Set up more than one payment method under “Getting paid” above, then choose which ones your store offers here.</div></div>';
+      + '<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">Set up more than one payment method under “Payment methods” above, then choose which ones your store offers here.</div></div>';
   }
   var boxes = methods.map(function(o){
     return '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
@@ -8331,6 +8592,15 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.37', d:'Sep 2026', notes:[
+    'Message templates are easier to find: a starter set you can add with one tap, a new Settings → Message templates screen, and a first-use hint in the email/text pickers.',
+    'Settings is reorganized by purpose (Tools / Your settings / Help), with "Getting paid" split from "Payment methods".',
+    'Add lead now saves instantly in the background; if a save fails, what you typed comes back.',
+    'Add form: "Private Event" is a default event type, and Event type and Lead source have "+ Add new…".',
+    'Follow-ups: a "Due today" section, an "Old follow-ups" group with Clear all, and a History pill on Follow-Ups Due that shows recent contacts.',
+    'Today digest cards now open right under their own row; "No follow-up set" matches the Upcoming list style.',
+    'Fixes: date field no longer loses focus while typing, follow-up time popup no longer re-dates to today, Oracle no longer says nothing is overdue when booked clients are due, ← Back button padding.'
+  ]},
   { v:'1.5.36', d:'Sep 2026', notes:[
     'Transparent logos now get a solid black square behind them on contracts and receipts (only when the logo is transparent; turn off under Settings → Advanced → Logo backing).',
     'New "Clean — Open Sans" font option for the client portal look.'
@@ -8387,6 +8657,8 @@ var HELP_FIXES = [
     a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' },
   { q:'A client can’t open the invoice, receipt, or contract link',
     a:'If your client sees <b>&ldquo;Sorry, unable to open the file at this time&rdquo;</b> (a Google page), the file itself is fine — it’s a Google Drive <b>sharing</b> setting on your account. Magic Manager shares every invoice/receipt/contract as &ldquo;anyone with the link can view,&rdquo; but a Google <b>Workspace</b> (business) account can be set to block sharing outside your organization &mdash; so <b>you</b> can open the file, but your client can’t.<ol><li>Open one of the files in your Google Drive → <b>Share</b> → look at <b>&ldquo;General access.&rdquo;</b> If it shows your company name or <b>Restricted</b> instead of <b>Anyone with the link</b>, that’s the cause.</li><li><b>Fix it:</b> if you manage your own Google account, turn on external sharing (<b>Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings</b>). If your email is managed by a company, ask their admin to <b>allow link-sharing outside the organization</b> for Drive.</li><li><b>In the meantime,</b> open the file in Drive, download it as a PDF, and email it to your client directly.</li></ol>A personal @gmail.com account allows this sharing by default, so it never happens there.' },
+  { q:'How do message templates work?',
+    a:'Templates are ready-made emails and texts. On any lead, tap <b>Email</b> or <b>Text</b> and pick one — your email or messaging app opens with the message already written and the client’s details filled in. You review it and send it yourself.<ol><li><b>Customize them:</b> tap the pencil (✎) on any template to change the wording, or <b>Create new template</b> to add your own.</li><li><b>Fields fill in for you:</b> {firstname}, {eventdate}, {location}, {quoted}, {signlink} (the client’s event page), and your own {owner} / {business} are replaced with the real details when you send. Use <b>Choose a field to insert</b> in the editor to add them.</li><li><b>See them all in one place:</b> <b>Settings → Message templates</b>.</li><li><b>Get the starter set:</b> on that screen, tap <b>Add starter templates</b> to add ready-made ones for every stage of a booking (inquiry reply, quote, agreement, reminders, thank-you, partner referrals). It only adds ones you don’t already have and never changes yours.</li></ol>' },
   { q:'Sending a lead to another Magic Manager user',
     a:'When you refer a lead to a partner who also uses Magic Manager, your referral email can include a link that drops the lead straight into <b>their</b> app &mdash; no retyping. One-time setup:<ol><li><b>Your partner</b> opens <b>Settings → Referral link</b> and taps <b>Copy link</b> (or <b>Share</b>) to send it to you. This is <b>not</b> their app address, so it can’t open or expose their app.</li><li><b>You</b> open that partner (Leads → Partners) and paste it into <b>Their Magic Manager referral link</b>. A green check means it’s saved.</li><li>From then on, referral emails to that partner automatically include a <b>&ldquo;Magic Manager user? Tap to add this lead&rdquo;</b> link. (You can also place it yourself in a partner template with the <b>{referral_link}</b> merge field.)</li></ol><b>When you receive one:</b> tapping the link confirms it landed, then a <b>Referral inbox</b> card appears at the top of your Leads screen. Review it and tap <b>Add lead</b> (it comes in as a New lead, source Referral, with a same-day follow-up) or <b>Dismiss</b>. Nothing is added until you tap Add. If a link was shared by mistake, use <b>Reset link</b> on the Referral link screen.' }
 ];
