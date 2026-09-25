@@ -4159,11 +4159,34 @@ function commitAddKV(i){
 }
 function blurKV(i){
   var inp=$('kvi_'+i);
-  if(inp && inp.dataset.saved!=='1') $('kv_'+i).innerHTML=kvDisplay(KVF[i]);
+  if(inp && inp.dataset.saved!=='1'){
+    // A date still sitting here on blur was held back while typing (partial year);
+    // give it a final chance to save (2-digit years become 20xx) before reverting.
+    if(KVF[i].type==='date' && inp.value && inp.value!==inp.defaultValue){ saveKV(i, true); return; }
+    $('kv_'+i).innerHTML=kvDisplay(KVF[i]);
+  }
 }
-function saveKV(i){
+// Native date inputs fire change on every digit of the year (0002, 0020, 0202, 2026...).
+// Returns the value to save ('' = nothing to save yet). Mid-typing partial years are held back;
+// on blur (final=true) a 2-digit year becomes 20xx and anything else out of range is refused.
+function checkedDateYear_(v, final){
+  if(!v) return {ok:true, v:''};
+  var y=parseInt(String(v).split('-')[0],10);
+  if(isNaN(y)) return {ok:false, v:v};
+  if(final && y>=0 && y<100){ y+=2000; v=String(y)+String(v).slice(String(v).indexOf('-')); }
+  return {ok: y>=2000 && y<=2100, v:v};
+}
+function saveKV(i, fromBlur){
   var F=KVF[i], inp=$('kvi_'+i);
   if(!inp || !CURRENT) return;
+  if(F.type==='date'){
+    var chk=checkedDateYear_(inp.value, !!fromBlur);
+    if(!chk.ok){
+      if(fromBlur){ toast('That date has an odd year — please enter it again'); $('kv_'+i).innerHTML=kvDisplay(F); }
+      return; // still typing (or refused): don't save or re-render mid-entry
+    }
+    inp.value=chk.v;
+  }
   inp.dataset.saved='1';
   var nv=inp.value, row=CURRENT._row, updates={};
   if(F.type==='time' && nv){
@@ -5466,11 +5489,15 @@ function submitLead(){
   f[C.name]=$('a_name').value.trim();
   if(!f[C.name]){ toast('Add a customer name first'); return; }
   f[C.phone]=$('a_phone').value; f[C.email]=$('a_email').value; f[C.company]=$('a_company').value;
-  f[C.eventDate]=$('a_eventDate').value; f[C.audience]=$('a_audience').value;
+  var _ed=checkedDateYear_($('a_eventDate').value, true);
+  if(!_ed.ok){ toast('The event date has an odd year — please re-enter it'); return; }
+  f[C.eventDate]=_ed.v; f[C.audience]=$('a_audience').value;
   f[C.service]=$('a_service').value; f[C.eventType]=$('a_eventType').value; if(f[C.eventType]==='__new__') f[C.eventType]='';
   f[C.source]=$('a_source').value; if(f[C.source]==='__new__') f[C.source]=''; f[C.price]=$('a_price').value;
   f[C.location]=$('a_location').value; f[C.status]=$('a_status').value;
-  var adv=$('a_followup').value, atv=$('a_followtime').value;
+  var _fd=checkedDateYear_($('a_followup').value, true);
+  if(!_fd.ok){ toast('The follow-up date has an odd year — please re-enter it'); return; }
+  var adv=_fd.v, atv=$('a_followtime').value;
   f[C.followup]= adv ? (adv + (atv? ' '+atv : '')) : '';
   f[C.notes]=$('a_notes').value;
   // Optimistic: show the lead and reset the form right away; the server write
@@ -8656,6 +8683,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.42', d:'Sep 2026', notes:[
+    'Date fields are sturdier: typing a year no longer saves half-typed years, two-digit years become 20xx, and impossible years (like 1902) are refused with a message instead of being saved.'
+  ]},
   { v:'1.5.41', d:'Sep 2026', notes:[
     'Expenses are grouped by month in the year view: tap a month to open it, with the count and monthly total shown on each row.',
     'Leads and Expenses collapsible sections now use the same row style as Insights, so everything looks and taps the same.'

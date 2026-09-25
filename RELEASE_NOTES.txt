@@ -1,5 +1,3 @@
 What's new in this update:
 
-• Expenses are easier to scan. In the year view, expenses are grouped by month — each month is a single row showing how many expenses it holds and the month's total. Tap a month to open it. (Pick a single month and you still get the plain list.)
-
-• A more consistent look. The collapsible sections on Leads and Expenses now use the same rows as Insights, so everything looks and taps the same way.
+• Date fields handle typing better. Typing a year no longer saves half-typed years along the way, a two-digit year like "26" becomes 2026 when you tab away, and an impossible year (like 1902) is now refused with a message instead of being saved. This applies to the event date and follow-up date on the Add form and in the lead editor.
