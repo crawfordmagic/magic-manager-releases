@@ -2895,6 +2895,14 @@ function upcomingFuHTML(upcoming){
   return h;
 }
 function todayPill_(d){ return (d.getHours()||d.getMinutes()) ? 'Today '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : 'Today'; }
+// True when a lead is already listed in one of the two "Follow-Ups Due" cards
+// (same predicates those cards use), so the leads list needn't repeat it.
+function dueCardCovers_(L){
+  if(L._pending) return false;
+  if(isWorkingLead(L)) return true;
+  var f=pd(L[C.followup]);
+  return !L._stageDoneOptimistic && isBookedLike(L) && !!followupStageLabel(L) && !!f && f<=today0();
+}
 function isToday_(d){ return !!d && d.getTime()>=today0().getTime() && d.getTime()<today0().getTime()+864e5; }
 function renderFollowupDue(){
   var box=$('followupDueCard'); if(!box) return;
@@ -3442,9 +3450,13 @@ function renderLeads(){
     var byF=function(a,b){ return (pd(a[C.followup])||0)-(pd(b[C.followup])||0); };
     overdue.sort(byF); todays.sort(byF); upcoming.sort(byF);
     h+=section('Overdue', overdue, true);
-    // Today's follow-ups already have their action card up top (Today digest);
-    // here they just lead the Upcoming list as quiet rows so counts stay complete.
-    h+=upcomingFuHTML(todays.concat(upcoming));
+    // Leads due today that already have an action card up top (Today digest) are
+    // not repeated here; any due-today lead the top cards do NOT cover (e.g. a
+    // booked client with no pending stage step) stays in the list so nothing hides.
+    var coveredAbove=todays.filter(dueCardCovers_);
+    var todayRest=todays.filter(function(L){ return !dueCardCovers_(L); });
+    if(coveredAbove.length) h+='<div style="font-size:12px;color:var(--muted);margin:0 0 10px">'+coveredAbove.length+' due today — shown in Today above.</div>';
+    h+=upcomingFuHTML(todayRest.concat(upcoming));
     h+=staleFuHTML(stale);
     h+=compactLeadSection('No follow-up set', noneSet, false, leadRow_NoFollowup);
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>'+
@@ -8595,6 +8607,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.39', d:'Sep 2026', notes:[
+    'Leads list: follow-ups already shown in the Follow-Ups Due cards at the top are no longer repeated below; a small note tells you how many are due today.'
+  ]},
   { v:'1.5.38', d:'Sep 2026', notes:[
     'Leads list: leads due today now sit at the top of the Upcoming list with a "Today" pill, instead of repeating the Follow-Ups Due card above.'
   ]},

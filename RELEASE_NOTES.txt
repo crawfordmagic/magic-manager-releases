@@ -1,3 +1,3 @@
 What's new in this update:
 
-• Cleaner leads list. Leads due today now sit at the top of "Upcoming Follow-ups" with a "Today" pill, instead of showing up twice on the same screen.
+• Less repetition on the leads page. Follow-ups that already appear in the "Follow-Ups Due" cards at the top are no longer listed a second time below, and a short note tells you how many are due today.
