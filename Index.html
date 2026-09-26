@@ -8709,6 +8709,13 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.44', d:'Sep 2026', notes:[
+    'Security: your bank account and routing numbers are no longer included in the public contract and store pages. They appear only after a client opens their own contract link, so nothing changes for your clients.',
+    'Security: anything a client or store visitor types (name, review, payment method) can no longer be used to sneak a formula into your sheet.',
+    'Client receipt links now repair themselves: if a receipt file is ever moved to the Trash or deleted, the client\u2019s link is restored or rebuilt automatically instead of showing "file deleted".',
+    'Scheduled background jobs can now only be started by Google\u2019s own timer or by you.',
+    'Card payments are checked more strictly: a payment is only marked received automatically if Stripe confirms it was made for that exact contract and payment.'
+  ]},
   { v:'1.5.43', d:'Sep 2026', notes:[
     'Security: your leads, contacts and settings are now locked behind your private app key on the server too, not just on the page. Nothing changes in how you use the app.',
     'When updating, replace ALL FIVE files (Code.gs, Index.html, Sign.html, Store.html, appsscript.json). If only some are replaced, the app now says "Update not finished" and tells you which file is missing.'

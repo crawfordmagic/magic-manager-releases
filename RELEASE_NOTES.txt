@@ -1,5 +1,13 @@
 What's new in this update:
 
-• Security: your leads, contacts and settings are now protected on the server by your private app key, not just hidden on the page. Nothing changes in how you use the app, and the links you send clients (contracts, payments, store) work exactly as before.
+• Security: your bank account and routing numbers (if you use Bank Transfer or Wire) are no longer included in the public contract and store pages. They show up only after a client opens their own contract link, so your clients see the same payment instructions as before.
 
-• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. If a file is missed, the app now shows an "Update not finished" message telling you what to replace (your data is never affected).
+• Security: text typed by clients and store visitors (names, reviews, payment method) can no longer be used to slip a spreadsheet formula into your sheet.
+
+• Client receipt links repair themselves. If a receipt file is ever moved to the Trash or deleted, the link is restored or rebuilt automatically, so a client never lands on a "file was deleted" page.
+
+• Your scheduled background jobs can now only be started by Google's own timer or by you.
+
+• Card payments are checked more strictly: a payment is only marked received automatically if Stripe confirms it was made for that exact contract and payment. Anything else is recorded as "reported" for you to confirm, as before.
+
+• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. Missing Sign.html in particular would hide the Bank Transfer / Wire options from your clients. (Your data is never affected.)

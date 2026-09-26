@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.43';
+var APP_VERSION = '1.5.44';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -813,10 +813,6 @@ function appAccessKey_() {
   return k;
 }
 
-function appUrl_() {
-  try { return ScriptApp.getService().getUrl() || ''; } catch (e) { return ''; }
-}
-
 function showAppLink() {
   var ui = SpreadsheetApp.getUi();
   var props = PropertiesService.getScriptProperties();
@@ -906,21 +902,18 @@ function doGet(e) {
         // Auto-confirm only when Stripe reports it PAID and collected the EXPECTED
         // amount. Anything else (unverifiable, not paid, or an amount mismatch)
         // falls back to "reported" so you verify and confirm it yourself.
-        if (_info && _info.paid && _expected > 0 && _info.amount === _expected) {
+        if (cardSessionMatches_(_info, e.parameter.sign, e.parameter.pk, _expected)) {
           autoConfirmCardPayment_(e.parameter.sign, e.parameter.pk);
         } else {
           reportPayment(e.parameter.sign, e.parameter.pk);
         }
-      } catch (e2) {}
+      } catch (e2) { console.error('Card return handling failed for a paid checkout: ' + e2); }
     }
-    // Shallow-copy the config so we can add a derived CARD_ENABLED flag without
-    // polluting the cached getConfig_ object. The portal hides Credit Card unless
-    // Stripe is actually set up (the secret key lives in Script Properties, not
-    // in Settings, so the portal can't tell otherwise).
-    var signCfg = getConfig_(), cfgOut = {};
-    for (var ck in signCfg) cfgOut[ck] = signCfg[ck];
-    cfgOut.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
-    template.cfg = cfgOut;
+    // Public config: a copy (so the cached getConfig_ object isn't polluted) with the bank
+    // numbers removed and a derived CARD_ENABLED flag — the portal hides Credit Card unless
+    // Stripe is actually set up (the secret key lives in Script Properties, not in Settings).
+    var signCfg = getConfig_();
+    template.cfg = publicCfg_();
     template.themeHtml = portalThemeHead_(signCfg.PORTAL_THEME);
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Event Portal')
@@ -935,11 +928,8 @@ function doGet(e) {
     var st = HtmlService.createTemplateFromFile('Store');
     st.productId = String(e.parameter.store);
     st.paid = e.parameter.paid || '';
-    // Same as the sign page: only offer Credit Card when Stripe is set up.
-    var stCfg = getConfig_(), stCfgOut = {};
-    for (var sk in stCfg) stCfgOut[sk] = stCfg[sk];
-    stCfgOut.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
-    st.cfg = stCfgOut;
+    // Same as the sign page: public config only (no bank numbers); Credit Card offered only when Stripe is set up.
+    st.cfg = publicCfg_();
     return st.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Store')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -1008,6 +998,28 @@ function doGet(e) {
 // Bump when the page<->server call contract changes; Index.html carries the same number.
 var PAGE_API_ = 2;
 
+// Bank account / routing numbers must never ride along in the public pages (anyone can open
+// ?sign=anything and read the page source). The public config carries only whether each
+// method is set up (HAS_ACH / HAS_WIRE); the numbers themselves are returned by
+// getContractForSigning, i.e. only to someone holding a real client token.
+var PRIVATE_PAY_KEYS_ = ['ACH_BANK', 'ACH_ACCOUNT', 'ACH_ROUTING', 'WIRE_BANK', 'WIRE_ACCOUNT', 'WIRE_ROUTING', 'WIRE_BANK_ADDRESS'];
+
+function publicCfg_() {
+  var src = getConfig_(), out = {};
+  for (var k in src) out[k] = src[k];
+  out.HAS_ACH = !!(src.ACH_ACCOUNT && src.ACH_ROUTING);
+  out.HAS_WIRE = !!(src.WIRE_ACCOUNT && src.WIRE_ROUTING);
+  PRIVATE_PAY_KEYS_.forEach(function (k) { delete out[k]; });
+  out.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
+  return out;
+}
+
+function bankDetails_() {
+  var src = getConfig_(), out = {};
+  PRIVATE_PAY_KEYS_.forEach(function (k) { out[k] = src[k] || ''; });
+  return out;
+}
+
 var API_ = {
   getSettings: getSettings_, saveSettings: saveSettings_, previewPortalTheme: previewPortalTheme_,
   uploadBusinessDoc: uploadBusinessDoc_, removeBusinessDoc: removeBusinessDoc_, activateLicense: activateLicense_,
@@ -1048,6 +1060,20 @@ function api(key, name, args) {
 /* Editor-only guard for the manual maintenance scripts, which have to keep public names (a
  * name ending in _ is hidden from the editor's Run menu). Run from the editor, the active
  * user is the owner; an anonymous web caller has no email. */
+/* Guard for the scheduled-job entry points. They have to keep public names (installed
+ * triggers call them by name), so without this a stranger could make them run on demand.
+ * A real trigger run passes an event carrying its own trigger id; the owner running one
+ * from the editor is also allowed. Anything else is refused. */
+function triggerOnly_(e) {
+  if (e && e.triggerUid) {
+    var uid = String(e.triggerUid);
+    if (ScriptApp.getProjectTriggers().some(function (t) { return String(t.getUniqueId()) === uid; })) return;
+  }
+  var a = Session.getActiveUser().getEmail();
+  if (a && a === Session.getEffectiveUser().getEmail()) return;
+  throw new Error('Not authorized');
+}
+
 function ownerOnly_() {
   var a = Session.getActiveUser().getEmail();
   if (!a || a !== Session.getEffectiveUser().getEmail()) throw new Error('Owner only');
@@ -1373,38 +1399,6 @@ function logoNeedsBacking_(blob) {
 // Fill the logo's header cell solid black when (and only when) the logo is transparent.
 function applyLogoBacking_(cell, blob) {
   try { if (logoNeedsBacking_(blob)) cell.setBackgroundColor('#000000'); } catch (e) {}
-}
-
-// Returns the buyer's logo as a browser-ready data: URI (or ''), for pages served to the
-// CLIENT (the Sign page). The raw LOGO_URL can be a link only the SERVER can load — a Google
-// Drive / Dropbox share link, or an image behind the buyer's own Google login — which fetches
-// fine for the contract but breaks in a client's <img> (the client isn't logged into the
-// buyer's account). Embedding the bytes the way the contract does makes the logo show for
-// everyone. A data: URI is already browser-ready and passes straight through; an external URL
-// is fetched once (via getLogoBlob_) and cached to avoid refetching on every page load.
-function getLogoDataUri_() {
-  var url = (getConfig_().LOGO_URL || '').trim();
-  if (!url) return '';
-  // A stored data: URI near the sheet's ~50k-per-cell limit is almost certainly truncated —
-  // an incomplete image still renders (partially) in the Doc contract but shows as a broken
-  // image in a browser <img>. Don't serve it. (A valid uploaded logo is well under this.)
-  if (/^data:/i.test(url) && url.length > 49000) return '';
-  var cache = null, ckey = 'logoDataUri_' + url.length + '_' + url.slice(-32);
-  try { cache = CacheService.getScriptCache(); var hit = cache.get(ckey); if (hit != null) return hit; } catch (e) {}
-  var out = '';
-  try {
-    var b = getLogoBlob_();
-    if (b) {
-      var ct = String(b.getContentType() || ''), bytes = b.getBytes();
-      // Only embed a real, non-trivial image — never an HTML page (a Drive/Dropbox "view" link
-      // returns HTML, not the file) or an empty/tiny blob, both of which break the <img>.
-      if (/^image\//i.test(ct) && bytes && bytes.length > 200) {
-        out = 'data:' + ct + ';base64,' + Utilities.base64Encode(bytes);
-      }
-    }
-  } catch (e) {}
-  if (cache && out) { try { cache.put(ckey, out, 21600); } catch (e) {} }
-  return out;
 }
 
 // US states (canonical name -> 2-letter abbr). Used to derive the contract's governing-law
@@ -1893,6 +1887,58 @@ function shareAnyoneWithLink_(file) {
   } catch (e) {}
   return ok;
 }
+// Drive file id out of a Drive URL (/d/<id>/... or ?id=<id>).
+function driveIdFromUrl_(url) {
+  var s = String(url || '');
+  var m = /\/d\/([-\w]{20,})/.exec(s) || /[?&]id=([-\w]{20,})/.exec(s);
+  return m ? m[1] : '';
+}
+
+// The receipt link a client sees on their portal must always open. The stored PDF can be
+// trashed or deleted out from under it (a Drive clean-up, a bulk "file it into a folder"
+// job, a manual delete) and the client would land on Google's "file was deleted" page. So each
+// time the portal loads it checks the file: fine -> same link; in the Trash -> restored from
+// the Trash (same link, nothing changes); permanently gone -> rebuilt from the lead's own
+// data and the sheet updated. Moving a file between folders never changes its id or sharing,
+// so that alone is never a problem. Any other Drive error (a hiccup) leaves the link alone.
+function liveReceiptUrl_(sh, rowNum, kind, url) {
+  url = String(url || '');
+  var id = driveIdFromUrl_(url);
+  if (!id) return url;
+  var cache = null, ck = 'rcptok_' + id;
+  try { cache = CacheService.getScriptCache(); if (cache.get(ck)) return url; } catch (e) {}
+  var file = null;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (e) {
+    if (!/no item|not found|could not be found/i.test(String(e && e.message))) return url;
+  }
+  if (!file) {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(8000)) return url;
+    try {
+      var cols = ensureContractCols_(sh);
+      var col = kind === 'deposit' ? cols.depositReceiptCol : cols.balanceReceiptCol;
+      var current = String(sh.getRange(rowNum, col).getValue() || '');
+      if (current && current !== url) return current;   // another portal load already rebuilt it
+      maybeGenerateReceipt_(sh, rowNum, kind);
+      return String(sh.getRange(rowNum, col).getValue() || url);
+    } catch (e) {
+      console.error('Could not rebuild the ' + kind + ' receipt for row ' + rowNum + ': ' + e);
+      return url;
+    } finally {
+      lock.releaseLock();
+    }
+  }
+  try { if (file.isTrashed()) file.setTrashed(false); } catch (e) { console.error('Could not restore receipt from Trash: ' + e); }
+  try {
+    var acc = file.getSharingAccess();
+    if (acc !== DriveApp.Access.ANYONE_WITH_LINK && acc !== DriveApp.Access.ANYONE) shareAnyoneWithLink_(file);
+  } catch (e) {}
+  try { if (cache) cache.put(ck, '1', 600); } catch (e) {}
+  return url;
+}
+
 function maybeGenerateReceipt_(sh, rowNum, kind) {
   const heads = headers_(sh);
   const row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
@@ -2109,8 +2155,8 @@ function getContractForSigning(token) {
         signedName: get('Contract Signed Name') || '',
         depositPaid: depositPaid,
         balancePaid: balancePaid,
-        depositReceiptUrl: get('Deposit Receipt PDF URL') || '',
-        balanceReceiptUrl: get('Balance Receipt PDF URL') || '',
+        depositReceiptUrl: depositPaid ? liveReceiptUrl_(sh, i + 2, 'deposit', get('Deposit Receipt PDF URL')) : (get('Deposit Receipt PDF URL') || ''),
+        balanceReceiptUrl: balancePaid ? liveReceiptUrl_(sh, i + 2, 'balance', get('Balance Receipt PDF URL')) : (get('Balance Receipt PDF URL') || ''),
         daysUntilEvent: daysUntilEvent,
         balanceDueDays: balanceDueDays,
         balanceDueDateFmt: balanceDueDateFmt,
@@ -2120,7 +2166,8 @@ function getContractForSigning(token) {
         // haven't seen), and only if they haven't already rated it.
         rating: Number(get('Event Rating')) || 0,
         showFeedback: balancePaid && (daysUntilEvent != null && daysUntilEvent <= 0) && !(Number(get('Event Rating')) > 0),
-        googleReviewUrl: String(getConfig_().GOOGLE_REVIEW_URL || '')
+        googleReviewUrl: String(getConfig_().GOOGLE_REVIEW_URL || ''),
+        bank: bankDetails_()
       });
     }
   }
@@ -2134,7 +2181,7 @@ function submitEventFeedback(token, rating, review, referenceOk) {
   try {
     rating = Math.round(Number(rating) || 0);
     if (rating < 1 || rating > 5) return JSON.stringify({ ok: false, error: 'Please choose a star rating.' });
-    review = String(review || '').trim().slice(0, 4000);
+    review = clientText_(review, 4000, true);
     // The client can opt in to being a reference. Only ever SET the flag here —
     // never clear it — so an owner's manual flag isn't wiped by a later review.
     var wantsReference = (referenceOk === true || String(referenceOk).trim().toLowerCase() === 'yes' || String(referenceOk).trim().toLowerCase() === 'true');
@@ -2163,7 +2210,7 @@ function submitEventFeedback(token, rating, review, referenceOk) {
   }
 }
 function submitContractSignature(token, typedName, paymentMethod) {
-  typedName = String(typedName || '').trim();
+  typedName = clientText_(typedName, 120);
   if (!typedName) return JSON.stringify({ ok: false, error: 'Name required' });
   const sh = sheet_();
   const heads = headers_(sh);
@@ -2180,7 +2227,7 @@ function submitContractSignature(token, typedName, paymentMethod) {
       // truth of how they'll actually pay — more authoritative than
       // whatever guess was set when the contract was first generated, so
       // it overwrites that guess rather than just living alongside it.
-      const finalPaymentMethod = String(paymentMethod || '').trim();
+      const finalPaymentMethod = clientText_(paymentMethod, 40);
       if (finalPaymentMethod) {
         var pmCol = heads.indexOf('Payment Method') + 1;
         if (!pmCol) { pmCol = heads.length + 1; sh.getRange(1, pmCol).setValue('Payment Method'); heads.push('Payment Method'); }
@@ -2211,7 +2258,7 @@ function submitContractSignature(token, typedName, paymentMethod) {
         try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
       } catch (e) {}
 
-      try { notifyOwnerContractSigned_(heads, sh.getRange(rowNum, 1, 1, heads.length).getValues()[0], typedName, finalPaymentMethod); } catch (e) {}
+      try { notifyOwnerContractSigned_(heads, sh.getRange(rowNum, 1, 1, heads.length).getValues()[0], typedName, finalPaymentMethod); } catch (e) { console.error('Could not email owner about signed contract: ' + e); }
       return JSON.stringify({ ok: true });
     }
   }
@@ -2256,7 +2303,7 @@ function saveBalancePaymentMethod(token, method) {
       if (String(values[i][0]) === token) {
         const rowNum = i + 2;
         const cols = ensureContractCols_(sh);
-        sh.getRange(rowNum, cols.balancePmCol).setValue(String(method || ''));
+        sh.getRange(rowNum, cols.balancePmCol).setValue(clientText_(method, 40));
         return JSON.stringify({ ok: true });
       }
     }
@@ -2296,7 +2343,7 @@ function reportPayment(token, kind) {
         var already = flagIdx > -1 && String(values[i][flagIdx]) === 'Yes';
         setCellByHeader_(sh, heads, rowNum, flagName, 'Yes');
         setCellByHeader_(sh, heads, rowNum, kind === 'balance' ? 'Balance Reported Date' : 'Deposit Reported Date', new Date());
-        if (!already) { try { notifyOwnerReportedPayment_(heads, values[i], kind); } catch (e) {} }
+        if (!already) { try { notifyOwnerReportedPayment_(heads, values[i], kind); } catch (e) { console.error('Could not email owner about reported payment: ' + e); } }
         return JSON.stringify({ ok: true });
       }
     }
@@ -2461,13 +2508,25 @@ function stripeSessionInfo_(sessionId) {
     });
     if (resp.getResponseCode() < 200 || resp.getResponseCode() >= 300) return null;
     var json = JSON.parse(resp.getContentText());
-    return { paid: String(json && json.payment_status) === 'paid', amount: Number(json && json.amount_total) || 0 };
+    var meta = (json && json.metadata) || {};
+    return { paid: String(json && json.payment_status) === 'paid', amount: Number(json && json.amount_total) || 0,
+             token: String(meta.contract_token || ''), kind: String(meta.payment_kind || '') };
   } catch (e) { return null; }
 }
 
 // The exact cents a card charge for this lead's deposit/balance should be — the
 // same math createStripeCheckoutSession used — so the return can confirm Stripe
 // collected the RIGHT amount, not just that some payment succeeded.
+// True only when a Stripe checkout session is paid, collected the expected amount, AND was created
+// for THIS lead's deposit/balance (the session carries the contract token + payment kind it was
+// made for). Without the last check a paid session from anywhere else (another booking, a store
+// purchase) with the same amount could be replayed to mark other leads paid.
+function cardSessionMatches_(info, token, kind, expectedCents) {
+  kind = (kind === 'balance') ? 'balance' : 'deposit';
+  return !!(info && info.paid && expectedCents > 0 && info.amount === expectedCents
+    && token && info.token === String(token) && info.kind === kind);
+}
+
 function expectedCardCents_(token, kind) {
   try {
     var sh = sheet_(), heads = headers_(sh);
@@ -2588,8 +2647,8 @@ function getStoreProduct(productId) {
 
 function storeLogOrder_(productName, buyerName, buyerEmail, amount, method, status) {
   try {
-    storeSalesSheet_().appendRow([new Date(), productName || '', buyerName || '', buyerEmail || '', amount || 0, method || '', status || 'Pending']);
-  } catch (e) {}
+    storeSalesSheet_().appendRow([new Date(), clientText_(productName, 200), clientText_(buyerName, 120), clientText_(buyerEmail, 200), amount || 0, clientText_(method, 40), status || 'Pending']);
+  } catch (e) { console.error('Could not log store order: ' + e); }
 }
 
 // Owner-facing: read the Store Sales sheet into an array the app can display.
@@ -2711,6 +2770,8 @@ function createStoreCheckoutSession(productId, buyerName, buyerEmail) {
     if (!storeEnabled_()) return JSON.stringify({ ok: false, error: 'This store isn’t available.' });
     var secretKey = String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
     if (!secretKey) return JSON.stringify({ ok: false, error: 'Card payment isn’t set up yet.' });
+    buyerName = clientText_(buyerName, 120);
+    buyerEmail = clientText_(buyerEmail, 200);
     var p = storeGetProduct_(productId);
     if (!p || !p.active) return JSON.stringify({ ok: false, error: 'This product isn’t available.' });
     var cents = Math.round(p.price * (1 + cardFeeRate_()) * 100); // card includes the processing fee (unless turned off in Settings), same as the sign page
@@ -2753,8 +2814,8 @@ function createStoreCheckoutSession(productId, buyerName, buyerEmail) {
 function recordStoreOrder(productId, buyerName, buyerEmail, method) {
   try {
     if (!storeEnabled_()) return JSON.stringify({ ok: false, error: 'This store isn’t available.' });
-    var name = String(buyerName || '').trim();
-    var email = String(buyerEmail || '').trim();
+    var name = clientText_(buyerName, 120);
+    var email = clientText_(buyerEmail, 200);
     if (!name) return JSON.stringify({ ok: false, error: 'Please enter your name.' });
     if (email.indexOf('@') < 1) return JSON.stringify({ ok: false, error: 'Please enter a valid email.' });
     var m = String(method || '').trim();
@@ -3875,7 +3936,7 @@ function deleteLead_(rowNum) {
   sh.deleteRow(rowNum);
   // Contact history is keyed by each lead's permanent Timestamp, not row
   // position, so deleting a row no longer requires realigning the log.
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   try { ensureTrashPurgeTrigger_(); } catch (e) {}
   return getLeadsScoped_();
@@ -3940,7 +4001,7 @@ function restoreLead_(trashId) {
 
   trash.deleteRow(trashRow);
 
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   // existingId is blank (cleared when trashed) so this always creates a
   // fresh calendar event rather than reusing the deleted one.
@@ -3989,7 +4050,8 @@ function ensureTrashPurgeTrigger_() {
   ScriptApp.newTrigger(TRASH_PURGE_TRIGGER_FN).timeBased().everyDays(1).atHour(3).create();
 }
 
-function purgeOldTrashJob() {
+function purgeOldTrashJob(e) {
+  triggerOnly_(e);
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;
   try {
@@ -4102,7 +4164,8 @@ function cleanUpSyncTriggers_() {
  * and keeps going until the whole list is done, with zero further taps
  * needed from the person who started it.
  */
-function runContactSyncJob() {
+function runContactSyncJob(e) {
+  triggerOnly_(e);
   cleanUpSyncTriggers_();
   const props = PropertiesService.getScriptProperties();
   const prevRaw = props.getProperty(SYNC_STATUS_KEY);
@@ -4626,6 +4689,14 @@ function neutralizeCell_(v) {
   if (/^[=@\t\r]/.test(v) || (/^[+\-]/.test(v) && !/^\+[\d\s().\-]+$/.test(v))) return ' ' + v;
   return v;
 }
+// Text a client (or any visitor to a public page) types that ends up in a sheet cell: cap the
+// length, drop control characters (keeping line breaks when keepNewlines), and defuse a leading
+// formula character so it can never run as a formula in the owner's sheet.
+function clientText_(v, max, keepNewlines) {
+  var s = String(v == null ? '' : v);
+  s = s.replace(keepNewlines ? /[\u0000-\u0009\u000B\u000C\u000E-\u001F]/g : /[\u0000-\u001F]/g, ' ');
+  return neutralizeCell_(s.trim().slice(0, max));
+}
 function sanitizeReferral_(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var lead = {};
@@ -4848,7 +4919,7 @@ function addTask_(name, due, repeat, id) {
   var created = id ? new Date(id) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sh.appendRow([created, name, due ? parseYMD_(due) : '', '', repeat || '']);
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   return getTasksScoped_();
 }
@@ -4883,7 +4954,7 @@ function toggleTask_(id) {
       }
     }
   }
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   return getTasksScoped_();
 }
@@ -4892,7 +4963,7 @@ function deleteTask_(id) {
   const sh = tasksSheet_();
   const rowNum = findTaskRow_(sh, id);
   if (rowNum) sh.deleteRow(rowNum);
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   return getTasksScoped_();
 }
@@ -4904,7 +4975,7 @@ function updateTask_(id, name, due, repeat) {
   sh.getRange(rowNum, 2).setValue(name);
   sh.getRange(rowNum, 3).setValue(due ? parseYMD_(due) : '');
   sh.getRange(rowNum, 5).setValue(repeat || '');
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   return getTasksScoped_();
 }
@@ -4976,7 +5047,7 @@ function updateLead_(rowNum, updates) {
       sh.getRange(rowNum, doneCol).setValue(false);
     }
   });
-  try { runFrequentAutomations(); } catch (e) { /* automations never block a save */ }
+  try { runFrequentAutomations_(); } catch (e) { /* automations never block a save */ }
   try { scheduleCalendarRebuild_(); } catch (e) { /* calendar hiccups never block a save */ }
   try { syncBookedCalendarEvent_(sh, rowNum, wasBooked); } catch (e) { /* booking calendar hiccups never block a save */ }
   try {
@@ -5037,7 +5108,7 @@ function addLead_(fields) {
   });
   sh.appendRow(row);
   const newRow = sh.getLastRow();
-  try { runFrequentAutomations(); } catch (e) {}
+  try { runFrequentAutomations_(); } catch (e) {}
   try { scheduleCalendarRebuild_(); } catch (e) {}
   try { syncBookedCalendarEvent_(sh, newRow, false); } catch (e) {}
   return getLeadsScoped_();
@@ -5619,7 +5690,12 @@ function normalizeEventDateColumn_() {
   }
 }
 
-function runFrequentAutomations() {
+function runFrequentAutomations(e) {
+  triggerOnly_(e);
+  runFrequentAutomations_();
+}
+
+function runFrequentAutomations_() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;
   try {
@@ -5651,7 +5727,8 @@ function scheduleCalendarRebuild_() {
   ScriptApp.newTrigger(CAL_REBUILD_TRIGGER_FN).timeBased().after(3000).create();
 }
 
-function runCalendarRebuildJob() {
+function runCalendarRebuildJob(e) {
+  triggerOnly_(e);
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === CAL_REBUILD_TRIGGER_FN) ScriptApp.deleteTrigger(t);
   });
@@ -5664,7 +5741,8 @@ function runCalendarRebuildJob() {
   }
 }
 
-function syncFollowUps() {
+function syncFollowUps(e) {
+  triggerOnly_(e);
   // Only one sync at a time — prevents duplicate calendars and events.
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return;

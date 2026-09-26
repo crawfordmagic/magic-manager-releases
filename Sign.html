@@ -156,7 +156,7 @@ function renderStatusPage(d){
 
   var html = paidBannerHtml() + bookingIdHtml(d);
   html += '<div class="signed"><div class="big">&#10038;</div><div>This agreement was signed'
-    +(d.signedName?' by <b>'+d.signedName+'</b>':'')+'. Thank you!</div></div>';
+    +(d.signedName?' by <b>'+esc(d.signedName)+'</b>':'')+'. Thank you!</div></div>';
 
   html += '<div class="card">'
     +row('Services', d.services)
@@ -315,7 +315,7 @@ function showFeedbackDone(){
   }
 }
 var FEE_RATE=(String((CFG&&CFG.CARD_FEE_ENABLED)||'').toLowerCase()==='no')?0:0.0325;
-var PAYMENT_METHODS=(function(){var m=[];if(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING)m.push('ACH');if(CFG.CASH_INSTRUCTIONS)m.push('Cash');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');if(CFG.CARD_ENABLED)m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING)m.push('Wire Transfer');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
+var PAYMENT_METHODS=(function(){var m=[];if(CFG.HAS_ACH||(CFG.ACH_ACCOUNT&&CFG.ACH_ROUTING))m.push('ACH');if(CFG.CASH_INSTRUCTIONS)m.push('Cash');if(CFG.CASHAPP_CASHTAG)m.push('Cash App');if(CFG.CHECK_PAYEE||CFG.CHECK_ADDRESS||CFG.ADDRESS)m.push('Check');if(CFG.CARD_ENABLED)m.push('Credit Card');if(CFG.PAYPAL_USERNAME)m.push('PayPal');if(CFG.VENMO_USERNAME)m.push('Venmo');if(CFG.HAS_WIRE||(CFG.WIRE_ACCOUNT&&CFG.WIRE_ROUTING))m.push('Wire Transfer');if(CFG.ZELLE_HANDLE)m.push('Zelle');return m;})();
 // The owner's Venmo username and Cash App cashtag — update these here if
 // either ever changes. The Venmo link format is a long-standing pattern
 // many businesses rely on, though it's not something Venmo officially
@@ -353,6 +353,9 @@ function payLinkFor(method, amount){
 // Static bank details for methods that need them shown, rather than a
 // click-to-pay link — there's no such thing as a "pay" link for a wire or
 // a mailed check, so these just tell the client exactly where to send it.
+// Bank numbers arrive with the token-checked booking data (never in the public page); merge them in
+// before anything renders so the ACH / wire instructions below can read them from CFG as always.
+function applyBank(d){ if(d&&d.bank){ for(var k in d.bank) CFG[k]=d.bank[k]; } }
 function paymentInstructionsFor(method){
   if(method==='ACH'){
     return {title:'Bank Transfer (ACH)', lines:[CFG.ACH_BANK,'Account: '+CFG.ACH_ACCOUNT,'Routing: '+CFG.ACH_ROUTING]};
@@ -599,6 +602,7 @@ function doSign(){
       google.script.run.withSuccessHandler(function(json2){
         stopTicking();
         var d2=JSON.parse(json2);
+        applyBank(d2);
         if(d2.ok) renderStatusPage(d2); else renderSuccess(name);
       }).withFailureHandler(function(){ stopTicking(); renderSuccess(name); }).getContractForSigning(TOKEN);
     } else {
@@ -614,7 +618,7 @@ function doSign(){
 }
 function renderSuccess(name){
   var c=document.getElementById('content');
-  c.innerHTML='<div class="signed"><div class="big">&#10038;</div><div>Thank you, <b>'+name+'</b> \u2014 your signature has been recorded. We will be in touch.</div></div>';
+  c.innerHTML='<div class="signed"><div class="big">&#10038;</div><div>Thank you, <b>'+esc(name)+'</b> \u2014 your signature has been recorded. We will be in touch.</div></div>';
 }
 
 if(!TOKEN){
@@ -622,6 +626,7 @@ if(!TOKEN){
 } else {
   google.script.run.withSuccessHandler(function(json){
     var d=JSON.parse(json);
+    applyBank(d);
     if(!d.ok) renderError();
     else if(d.alreadySigned) renderStatusPage(d);
     else renderForm(d);
