@@ -80,6 +80,8 @@
 var TOKEN='<?= token ?>';
 var PAID='<?= paid ?>';
 var CFG=<?!= JSON.stringify(cfg) ?>;
+// The booking, handed over with the page (null if the server didn't send it — then we fetch it).
+var BOOT=<?!= (typeof booking === 'undefined' || !booking) ? 'null' : booking ?>;
 
 function renderError(){
   document.getElementById('loading').style.display='none';
@@ -133,15 +135,19 @@ function documentButtonsHtml(d, signed){
     fileText:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>'
   };
   var docs=[];
-  if(signed && d.pdfUrl) docs.push(['Signed agreement', d.pdfUrl, IC.fileCheck]);
+  if(signed && d.pdfPending) docs.push(['Signed agreement', '', IC.fileCheck]); // still being built — no link yet
+  else if(signed && d.pdfUrl) docs.push(['Signed agreement', d.pdfUrl, IC.fileCheck]);
   if(d.depositReceiptUrl) docs.push(['Deposit receipt', d.depositReceiptUrl, IC.receipt]);
   if(d.balanceReceiptUrl) docs.push(['Balance receipt', d.balanceReceiptUrl, IC.receipt]);
   if(CFG.W9_URL) docs.push(['W-9 tax form', CFG.W9_URL, IC.fileText]);
   if(CFG.INSURANCE_URL) docs.push(['Proof of insurance', CFG.INSURANCE_URL, IC.shield]);
   if(!docs.length) return '';
   docs.sort(function(a,b){ return a[0].localeCompare(b[0]); });
-  return '<div class="docs"><div class="docs-title">Your Documents</div>'
+  return '<div class="docs" id="docsBox"><div class="docs-title">Your Documents</div>'
     + docs.map(function(it){
+        if(!it[1]) return '<div class="docbtn" style="opacity:.6">'
+          +'<svg class="dic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+it[2]+'</svg>'
+          +'<span class="doclabel">'+it[0]+'</span><span style="font-size:12.5px;font-weight:500;color:var(--muted)">Preparing\u2026</span></div>';
         return '<a class="docbtn" href="'+escAttr(it[1])+'" target="_blank" rel="noopener">'
           +'<svg class="dic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+it[2]+'</svg>'
           +'<span class="doclabel">'+it[0]+'</span>'
@@ -158,6 +164,19 @@ function bookingIdHtml(d){
   if(!line2) return '';
   var invLine = d.invoiceNumber ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">Invoice '+d.invoiceNumber+'</div>' : '';
   return '<div class="bookingid"><div class="lead">Your booking with '+CFG.OWNER_NAME+'</div><div class="name">'+line2+'</div>'+invLine+'</div>';
+}
+// The signed PDF is built just after signing. Ask for it now (it also finishes a build the
+// server hasn't got to yet) and swap in the real link when it's ready.
+function awaitSignedPdf_(d){
+  if(!d || !d.pdfPending || awaitSignedPdf_.busy) return;
+  awaitSignedPdf_.busy=true;
+  google.script.run.withSuccessHandler(function(json){
+    awaitSignedPdf_.busy=false;
+    var d2; try{ d2=JSON.parse(json); }catch(e){ return; }
+    if(!d2 || !d2.ok) return;
+    var box=document.getElementById('docsBox');
+    if(box) box.outerHTML=documentButtonsHtml(d2, true);
+  }).withFailureHandler(function(){ awaitSignedPdf_.busy=false; }).finishSignedContract(TOKEN);
 }
 function renderStatusPage(d){
   document.getElementById('loading').style.display='none';
@@ -228,6 +247,7 @@ function renderStatusPage(d){
   html += signatureBlockHtml();
 
   c.innerHTML = html;
+  awaitSignedPdf_(d);
 
   if(showDepositPrompt || showBalancePrompt){
     var pmSel=document.getElementById('paymentMethod');
@@ -299,12 +319,22 @@ function submitFeedback(){
   // it's on their clipboard by the time the Google prompt shows. The Copy button
   // in that prompt is the fallback if the sandbox blocked this.
   if(text && FB_RATING>=4 && FB_GOOGLE_URL) fbCopy(text);
-  var btn=document.getElementById('fbSubmit'); var orig=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
+  // Thank them right away; the review saves in the background. If it doesn't, the form comes
+  // back exactly as they left it (stars, words, reference box) with a note to try again.
+  var card=document.getElementById('fbCard'), formHtml=card?card.innerHTML:'', rating=FB_RATING;
+  showFeedbackDone();
+  function restore(msg){
+    if(!card) return;
+    card.innerHTML=formHtml;
+    setFbRating(rating);
+    var t=document.getElementById('fbText'); if(t) t.value=text;
+    var rb=document.getElementById('fbReference'); if(rb) rb.checked=wantsRef;
+    var e=document.getElementById('fbErr'); if(e) e.textContent=msg;
+  }
   google.script.run.withSuccessHandler(function(json){
     var r; try{ r=JSON.parse(json); }catch(e){ r=null; }
-    if(!r||!r.ok){ btn.disabled=false; btn.textContent=orig; document.getElementById('fbErr').textContent=(r&&r.error)||'Could not send — please try again.'; return; }
-    showFeedbackDone();
-  }).withFailureHandler(function(){ btn.disabled=false; btn.textContent=orig; document.getElementById('fbErr').textContent='Connection error — try again.'; })
+    if(!r||!r.ok) restore((r&&r.error)||'Could not send — please try again.');
+  }).withFailureHandler(function(){ restore('Connection error — try again.'); })
     .submitEventFeedback(TOKEN, FB_RATING, text, wantsRef);
 }
 function showFeedbackDone(){
@@ -429,11 +459,16 @@ function reportBtnHtml(kind, kindLabel){
     +'<p class="paynote">Tap once you’ve sent it — '+esc(CFG.OWNER_NAME||'we')+' will confirm once the payment is received.</p>';
 }
 function reportPaymentUI(kind){
-  var b=document.getElementById('reportPayBtn'); if(b){ b.disabled=true; b.textContent='Sending…'; }
-  google.script.run.withSuccessHandler(function(){
-    var ex=document.getElementById('paymentExtra');
-    if(ex) ex.innerHTML='<div class="paydetails"><div class="paydetails-title">Thank you! ✦</div><div>We’ve let '+esc(CFG.OWNER_NAME||'the team')+' know. Your payment will be confirmed once it’s received.</div></div>';
-  }).withFailureHandler(function(){ if(b){ b.disabled=false; b.textContent='Try again'; } }).reportPayment(TOKEN, kind);
+  // Thank them right away; the note to the owner goes out in the background. If it doesn't
+  // go through, the payment details and button come back so they can try again.
+  var ex=document.getElementById('paymentExtra'); if(!ex) return;
+  var before=ex.innerHTML;
+  ex.innerHTML='<div class="paydetails"><div class="paydetails-title">Thank you! ✦</div><div>We’ve let '+esc(CFG.OWNER_NAME||'the team')+' know. Your payment will be confirmed once it’s received.</div></div>';
+  google.script.run.withSuccessHandler(function(){})
+    .withFailureHandler(function(){
+      ex.innerHTML=before;
+      var b=document.getElementById('reportPayBtn'); if(b) b.textContent='That didn’t go through — tap to try again';
+    }).reportPayment(TOKEN, kind);
 }
 // A direct window.top.location assignment is blocked by the browser when
 // the page content is running in a cross-origin sandboxed frame (which is
@@ -643,15 +678,19 @@ function doSign(){
     btn.parentNode.insertBefore(status, btn.nextSibling);
   }
   var seconds=0;
-  status.textContent='Preparing your signed agreement\u2026 this takes a few seconds, since a real signed PDF is being built just for you.';
+  status.textContent='Recording your signature\u2026';
   var tickId=setInterval(function(){
     seconds++;
-    status.textContent='Still working\u2026 ('+seconds+'s) \u2014 building your signed PDF.';
+    status.textContent='Still working\u2026 ('+seconds+'s)';
   }, 1000);
   function stopTicking(){ clearInterval(tickId); }
   google.script.run.withSuccessHandler(function(json){
     var r=JSON.parse(json);
-    if(r.ok){
+    if(r.ok && r.booking && r.booking.ok){
+      stopTicking();
+      applyBank(r.booking);
+      renderStatusPage(r.booking);
+    } else if(r.ok){
       status.textContent='Signed \u2014 loading your booking page\u2026';
       // Move straight into the same status page a returning visitor sees —
       // right after signing that means prompting for the deposit next,
@@ -673,6 +712,12 @@ function doSign(){
     alert('Something went wrong \u2014 please try again.');
   }).submitContractSignature(TOKEN, name, method);
 }
+function showBooking_(d){
+  applyBank(d);
+  if(!d || !d.ok) renderError();
+  else if(d.alreadySigned) renderStatusPage(d);
+  else renderForm(d);
+}
 function renderSuccess(name){
   var c=document.getElementById('content');
   c.innerHTML='<div class="signed"><div class="big">&#10038;</div><div>Thank you, <b>'+esc(name)+'</b> \u2014 your signature has been recorded. We will be in touch.</div></div>';
@@ -680,14 +725,11 @@ function renderSuccess(name){
 
 if(!TOKEN){
   renderError();
+} else if(BOOT){
+  showBooking_(BOOT); // came with the page — no extra trip
 } else {
-  google.script.run.withSuccessHandler(function(json){
-    var d=JSON.parse(json);
-    applyBank(d);
-    if(!d.ok) renderError();
-    else if(d.alreadySigned) renderStatusPage(d);
-    else renderForm(d);
-  }).withFailureHandler(renderError).getContractForSigning(TOKEN);
+  google.script.run.withSuccessHandler(function(json){ showBooking_(JSON.parse(json)); })
+    .withFailureHandler(renderError).getContractForSigning(TOKEN);
 }
 </script>
 </body>

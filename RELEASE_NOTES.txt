@@ -1,9 +1,9 @@
 What's new in this update:
 
-• Fixed: Insights showed a loss as “$-X profit” instead of a loss.
+• Faster everyday actions: logging a call, text or email note, and adding, editing or deleting an expense now show instantly and save in the background. If a save ever fails, it's undone with a message and nothing you typed is lost.
 
-• Insights tiles reordered so the numbers read together better: In-play quoted / In play now sit right under Booked value / Booked, so your pending business lines up directly under your booked business. Top Clients moved into Relationships, next to Referrals.
+• Faster client portal: a client's link opens with their booking right away (no more "Loading your agreement…"), signing goes straight to the deposit step, and "I've sent my deposit" and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.
 
-• Expenses: the Period and Month dropdowns now sit side by side, and “vs last year” only shows once you actually have a prior year to compare against.
+• If a signed contract PDF ever can't be created, you now get an email about it (before, it failed silently).
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

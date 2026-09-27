@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.50';
+var APP_VERSION = '1.5.51';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -915,6 +915,13 @@ function doGet(e) {
     var signCfg = getConfig_();
     template.cfg = publicCfg_();
     template.themeHtml = portalThemeHead_(signCfg.PORTAL_THEME);
+    // The booking itself rides along with the page (same token check as the page's own call),
+    // so a client never waits on a second trip for "Loading your agreement…". Made safe for a
+    // <script> block: no "<" (so no </script>) and no raw line/paragraph separators.
+    try {
+      template.booking = String(getContractForSigning(String(e.parameter.sign)))
+        .replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+    } catch (bootErr) { template.booking = 'null'; }
     return template.evaluate()
       .setTitle(getConfig_().BUSINESS_NAME + ' — Event Portal')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -2152,6 +2159,7 @@ function getContractForSigning(token) {
         balanceBase: balance,
         paymentMethod: get('Payment Method') || '',
         pdfUrl: get('Contract PDF URL') || '',
+        pdfPending: !!signedPdfQueue_()[token], // signed, and the signed PDF is still being built
         alreadySigned: String(get('Contract Signed') || '') === 'Yes',
         signedName: get('Contract Signed Name') || '',
         depositPaid: depositPaid,
@@ -2241,31 +2249,122 @@ function submitContractSignature(token, typedName, paymentMethod) {
       // Deposit already in (paid before signing) or none required -> this signature books it.
       try { if (maybeMarkBooked_(sh, rowNum)) syncBookedCalendarEvent_(sh, rowNum, false); } catch (e) { console.error('Auto-book on signing failed: ' + e); }
 
-      try {
-        // Re-fetch the row (not the headers — those haven't changed) now
-        // that Payment Method/Signed fields are saved, so the merge picks
-        // up the final values rather than whatever was there before this
-        // save.
-        const row2 = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
-        const get2 = function (name) { var idx = heads.indexOf(name); return idx > -1 ? row2[idx] : ''; };
-        const oldDocId = sh.getRange(rowNum, cols.docIdCol).getValue();
-        // Reuses the same invoice number assigned back at generateContract
-        // time — this only ever creates a new one in the unlikely case a
-        // contract somehow got signed without going through that step first.
-        const invoiceNumber = ensureInvoiceNumber_(sh, rowNum, cols);
-        const result = buildMergedContract_(get2, ' (Signed)', finalPaymentMethod || null, typedName, invoiceNumber);
-        sh.getRange(rowNum, cols.docIdCol).setValue(result.copy.getId());
-        sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
-        sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
-        // Retire the earlier preview copy now that a final signed version exists.
-        try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
-      } catch (e) {}
+      // The signed Doc/PDF (several seconds of Docs + Drive work) is built just after this
+      // returns — see "Signed PDF, built in the background" below — so the client isn't kept
+      // waiting on it.
+      try { queueSignedPdf_(token); } catch (e) { console.error('Could not queue the signed PDF: ' + e); }
 
       try { notifyOwnerContractSigned_(heads, sh.getRange(rowNum, 1, 1, heads.length).getValues()[0], typedName, finalPaymentMethod); } catch (e) { console.error('Could not email owner about signed contract: ' + e); }
-      return JSON.stringify({ ok: true });
+      // Send the updated booking back with the confirmation, so the page goes straight to
+      // "Last step: your deposit" without a second trip to fetch it.
+      var booking = null;
+      try { booking = JSON.parse(getContractForSigning(token)); } catch (e) { booking = null; }
+      return JSON.stringify({ ok: true, booking: booking });
     }
   }
   return JSON.stringify({ ok: false, error: 'Not found' });
+}
+// ---- Signed PDF, built in the background ----
+// Signing records the signature and returns at once; the signed Doc/PDF is built right after.
+// Queued tokens live in a Script Property. The client's portal asks for the build straight
+// away (finishSignedContract), and the 5-minute automation picks up anything left over — the
+// page was closed first, or an attempt failed. A token is only ever built by one run at a time.
+var SIGNED_PDF_QUEUE_KEY_ = 'SIGNED_PDF_QUEUE';
+var SIGNED_PDF_MAX_TRIES_ = 3;
+function signedPdfQueue_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(SIGNED_PDF_QUEUE_KEY_) || '{}') || {}; } catch (e) { return {}; }
+}
+// Read-modify-write the queue under the script lock (two clients can sign at the same moment).
+function editSignedPdfQueue_(fn) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return false;
+  try {
+    var q = signedPdfQueue_();
+    var result = fn(q);
+    var props = PropertiesService.getScriptProperties();
+    if (Object.keys(q).length) props.setProperty(SIGNED_PDF_QUEUE_KEY_, JSON.stringify(q)); else props.deleteProperty(SIGNED_PDF_QUEUE_KEY_);
+    return result;
+  } finally { lock.releaseLock(); }
+}
+function queueSignedPdf_(token) {
+  editSignedPdfQueue_(function (q) { q[token] = { at: Date.now(), tries: 0, building: 0 }; });
+}
+// Build it now if it's queued and nobody else is on it. Returns quietly otherwise.
+function buildQueuedSignedPdf_(token) {
+  var claimed = editSignedPdfQueue_(function (q) {
+    var job = q[token];
+    if (!job || (job.building && Date.now() - job.building < 5 * 60 * 1000)) return false;
+    job.building = Date.now();
+    return true;
+  });
+  if (!claimed) return;
+  var err = null;
+  try { buildSignedContract_(token); } catch (e) { err = e; console.error('Signed PDF build failed: ' + e); }
+  var gaveUp = editSignedPdfQueue_(function (q) {
+    var job = q[token];
+    if (!job) return false;
+    if (!err) { delete q[token]; return false; }
+    job.building = 0; job.tries = (job.tries || 0) + 1;
+    if (job.tries < SIGNED_PDF_MAX_TRIES_) return false;
+    delete q[token];
+    return true;
+  });
+  if (gaveUp) { try { notifySignedPdfFailed_(token, err); } catch (e) {} }
+}
+// The slow part of signing: merge the signed contract from the row as saved at signing.
+function buildSignedContract_(token) {
+  const sh = sheet_();
+  const heads = headers_(sh);
+  const tokenCol = heads.indexOf('Contract Sign Token') + 1;
+  if (!tokenCol) return;
+  const tokens = sh.getRange(2, tokenCol, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < tokens.length; i++) {
+    if (String(tokens[i][0]) !== token) continue;
+    const rowNum = i + 2;
+    const cols = ensureContractCols_(sh);
+    const row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
+    const get = function (name) { var idx = heads.indexOf(name); return idx > -1 ? row[idx] : ''; };
+    if (String(get('Contract Signed') || '') !== 'Yes') return;
+    const oldDocId = sh.getRange(rowNum, cols.docIdCol).getValue();
+    // Reuses the same invoice number assigned back at generateContract
+    // time — this only ever creates a new one in the unlikely case a
+    // contract somehow got signed without going through that step first.
+    const invoiceNumber = ensureInvoiceNumber_(sh, rowNum, cols);
+    // Payment Method on the row is the client's choice at signing (saved before this is queued).
+    const result = buildMergedContract_(get, ' (Signed)', null, String(get('Contract Signed Name') || ''), invoiceNumber);
+    sh.getRange(rowNum, cols.docIdCol).setValue(result.copy.getId());
+    sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
+    sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
+    // Retire the earlier preview copy now that a final signed version exists.
+    try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
+    return;
+  }
+}
+// Called by the client's portal right after signing (and on any later visit while it's still
+// queued). Only does work for a token that is actually waiting on its signed PDF; returns the
+// same booking data getContractForSigning gives that token holder.
+function finishSignedContract(token) {
+  token = String(token || '');
+  if (token && signedPdfQueue_()[token]) buildQueuedSignedPdf_(token);
+  return getContractForSigning(token);
+}
+// 5-minute sweep: anything queued for over 2 minutes (the portal normally handles it in seconds).
+function sweepSignedPdfs_() {
+  var q = signedPdfQueue_();
+  Object.keys(q).forEach(function (token) {
+    if (Date.now() - (q[token].at || 0) > 2 * 60 * 1000) buildQueuedSignedPdf_(token);
+  });
+}
+function notifySignedPdfFailed_(token, err) {
+  var cfg = getConfig_();
+  var ownerEmail = String(cfg.EMAIL || '').trim();
+  if (!ownerEmail) return;
+  var client = '';
+  try { client = JSON.parse(getContractForSigning(token)).client || ''; } catch (e) {}
+  MailApp.sendEmail(ownerEmail, 'Signed contract PDF could not be created' + (client ? ' — ' + client : ''),
+    (client || 'A client') + ' signed their contract and the signature is saved, but the signed PDF could not be created after '
+    + SIGNED_PDF_MAX_TRIES_ + ' tries (' + (err && err.message ? err.message : String(err)) + ').\n\n'
+    + 'Open the lead in ' + (cfg.BUSINESS_NAME || 'your app') + ' to check the contract.');
 }
 // Emails the owner the moment a client signs (opt-out via SIGN_NOTIFY_EMAIL).
 // Best-effort: a mail failure must never block or undo the signature.
@@ -5754,6 +5853,7 @@ function normalizeEventDateColumn_() {
 function runFrequentAutomations(e) {
   triggerOnly_(e);
   runFrequentAutomations_();
+  try { sweepSignedPdfs_(); } catch (err) { console.error('Signed PDF sweep failed: ' + err); }
 }
 
 function runFrequentAutomations_() {

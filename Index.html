@@ -4495,10 +4495,11 @@ function refreshHistory(){
     .sort(function(a,b){ return (pd(b.when)||0)-(pd(a.when)||0); });
   $('h_count').innerHTML='Contact history &#183; '+list.length;
   $('h_list').innerHTML = list.length
-    ? list.map(function(l){ return '<div class="hitem" onclick="openHistoryDetail(\''+esc(l.id)+'\')"><div class="hrow">'
+    ? list.map(function(l){ var pend=!!l._pending; // still saving: no id yet, so not tappable/deletable
+        return '<div class="hitem"'+(pend?' style="opacity:.7"':' onclick="openHistoryDetail(\''+esc(l.id)+'\')"')+'><div class="hrow">'
         +'<div><span class="htype">'+esc(l.type)+'</span>'
         +'<span class="hwhen">'+fmtWhen(l.when)+'</span></div>'
-        +'<button class="tdel" onclick="event.stopPropagation();deleteLogUI(\''+esc(l.id)+'\')">\u2715</button></div>'
+        +(pend?'':'<button class="tdel" onclick="event.stopPropagation();deleteLogUI(\''+esc(l.id)+'\')">\u2715</button>')+'</div>'
         +(l.note?'<div class="hnote">'+linkify(l.note)+'</div>':'')+'</div>'; }).join('')
     : '<div class="empty" style="padding:14px 6px">No contacts logged yet.</div>';
 }
@@ -4614,13 +4615,31 @@ function fuDescribe(){
   return 'Follow-up set for '+fmtFU(tm? d+' '+tm : d);
 }
 function skipFollowupNote(){ $('fu_noteprompt').style.display='none'; }
+// Log a lead or partner contact and show it in the history right away; the server write
+// finishes in the background. On success the server's list (via ingest) replaces the temporary
+// entry; on failure it's taken back out. One helper for every "log a contact" spot so they
+// can't drift. o = {type, note, key+name (lead) | partnerId+name (partner)}.
+var LOG_SEQ_=0;
+function logContactNow_(o){
+  var isPt=!!o.partnerId;
+  var temp={id:'pending'+(++LOG_SEQ_), when:new Date().toISOString(), type:o.type, note:o.note||'', _pending:true};
+  if(isPt){ temp.partnerId=o.partnerId; PARTNERLOGS.push(temp); } else { temp.key=o.key; LOGS.push(temp); }
+  var redraw=isPt?refreshPartnerHistory:refreshHistory;
+  redraw(); toast('Logged \u2726');
+  var cb=GS.withSuccessHandler(function(json){ ingest(json); redraw(); })
+    .withFailureHandler(function(){
+      if(isPt) PARTNERLOGS=PARTNERLOGS.filter(function(l){ return l!==temp; });
+      else LOGS=LOGS.filter(function(l){ return l!==temp; });
+      redraw(); toast('Could not log \u2014 try again');
+    });
+  if(isPt) cb.logPartnerContact(o.partnerId, o.name||'', o.type, o.note||'');
+  else cb.logContact(o.key, o.name||'', o.type, o.note||'');
+}
 function saveFollowupNote(){
   if(!CURRENT) return;
   var note=$('fu_notetext').value.trim();
   $('fu_noteprompt').style.display='none';
-  GS.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
-    .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-    .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), 'Follow-up', note || fuDescribe());
+  logContactNow_({ key:String(CURRENT._tsKey||''), name:String(CURRENT[C.name]||''), type:'Follow-up', note:note || fuDescribe() });
 }
 var CT_TYPE=null;
 function autoLog(type){
@@ -4646,9 +4665,7 @@ function ctLog(note){
   if(!CURRENT || !CT_TYPE) return;
   var type=CT_TYPE; CT_TYPE=null;
   $('ct_noteprompt').style.display='none';
-  GS.withSuccessHandler(function(json){ ingest(json); refreshHistory(); toast('Logged \u2726'); })
-    .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-    .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), type, note || '');
+  logContactNow_({ key:String(CURRENT._tsKey||''), name:String(CURRENT[C.name]||''), type:type, note:note || '' });
 }
 function ctSkip(){
   if(!CURRENT || !CT_TYPE) return;
@@ -4659,10 +4676,8 @@ function ctSave(){ ctLog($('ct_notetext').value.trim()); }
 function manualLog(){
   if(!CURRENT) return;
   var type=$('h_type').value, note=$('h_note').value.trim();
-  GS.withSuccessHandler(function(json){
-    ingest(json); $('h_note').value=''; refreshHistory(); toast('Logged \u2726');
-  }).withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-  .logContact(String(CURRENT._tsKey||''), String(CURRENT[C.name]||''), type, note);
+  $('h_note').value='';
+  logContactNow_({ key:String(CURRENT._tsKey||''), name:String(CURRENT[C.name]||''), type:type, note:note });
 }
 
 /* ---------- Partner contact history ---------- */
@@ -4672,10 +4687,11 @@ function refreshPartnerHistory(){
     .sort(function(a,b){ return (pd(b.when)||0)-(pd(a.when)||0); });
   $('pth_count').innerHTML='Contact history &#183; '+list.length;
   $('pth_list').innerHTML = list.length
-    ? list.map(function(l){ return '<div class="hitem" onclick="openPartnerHistoryDetail(\''+esc(l.id)+'\')"><div class="hrow">'
+    ? list.map(function(l){ var pend=!!l._pending; // still saving: no id yet, so not tappable/deletable
+        return '<div class="hitem"'+(pend?' style="opacity:.7"':' onclick="openPartnerHistoryDetail(\''+esc(l.id)+'\')"')+'><div class="hrow">'
         +'<div><span class="htype">'+esc(l.type)+'</span>'
         +'<span class="hwhen">'+fmtWhen(l.when)+'</span></div>'
-        +'<button class="tdel" onclick="event.stopPropagation();deletePartnerLogUI(\''+esc(l.id)+'\')">\u2715</button></div>'
+        +(pend?'':'<button class="tdel" onclick="event.stopPropagation();deletePartnerLogUI(\''+esc(l.id)+'\')">\u2715</button>')+'</div>'
         +(l.note?'<div class="hnote">'+linkify(l.note)+'</div>':'')+'</div>'; }).join('')
     : '<div class="empty" style="padding:14px 6px">No contacts logged yet.</div>';
 }
@@ -4697,9 +4713,7 @@ function ptLog(note){
   if(!PTCUR || !PT_CT_TYPE) return;
   var type=PT_CT_TYPE; PT_CT_TYPE=null;
   $('pt_noteprompt').style.display='none';
-  GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); toast('Logged \u2726'); })
-    .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-    .logPartnerContact(PTCUR.id, String(PTCUR.name||''), type, note || '');
+  logContactNow_({ partnerId:PTCUR.id, name:String(PTCUR.name||''), type:type, note:note || '' });
 }
 function ptSkip(){
   if(!PTCUR || !PT_CT_TYPE) return;
@@ -4710,10 +4724,8 @@ function ptSave(){ ptLog($('pt_notetext').value.trim()); }
 function manualLogPartner(){
   if(!PTCUR) return;
   var type=$('pth_type').value, note=$('pth_note').value.trim();
-  GS.withSuccessHandler(function(json){
-    ingest(json); $('pth_note').value=''; refreshPartnerHistory(); toast('Logged \u2726');
-  }).withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-  .logPartnerContact(PTCUR.id, String(PTCUR.name||''), type, note);
+  $('pth_note').value='';
+  logContactNow_({ partnerId:PTCUR.id, name:String(PTCUR.name||''), type:type, note:note });
 }
 function bump(days){
   var base = $('d_followup').value ? pd($('d_followup').value) : new Date();
@@ -7384,6 +7396,7 @@ var EXPENSE_EDIT_ROW = null;
 var RECUR_EDIT_ROW = null; // editing a recurring RULE (row in the Recurring sheet), vs an expense
 var PENDING_RECEIPT = null; // {base64, mimeType, fileName} chosen but not yet uploaded to Drive
 function openAddExpense(row){
+  if(row && row<0){ toast('Still saving \u2014 one moment'); return; } // a just-added expense, not on the server yet
   EXPENSE_EDIT_ROW = row || null;
   RECUR_EDIT_ROW = null;
   var E = row ? EXPENSES.find(function(x){ return x._row===row; }) : null;
@@ -7496,6 +7509,22 @@ function selectVendorSuggestion(v){
 function hideVendorSuggestionsDelayed(){
   setTimeout(function(){ var box=$('exp_vendor_suggest'); if(box) box.style.display='none'; }, 150);
 }
+var EXP_SEQ_=0;
+// Background receipt upload after an instant save (the expense itself already shows).
+function attachReceiptQuiet_(targetRow, receipt){
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Receipt attached \u2726'); })
+    .withFailureHandler(function(){ renderExpenses(); toast('Saved, but the receipt failed to attach \u2014 try again from Edit'); })
+    .uploadExpenseReceipt(targetRow, receipt.base64, receipt.mimeType, receipt.fileName);
+}
+// A new expense that failed to save: reopen the form with what was typed (and the receipt).
+function reopenExpenseForm_(vals, receipt){
+  openAddExpense();
+  $('exp_date').value=vals.date; $('exp_vendor').value=vals.vendor; $('exp_amount').value=vals.amount;
+  fillExpenseCategorySelect($('exp_category'), vals.category);
+  fillAdSourceSelect($('exp_adsource_sel'), vals.adSource||''); updateAdSourceVisibility();
+  $('exp_notes').value=vals.notes;
+  if(receipt){ PENDING_RECEIPT=receipt; renderReceiptPreview(); }
+}
 function closeExpenseSheet(){
   $('expenseSheet').classList.remove('open'); syncOverlay();
   EXPENSE_EDIT_ROW = null;
@@ -7578,6 +7607,40 @@ function saveExpenseUI(){
   var row = EXPENSE_EDIT_ROW;
   var receipt = PENDING_RECEIPT;
   closeExpenseSheet();
+
+  // The everyday case — a one-off expense added or edited (not setting up a series): show it
+  // in the list right away and save in the background, like adding a lead. If the save fails
+  // the change is undone and, for a new one, the form reopens with what was typed.
+  if(!repeat){
+    var vals={ date:date, vendor:vendor, amount:money(amount), category:category, notes:notes, adSource:adSource };
+    if(row){
+      var E=EXPENSES.find(function(x){ return x._row===row; });
+      var before=E ? { date:E.date, vendor:E.vendor, amount:E.amount, category:E.category, notes:E.notes, adSource:E.adSource } : null;
+      if(E) Object.keys(vals).forEach(function(k){ E[k]=vals[k]; });
+      renderExpenses(); toast(receipt ? 'Saved \u2014 attaching receipt\u2026' : 'Saved \u2726');
+      GS.withSuccessHandler(function(json){ ingest(json); if(receipt) attachReceiptQuiet_(row, receipt); else renderExpenses(); })
+        .withFailureHandler(function(){
+          if(E && before) Object.keys(before).forEach(function(k){ E[k]=before[k]; });
+          renderExpenses(); toast('Could not save \u2014 your change was undone');
+        }).updateExpense(row, date, vendor, amount, category, notes, adSource);
+      return;
+    }
+    var temp={ _row:-(++EXP_SEQ_), source:'', receiptUrl:'', receiptFileId:'', _pending:true };
+    Object.keys(vals).forEach(function(k){ temp[k]=vals[k]; });
+    EXPENSES.unshift(temp);
+    renderExpenses(); toast(receipt ? 'Expense added \u2014 attaching receipt\u2026' : 'Expense added \u2726');
+    GS.withSuccessHandler(function(json){
+      ingest(json);
+      if(receipt) attachReceiptQuiet_(JSON.parse(json).newRow, receipt); else renderExpenses();
+    }).withFailureHandler(function(){
+      EXPENSES=EXPENSES.filter(function(x){ return x!==temp; });
+      renderExpenses();
+      reopenExpenseForm_(vals, receipt);
+      toast('Could not save that expense \u2014 your details are back in the form');
+    }).addExpense(date, vendor, amount, category, notes, adSource);
+    return;
+  }
+
   toast(row ? 'Updating expense\u2026' : 'Adding expense\u2026');
   function attachReceiptThen(targetRow){
     if(!receipt){ renderExpenses(); toast('Saved \u2726'); return; }
@@ -7679,9 +7742,14 @@ function deleteExpenseUI(){
   var row=EXPENSE_EDIT_ROW;
   if(!row) return;
   closeExpenseSheet();
-  toast('Deleting\u2026');
-  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Deleted'); })
-    .withFailureHandler(function(){ toast('Could not delete \u2014 try again'); })
+  var at=EXPENSES.findIndex(function(x){ return x._row===row; });
+  var gone=at>-1 ? EXPENSES.splice(at, 1)[0] : null;
+  renderExpenses(); toast('Deleted');
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); })
+    .withFailureHandler(function(){
+      if(gone) EXPENSES.splice(Math.min(at, EXPENSES.length), 0, gone);
+      renderExpenses(); toast('Could not delete \u2014 it\u2019s back in the list');
+    })
     .deleteExpense(row);
 }
 
@@ -8978,6 +9046,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.51', d:'Sep 2026', notes:[
+    'Faster everyday actions: logging a call, text or email note, and adding, editing or deleting an expense now show instantly and save in the background (if a save ever fails, it\u2019s undone with a message and nothing you typed is lost).',
+    'Faster client portal: a client\u2019s link opens with their booking right away, signing goes straight to the deposit step, and \u201cI\u2019ve sent my deposit\u201d and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.',
+    'If a signed contract PDF ever can\u2019t be created, you now get an email about it (before, it failed silently).'
+  ]},
   { v:'1.5.50', d:'Sep 2026', notes:[
     'Fixed: Insights showed a loss as \u201c$-X profit\u201d instead of a loss.',
     'Insights tiles reordered so the numbers read together better: In-play quoted / In play now sit right under Booked value / Booked, and Top Clients moved into Relationships next to Referrals.',
