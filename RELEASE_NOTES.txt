@@ -1,7 +1,9 @@
 What's new in this update:
 
-• Help is reorganized into two simple, alphabetized lists — “Using Magic Manager” and “Troubleshooting” — instead of six sections. Your version, update status, and “What's changed” history moved to their own screen: Settings → About Magic Manager.
+• Fixed: Insights showed a loss as “$-X profit” instead of a loss.
 
-• “Your settings” (business info, payment methods, contract terms, etc.) now collapses to a single row on the Settings screen, so it's much shorter at a glance. Tap it to expand — your choice is remembered on your device.
+• Insights tiles reordered so the numbers read together better: In-play quoted / In play now sit right under Booked value / Booked, so your pending business lines up directly under your booked business. Top Clients moved into Relationships, next to Referrals.
+
+• Expenses: the Period and Month dropdowns now sit side by side, and “vs last year” only shows once you actually have a prior year to compare against.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

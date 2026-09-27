@@ -361,7 +361,6 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
    chevron + a gentle press. Static number tiles get neither. */
 .stat[onclick]{cursor:pointer}
 .stat[onclick]::after{content:"\203A";position:absolute;top:6px;right:9px;font-size:13px;line-height:1;color:var(--muted);opacity:.6}
-#topclients_stat::after{content:none}/* hero tile already signals with its own "Top clients \2192" label */
 .stat.on{background:var(--gold);border-color:var(--gold)}
 .stat.on .v{color:#141008}
 .stat.on .l{color:rgba(20,16,8,.65)}
@@ -649,6 +648,16 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <div id="lroi_multbars" style="margin-bottom:14px"></div>
         <div id="adRoi"></div>
       </div>
+
+      <button type="button" class="more-row" id="lnon_row" onclick="toggleNonactive()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 7 9 13 13 9 21 17"/><polyline points="15 17 21 17 21 11"/></svg></span>
+        <span class="t"><span>Lost Leads</span><span id="lnon_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="lnon_wrap" class="more-detail chart" style="display:none">
+        <p class="note" style="text-align:left">Every Lost lead, grouped by why it was lost.</p>
+        <div id="lnon_donut"></div>
+        <div id="chartNonactive"></div>
+      </div>
     </div>
 
     <div class="insight-group-label">Relationships</div>
@@ -666,19 +675,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <div id="lref_sent_donut"></div>
         <div id="lref_sent_log"></div>
       </div>
-    </div>
 
-    <div class="insight-group-label">What's Not Converting</div>
-    <div class="more-list">
-      <button type="button" class="more-row" id="lnon_row" onclick="toggleNonactive()">
-        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 7 9 13 13 9 21 17"/><polyline points="15 17 21 17 21 11"/></svg></span>
-        <span class="t"><span>Lost Leads</span><span id="lnon_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
+      <button type="button" class="more-row" id="ltop_row" onclick="openTopClients()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></span>
+        <span class="t"><span>Top Clients</span><span id="ltop_badge" class="mr-sub"></span></span><span class="chev">&#8250;</span>
       </button>
-      <div id="lnon_wrap" class="more-detail chart" style="display:none">
-        <p class="note" style="text-align:left">Every Lost lead, grouped by why it was lost.</p>
-        <div id="lnon_donut"></div>
-        <div id="chartNonactive"></div>
-      </div>
     </div>
 
     <div class="insight-group-label">Money</div>
@@ -737,10 +738,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
     <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
-    <div class="field" style="margin-top:0"><label>Period</label>
+    <div id="expensePeriodRow" style="display:grid;grid-template-columns:1fr;gap:10px">
+    <div class="field" style="margin-top:0;min-width:0"><label>Period</label>
       <select id="exportYearSel" onchange="setExpenseViewYear(this.value)"></select>
     </div>
-    <div class="field" id="expenseMonthField" style="display:none"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    <div class="field" id="expenseMonthField" style="display:none;margin-top:0;min-width:0"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    </div>
     <div id="expenseSummary" style="margin-top:12px"></div>
     <button class="save" onclick="openAddExpense()">+ Add Expense</button>
 
@@ -5989,11 +5992,13 @@ function renderInsights(){
      +'<div class="ins-hero-div"></div>'
      +'<div class="ins-hero-side" onclick="insightBooked()"><div class="ins-hero-v2">'+booked.length+'</div><div class="ins-hero-l">Booked</div></div>'
     +'</div>'
-   +'<div class="stat" id="topclients_stat" onclick="openTopClients()" style="grid-column:1/-1"><div class="v">'+computeTopClients().length+'</div><div class="l">Top clients &rarr;</div></div>'
-   +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div></div>'
-   +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div></div>'
-   +'<div class="stat" onclick="insightInPlay()"><div class="v">'+pending.length+'</div><div class="l">In play</div></div>'
+   // Mirrors the hero row (money on the left, count on the right) so "In-play quoted / In play"
+   // reads as the pending-business counterpart directly under "Booked value / Booked", and
+   // "Avg booked / Total leads" keeps the same money-left/count-right pattern below that.
    +'<div class="stat"><div class="v">'+$m(playVal)+'</div><div class="l">In-play quoted</div></div>'
+   +'<div class="stat" onclick="insightInPlay()"><div class="v">'+pending.length+'</div><div class="l">In play</div></div>'
+   +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div></div>'
+   +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div></div>'
    +'<div class="stat" onclick="insightNewWeek()"><div class="v">'+newWeek.length+'</div><div class="l">New this week</div></div>'
    +'<div class="stat" onclick="insightNewMonth()"><div class="v">'+newMonth.length+'</div><div class="l">New this month</div></div>';
 
@@ -6009,6 +6014,9 @@ function renderInsights(){
   bars($('chartService'), svcTally, false, 'insightService');
   bars($('chartEvent'), evtTally, false, 'insightEvent');
   var lost=all.filter(function(L){ return String(L[C.status])==='Lost'; });
+
+  var topN=computeTopClients().length;
+  $('ltop_badge').innerHTML='<span class="pill gold">'+(topN ? topN+' client'+(topN===1?'':'s') : 'None yet')+'</span>';
 
   var referred=all.filter(function(L){ return String(L[C.status])==='Referred'; });
   var refTally=tally(referred, function(L){ return String(L[C.referral]||'').trim()||'Unassigned'; });
@@ -6696,7 +6704,8 @@ function renderProfitSummary($m){
   var exp = insightsScopedExpenses();
   var expenseTotal = exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
   var profit = income - expenseTotal;
-  $('profit_badge').innerHTML = '<span class="pill '+(profit>=0?'gold':'red')+'">'+$m(profit)+' profit</span>';
+  // A loss reads as a loss ("\u2212$2,724 loss"), not "$-2,724 profit".
+  $('profit_badge').innerHTML = '<span class="pill '+(profit>=0?'gold':'red')+'">'+(profit>=0 ? $m(profit)+' profit' : '\u2212'+$m(-profit)+' loss')+'</span>';
   $('profit_summary').innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
     +'<div class="stat" style="cursor:pointer" onclick="showIncomeBreakdown()"><div class="v">'+$m(income)+'</div><div class="l">Income</div></div>'
@@ -7144,8 +7153,10 @@ function renderExpenses(){
     if(EXPENSE_VIEW_MONTH!=='all' && usedMonths[EXPENSE_VIEW_MONTH]) monthSel.value = EXPENSE_VIEW_MONTH;
     else { EXPENSE_VIEW_MONTH='all'; monthSel.value='all'; }
     $('expenseMonthField').style.display = '';
+    $('expensePeriodRow').style.gridTemplateColumns = '1fr 1fr'; // side by side when there's a month to pick
   } else {
     $('expenseMonthField').style.display = 'none';
+    $('expensePeriodRow').style.gridTemplateColumns = '1fr';
     EXPENSE_VIEW_MONTH = 'all';
   }
 
@@ -7209,8 +7220,9 @@ function renderExpenses(){
   var catOn = topCat && EXPENSE_CATEGORY_FILTER===topCat;
   $('expenseSummary').innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    + expStatHtml_(fmtMoney(total)||'$0','Total spent')
-    + expStatHtml_(vsHtml,'vs last year')
+    // With nothing to compare against, drop "vs last year" and let Total spent take the full row.
+    + expStatHtml_(fmtMoney(total)||'$0','Total spent',{span:vsPct===null})
+    + (vsPct===null ? '' : expStatHtml_(vsHtml,'vs last year'))
     + expStatHtml_(fmtMoney(avgMonth)||'$0','Avg / month')
     + expStatHtml_(String(count),count===1?'Expense':'Expenses')
     + expStatHtml_(String(missing),'Missing receipts',{click:'toggleExpenseReceiptBadge()',crimson:missing>0,on:recOn})
@@ -7278,6 +7290,7 @@ function expStatHtml_(v,l,o){
   if(o.click){ style+='cursor:pointer;'; attrs+=' onclick="'+o.click+'"'; }
   if(o.crimson && !o.on){ style+='border-color:var(--crimson);'; vstyle+='color:var(--crimson);'; }
   if(o.vsize) vstyle+='font-size:'+o.vsize+';';
+  if(o.span) style+='grid-column:1/-1;';
   if(o.dataCat!=null) attrs+=' data-cat="'+esc(o.dataCat)+'"';
   return '<div class="stat'+(o.on?' on':'')+'"'+(style?' style="'+style+'"':'')+attrs+'>'
     +'<div class="v"'+(vstyle?' style="'+vstyle+'"':'')+'>'+v+'</div>'
@@ -8965,6 +8978,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.50', d:'Sep 2026', notes:[
+    'Fixed: Insights showed a loss as \u201c$-X profit\u201d instead of a loss.',
+    'Insights tiles reordered so the numbers read together better: In-play quoted / In play now sit right under Booked value / Booked, and Top Clients moved into Relationships next to Referrals.',
+    'Expenses: the Period and Month dropdowns now sit side by side, and \u201cvs last year\u201d only shows once you actually have a prior year to compare.'
+  ]},
   { v:'1.5.49', d:'Sep 2026', notes:[
     'Help is reorganized into two simple, alphabetized lists \u2014 \u201cUsing Magic Manager\u201d and \u201cTroubleshooting\u201d \u2014 and your version / update status / \u201cWhat\u2019s changed\u201d history moved to their own screen: Settings \u2192 About Magic Manager.',
     '\u201cYour settings\u201d (business info, payment methods, etc.) now collapses to a single row, so Settings is much shorter at a glance. Tap it to expand \u2014 your choice is remembered.'
