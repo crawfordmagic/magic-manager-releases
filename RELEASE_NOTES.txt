@@ -1,9 +1,5 @@
 What's new in this update:
 
-• A contract can no longer be generated with a blank quoted price. When a lead hasn't been priced yet, its “Next step” now offers “Add quoted price” directly — tap it and it jumps straight to that field.
-
-• Lead cards now show a small arrow (›) so it's clear you can tap one to see its full details, contract, and payments — with a one-time tip for new accounts and a note in the setup wizard.
-
-• Settings → Tools (Recycle Bin, Google Contacts, Import, etc.) is now sorted alphabetically.
+• Fixed the “tap a lead” tip reappearing after you'd already dismissed it. “Got it” now sticks for good, on every device.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

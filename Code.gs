@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.46';
+var APP_VERSION = '1.5.47';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1041,7 +1041,7 @@ var API_ = {
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
   startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, syncContactsToGoogle: syncContactsToGoogle_,
   setTaxRate: setTaxRate_, getLeads: getLeads_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
-  saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, logPartnerContact: logPartnerContact_,
+  saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, dismissLeadTapHint: dismissLeadTapHint_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
   updatePartner: updatePartner_, deletePartner: deletePartner_, getReferralInboxLink: getReferralInboxLink_,
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
@@ -4399,7 +4399,8 @@ function getLeads_() {
     storeSales: getStoreSales_(),
     storeProducts: getStoreProducts_(),
     sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
-    referralInbox: getReferralInbox_()
+    referralInbox: getReferralInbox_(),
+    leadTapHintOff: (PropertiesService.getScriptProperties().getProperty('LEAD_TAP_HINT_OFF') === '1')
   });
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a
@@ -4470,6 +4471,14 @@ function markOracleTipShown_(){
   var nextInterval = 6 + Math.floor(Math.random()*4); // 6-9 days
   props.setProperty('ORACLE_TIP_LAST_SHOWN', String(Date.now()));
   props.setProperty('ORACLE_TIP_NEXT_INTERVAL', String(nextInterval));
+  return JSON.stringify({ok:true});
+}
+// "Got it" on the lead-tap tip. Stored server-side (like the Oracle tip / update banner above),
+// not in the browser's localStorage — the app runs inside Apps Script's sandboxed iframe, whose
+// storage Safari doesn't reliably keep between sessions, so a browser-only dismiss can silently
+// reappear. This one, once dismissed, stays dismissed.
+function dismissLeadTapHint_(){
+  PropertiesService.getScriptProperties().setProperty('LEAD_TAP_HINT_OFF', '1');
   return JSON.stringify({ok:true});
 }
 

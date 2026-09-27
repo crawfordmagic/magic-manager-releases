@@ -1522,6 +1522,7 @@ function ingest(json){
   if('oracleGate' in o) ORACLE_GATE_DUE=!!o.oracleGate;
   if('sharingBlocked' in o) SHARING_BLOCKED=!!o.sharingBlocked;
   if('referralInbox' in o) REFERRAL_INBOX=Array.isArray(o.referralInbox)?o.referralInbox:[];
+  if('leadTapHintOff' in o) LEAD_TAP_HINT_OFF=!!o.leadTapHintOff;
   if('topClientThreshold' in o) TOP_CLIENT_THRESHOLD=Number(o.topClientThreshold)||2000;
   if('kvfOrder' in o) KVF_ORDER=Array.isArray(o.kvfOrder)?o.kvfOrder:[];
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
@@ -7981,28 +7982,24 @@ function dismissTplHint(){
 
 /* Same idea, for a newer user landing on the Leads list itself: nothing there says a lead card
    is tappable (fixed visually with the chevron on each row — see .row-chev), but a first-timer
-   still may not notice it, so a short tip backs that up for their first few sessions. Counted
-   once per page load (not per re-render, which happens constantly), shown a few times, then
-   gone for good once dismissed or the count runs out. */
-var LEAD_TAP_HINT_MAX=4;
-var LEAD_TAP_HINT_COUNTED=false;
+   still may not notice it, so a short tip backs that up. Dismissal is stored SERVER-SIDE
+   (LEAD_TAP_HINT_OFF, via ingest()) rather than the browser's localStorage — the app runs
+   inside Apps Script's sandboxed iframe, whose storage Safari doesn't reliably keep between
+   sessions, so a browser-only "Got it" can silently reappear (reported 2026-09-27). Once
+   dismissed on the server, it's gone for good, on every device. */
+var LEAD_TAP_HINT_OFF=false;
 function renderLeadTapHint(){
   var box=$('leadTapHintCard'); if(!box) return;
-  var off=false, n=0;
-  try{ off=localStorage.getItem('mm_leadtaphint_off')==='1'; n=Number(localStorage.getItem('mm_leadtaphint_n')||0); }catch(e){}
-  if(off || n>=LEAD_TAP_HINT_MAX || !LEADS || !LEADS.length || (Q && Q.trim())){ box.style.display='none'; box.innerHTML=''; return; }
-  if(!LEAD_TAP_HINT_COUNTED){
-    LEAD_TAP_HINT_COUNTED=true;
-    try{ localStorage.setItem('mm_leadtaphint_n', String(n+1)); }catch(e){}
-  }
+  if(LEAD_TAP_HINT_OFF || !LEADS || !LEADS.length || (Q && Q.trim())){ box.style.display='none'; box.innerHTML=''; return; }
   box.innerHTML='<div style="margin:0 0 12px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">'
     +'<b style="color:var(--gold-bright)">Tip:</b> tap any lead below to see their full details, contract, and payments.'
     +' <a href="javascript:void(0)" onclick="dismissLeadTapHint()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>';
   box.style.display='';
 }
 function dismissLeadTapHint(){
-  try{ localStorage.setItem('mm_leadtaphint_off','1'); }catch(e){}
+  LEAD_TAP_HINT_OFF=true; // optimistic — hide it now, don't wait on the round trip
   var box=$('leadTapHintCard'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).dismissLeadTapHint();
 }
 
 /* ---------- My referral link (Settings) ---------- */
@@ -8888,6 +8885,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.47', d:'Sep 2026', notes:[
+    'Fixed the \u201ctap a lead\u201d tip reappearing after you\u2019d already dismissed it \u2014 \u201cGot it\u201d now sticks for good.'
+  ]},
   { v:'1.5.46', d:'Sep 2026', notes:[
     'You can no longer generate a contract with a blank quoted price \u2014 the lead\u2019s \u201cNext step\u201d now offers \u201cAdd quoted price\u201d directly, which jumps straight to that field.',
     'Lead cards now show a small arrow so it\u2019s clear you can tap one for its full details \u2014 with a one-time tip for new accounts.',
