@@ -408,6 +408,9 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .help-fix .a b{color:var(--cream);font-weight:600}
 .help-fix .a ol{margin:6px 0 0;padding-left:18px}
 .help-fix .a li{margin-bottom:5px}
+a.help-fix{display:block;text-decoration:none}
+.help-fix .a ol.how{padding-left:0;margin:4px 0 0}
+.help-fix .a .how li{margin-bottom:0}
 .help-about{border:1px solid var(--line);border-radius:12px;padding:13px 14px}
 .help-ver{font-size:14px;color:var(--cream)}
 .help-ver b{color:var(--gold-bright)}
@@ -879,11 +882,23 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
 
     <div class="insight-group-label">Your settings</div>
-    <p class="note" style="text-align:left;margin:-4px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> &mdash; the rest is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
-    <div id="settingsBody">Loading&#8230;</div>
+    <div class="more-list">
+      <button type="button" class="more-row" id="sec_h_yourset" onclick="toggleSec_('yourset')">
+        <span class="ic"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+        <span class="t"><span>Your settings</span><span class="mr-sub">Business info, payment methods &amp; more</span></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="sec_b_yourset" class="more-detail" style="padding:4px 12px;display:none">
+        <p class="note" style="text-align:left;margin:8px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> &mdash; the rest is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
+        <div id="settingsBody">Loading&#8230;</div>
+      </div>
+    </div>
 
     <div class="insight-group-label">Help</div>
     <div class="more-list">
+      <button type="button" class="more-row" onclick="openAbout()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span>
+        <span class="t">About Magic Manager</span><span class="chev">&#8250;</span>
+      </button>
       <button type="button" class="more-row" onclick="openHelp()">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
         <span class="t">Help &amp; guides</span><span class="chev">&#8250;</span>
@@ -923,6 +938,14 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <span class="fbspacer"></span>
   </div>
   <div class="fbbody"><div id="helpBody" class="help-scroll"></div></div>
+</div>
+<div id="aboutScreen" class="fbscreen">
+  <div class="fbbar">
+    <button class="fbclose" onclick="closeAbout()">&#8592; Back</button>
+    <div class="fbtitle">About Magic Manager</div>
+    <span class="fbspacer"></span>
+  </div>
+  <div class="fbbody"><div id="aboutBody" class="help-scroll"></div></div>
 </div>
 
 <!-- DETAIL SHEET -->
@@ -8252,6 +8275,13 @@ function settingsFieldHtml(f, raw, cfg){
 function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
+  // "Your settings" collapses to one row (it's the least-visited part of this screen) —
+  // collapsed by default, remembered per device once they've opened it (same mechanism
+  // as the Leads collapsible sections).
+  var ysOpen=secIsOpen_('yourset', {defaultOpen:false, noSearch:true});
+  var ysH=$('sec_h_yourset'), ysB=$('sec_b_yourset');
+  if(ysH) ysH.classList.toggle('open', ysOpen);
+  if(ysB) ysB.style.display=ysOpen?'block':'none';
   body.innerHTML = 'Loading…';
   GS.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
@@ -8927,14 +8957,18 @@ function depositPctExample(){
    quick fixes are short, self-contained answers to the questions most likely to
    otherwise strand a customer, kept inline so they work even mid-problem. */
 var HELP_GUIDES = [
-  { title:'How to apply an update',            desc:'Getting the newest version when the update banner appears.', url:'https://www.crawfordmagic.com/update-page' },
-  { title:'Connect your website forms (Zapier)', desc:'Send new inquiries from your site straight into Magic Manager.', url:'https://www.crawfordmagic.com/zapier-guide' }
+  { group:'fix', title:'How to apply an update',            desc:'Getting the newest version when the update banner appears.', url:'https://www.crawfordmagic.com/update-page' },
+  { group:'use', title:'Connect your website forms (Zapier)', desc:'Send new inquiries from your site straight into Magic Manager.', url:'https://www.crawfordmagic.com/zapier-guide' }
 ];
-// Version history shown in Help. The newest entry's version is treated as the
+// Version history shown on the About screen (Settings → About Magic Manager). The newest entry's version is treated as the
 // current app version, so it must match APP_VERSION in Code.js. PREPEND a new
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.49', d:'Sep 2026', notes:[
+    'Help is reorganized into two simple, alphabetized lists \u2014 \u201cUsing Magic Manager\u201d and \u201cTroubleshooting\u201d \u2014 and your version / update status / \u201cWhat\u2019s changed\u201d history moved to their own screen: Settings \u2192 About Magic Manager.',
+    '\u201cYour settings\u201d (business info, payment methods, etc.) now collapses to a single row, so Settings is much shorter at a glance. Tap it to expand \u2014 your choice is remembered.'
+  ]},
   { v:'1.5.48', d:'Sep 2026', notes:[
     'New \u201cHow Magic Manager works\u201d overview (in the setup wizard and at the top of Help), plus a \u201cGood to know\u201d section in Help covering tasks, referral partners, receipts, what your client sees, and the Store.',
     'Friendlier first-time screens: an empty Leads screen now shows how to add your first lead, and Insights explains that it fills in as you go.',
@@ -9061,9 +9095,9 @@ var HELP_FIXES = [
     a:'When a client reports paying, it lands under <b>Payments to confirm</b> on your home screen — nothing is marked received until you confirm the money actually arrived (this protects you from a mistaken or early claim). Open that item, check that it landed, and tap <b>Confirm</b>. Card payments through Stripe confirm on their own once the correct amount is collected.' },
   { q:'A client can’t open the invoice, receipt, or contract link',
     a:'If your client sees <b>&ldquo;Sorry, unable to open the file at this time&rdquo;</b> (a Google page), the file itself is fine — it’s a Google Drive <b>sharing</b> setting on your account. Magic Manager shares every invoice/receipt/contract as &ldquo;anyone with the link can view,&rdquo; but a Google <b>Workspace</b> (business) account can be set to block sharing outside your organization &mdash; so <b>you</b> can open the file, but your client can’t.<ol><li>Open one of the files in your Google Drive → <b>Share</b> → look at <b>&ldquo;General access.&rdquo;</b> If it shows your company name or <b>Restricted</b> instead of <b>Anyone with the link</b>, that’s the cause.</li><li><b>Fix it:</b> if you manage your own Google account, turn on external sharing (<b>Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings</b>). If your email is managed by a company, ask their admin to <b>allow link-sharing outside the organization</b> for Drive.</li><li><b>In the meantime,</b> open the file in Drive, download it as a PDF, and email it to your client directly.</li></ol>A personal @gmail.com account allows this sharing by default, so it never happens there.' },
-  { q:'How do message templates work?',
+  { group:'use', q:'How do message templates work?',
     a:'Templates are ready-made emails and texts. On any lead, tap <b>Email</b> or <b>Text</b> and pick one — your email or messaging app opens with the message already written and the client’s details filled in. You review it and send it yourself.<ol><li><b>Customize them:</b> tap the pencil (✎) on any template to change the wording, or <b>Create new template</b> to add your own.</li><li><b>Fields fill in for you:</b> {firstname}, {eventdate}, {location}, {quoted}, {signlink} (the client’s event page), and your own {owner} / {business} are replaced with the real details when you send. Use <b>Choose a field to insert</b> in the editor to add them.</li><li><b>See them all in one place:</b> <b>Settings → Message templates</b>.</li><li><b>Get the starter set:</b> on that screen, tap <b>Add starter templates</b> to add ready-made ones for every stage of a booking (inquiry reply, quote, agreement, reminders, thank-you, partner referrals). It only adds ones you don’t already have and never changes yours.</li></ol>' },
-  { q:'Sending a lead to another Magic Manager user',
+  { group:'use', q:'Sending a lead to another Magic Manager user',
     a:'When you refer a lead to a partner who also uses Magic Manager, your referral email can include a link that drops the lead straight into <b>their</b> app &mdash; no retyping. One-time setup:<ol><li><b>Your partner</b> opens <b>Settings → Referral link</b> and taps <b>Copy link</b> (or <b>Share</b>) to send it to you. This is <b>not</b> their app address, so it can’t open or expose their app.</li><li><b>You</b> open that partner (Leads → Partners) and paste it into <b>Their Magic Manager referral link</b>. A green check means it’s saved.</li><li>From then on, referral emails to that partner automatically include a <b>&ldquo;Magic Manager user? Tap to add this lead&rdquo;</b> link. (You can also place it yourself in a partner template with the <b>{referral_link}</b> merge field.)</li></ol><b>When you receive one:</b> tapping the link confirms it landed, then a <b>Referral inbox</b> card appears at the top of your Leads screen. Review it and tap <b>Add lead</b> (it comes in as a New lead, source Referral, with a same-day follow-up) or <b>Dismiss</b>. Nothing is added until you tap Add. If a link was shared by mistake, use <b>Reset link</b> on the Referral link screen.' }
 ];
 // The "What's changed" history shows the most recent versions and tucks the
@@ -9083,10 +9117,7 @@ function toggleHelpOlder(){
 }
 function openHelp(){
   var sc=$('helpScreen'); if(sc) sc.classList.add('open');
-  renderHelp(null); // paint immediately with the baked-in version…
-  // …then refresh the up-to-date / update-available status in the background.
-  GS.withSuccessHandler(function(info){ renderHelp(info); })
-    .withFailureHandler(function(){}).getUpdateInfo();
+  renderHelp();
 }
 function closeHelp(){ var sc=$('helpScreen'); if(sc) sc.classList.remove('open'); }
 function toggleHelpFix(i){ var el=$('helpfix_'+i); if(el) el.classList.toggle('open'); }
@@ -9096,8 +9127,44 @@ function toggleHelpHistory(){
   w.style.display=open?'':'none';
   var chev=$('help_hist_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
 }
-function renderHelp(info){
+// Help = two alphabetized lists of one-line rows (Rich's rule: keep Help alphabetized).
+// Questions and tips open in place; guides open their web page. Version / "What's changed"
+// live on their own About screen (Settings → About Magic Manager), not in Help.
+function renderHelp(){
   var box=$('helpBody'); if(!box) return;
+  var topics=[{ group:'use', q:'How Magic Manager works', a:howItWorksHtml() }]
+    .concat(HELP_KNOW.map(function(f){ return { group:'use', q:f.q, a:f.a }; }))
+    .concat(HELP_FIXES.map(function(f){ return { group:f.group||'fix', q:f.q, a:f.a }; }))
+    .concat(HELP_GUIDES.filter(function(g){ return g.url; }).map(function(g){ return { group:g.group||'use', q:g.title, url:g.url }; }));
+  var n=0;
+  function group(key, title, top){
+    var rows=topics.filter(function(t){ return t.group===key; }).sort(function(x,y){ return x.q.localeCompare(y.q); });
+    return '<div class="help-sec"'+(top?'':' style="margin-top:18px"')+'>'+title+'</div>'
+      + rows.map(function(t){
+          // Same row look as every other Help topic — title + the standard gray chevron, not a
+          // special arrow — the only difference is this one opens an outside page (Rich, 2026-09-27:
+          // an odd-styled icon here broke the row-to-row consistency he'd asked for).
+          if(t.url) return '<a class="help-fix" href="'+esc(t.url)+'" target="_blank" rel="noopener">'
+            +'<span class="q"><span>'+esc(t.q)+'</span><span class="chev">&#8250;</span></span></a>';
+          var i=n++;
+          return '<div class="help-fix" id="helpfix_'+i+'">'
+            +'<button type="button" class="q" onclick="toggleHelpFix('+i+')"><span>'+esc(t.q)+'</span><span class="chev">&#8250;</span></button>'
+            +'<div class="a">'+t.a+'</div></div>';  // t.a is trusted, hand-written HTML
+        }).join('');
+  }
+  box.innerHTML = group('use', 'Using Magic Manager', true) + group('fix', 'Troubleshooting')
+    + '<p class="note" style="margin:18px 0 0">Still stuck? <a href="javascript:void(0)" onclick="closeHelp();openFeedback()" style="color:var(--gold-bright)">Send feedback</a></p>';
+}
+function openAbout(){
+  var sc=$('aboutScreen'); if(sc) sc.classList.add('open');
+  renderAbout(null); // paint immediately with the baked-in version…
+  // …then refresh the up-to-date / update-available status in the background.
+  GS.withSuccessHandler(function(info){ renderAbout(info); })
+    .withFailureHandler(function(){}).getUpdateInfo();
+}
+function closeAbout(){ var sc=$('aboutScreen'); if(sc) sc.classList.remove('open'); }
+function renderAbout(info){
+  var box=$('aboutBody'); if(!box) return;
   var html='';
   // About / version — the newest changelog entry is the installed version.
   var ver=(CHANGELOG_[0]&&CHANGELOG_[0].v)||'';
@@ -9111,9 +9178,7 @@ function renderHelp(info){
       status='<div class="help-status ok">You’re up to date ✓</div>';
     }
   }
-  html+='<div class="help-sec">How Magic Manager works</div>'+howItWorksHtml();
-  html+='<div class="help-sec" style="margin-top:18px">About</div>'
-    + '<div class="help-about">'
+  html+='<div class="help-about">'
     +   '<div class="help-ver">Magic Manager · <b>v'+esc(ver)+'</b></div>'
     +   status
     +   '<button type="button" class="help-hist-btn" onclick="toggleHelpHistory()">What’s changed <span id="help_hist_chev">&#9662;</span></button>'
@@ -9125,30 +9190,6 @@ function renderHelp(info){
             : '')
     +   '</div>'
     + '</div>';
-  var guides=HELP_GUIDES.filter(function(g){ return g.url; });
-  if(guides.length){
-    html+='<div class="help-sec" style="margin-top:18px">Guides</div>'
-      + guides.map(function(g){
-          return '<a class="help-link" href="'+esc(g.url)+'" target="_blank" rel="noopener">'
-            +'<div class="t">'+esc(g.title)+' →</div><div class="d">'+esc(g.desc)+'</div></a>';
-        }).join('');
-  }
-  // "Good to know" reuses the Quick-fix accordion (ids continue after HELP_FIXES so toggleHelpFix works).
-  html+='<div class="help-sec" style="margin-top:18px">Good to know</div>'
-    + HELP_KNOW.map(function(f,j){
-        var i=HELP_FIXES.length+j;
-        return '<div class="help-fix" id="helpfix_'+i+'">'
-          +'<button type="button" class="q" onclick="toggleHelpFix('+i+')"><span>'+esc(f.q)+'</span><span class="chev">&#8250;</span></button>'
-          +'<div class="a">'+f.a+'</div></div>';  // f.a is trusted, hand-written HTML
-      }).join('');
-  html+='<div class="help-sec" style="margin-top:18px">Quick fixes</div>'
-    + HELP_FIXES.map(function(f,i){
-        return '<div class="help-fix" id="helpfix_'+i+'">'
-          +'<button type="button" class="q" onclick="toggleHelpFix('+i+')"><span>'+esc(f.q)+'</span><span class="chev">&#8250;</span></button>'
-          +'<div class="a">'+f.a+'</div></div>';  // f.a is trusted, hand-written HTML
-      }).join('');
-  html+='<div class="help-sec" style="margin-top:18px">Still stuck?</div>'
-    +'<button class="save" style="margin:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="closeHelp();openFeedback()">✎&nbsp; Send feedback</button>';
   box.innerHTML=html;
 }
 

@@ -1,11 +1,7 @@
 What's new in this update:
 
-• New “How Magic Manager works” overview — four quick steps from inquiry to booked show — on the setup wizard's welcome screen and at the top of Help. Help also has a new “Good to know” section covering tasks, referral partners, receipt photos, seeing what your client sees, and the Store.
+• Help is reorganized into two simple, alphabetized lists — “Using Magic Manager” and “Troubleshooting” — instead of six sections. Your version, update status, and “What's changed” history moved to their own screen: Settings → About Magic Manager.
 
-• Friendlier first-time screens: an empty Leads screen now shows how to add your first lead (or connect your website form), and Insights explains that it fills in as you add leads and expenses.
-
-• After your first contract, a one-time tip suggests opening the client portal yourself to see exactly what your client sees.
-
-• One-time tips now stay dismissed for good on every device, and retire on their own once you've used the feature. The setup wizard can be skipped from its very first screen and won't pop up again.
+• “Your settings” (business info, payment methods, contract terms, etc.) now collapses to a single row on the Settings screen, so it's much shorter at a glance. Tap it to expand — your choice is remembered on your device.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
