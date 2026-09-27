@@ -240,6 +240,16 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .td-row .pill{flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--gold-bright);background:rgba(201,160,80,.14);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums}
 .td-row .chev{color:var(--muted);font-size:16px;transition:transform .2s ease}
 .td-row.open .chev{transform:rotate(90deg)}
+.td-row.td-item .t .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-tag{color:var(--gold-bright);font-weight:600}
+.td-when{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--gold-bright);white-space:nowrap}
+.td-when.late{color:#E9927B}
+.td-count{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
+.td-slot{padding:0 12px}
+.td-slot:empty{display:none}
+.td-slot .td-chrome{display:none!important}
+.td-slot > div > .gfu-card,.td-slot > div > .followupdue-card,.td-slot > div > .card{border:none!important;background:transparent!important;padding:0 0 8px!important;margin:0!important;box-shadow:none!important}
+.td-slot [data-td]{border-top:none!important;padding-top:2px!important}
 .followupdue-card{
   border:1px solid var(--gold); border-radius:12px; padding:14px;
   margin-bottom:12px; background:rgba(201,160,80,.06);
@@ -443,6 +453,11 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .sheet h2{font-family:'Playfair Display',serif;font-size:23px;font-weight:700}
 .sheet .sub{color:var(--muted);font-size:13px;margin-top:2px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 4px}
+.nextstep{margin:12px 0 4px;padding:12px;border:1px solid var(--gold);border-radius:12px;background:rgba(201,160,80,.07)}
+.nextstep .ns-lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-bright)}
+.nextstep .ns-why{font-size:13px;color:var(--muted);margin:3px 0 10px}
+.nextstep .save{margin-top:0}
+.nextstep .save.armed{background:var(--crimson);color:var(--cream)}
 .act{display:block;text-align:center;text-decoration:none;color:var(--gold-bright);font-weight:600;font-size:13px;
   border:1px solid var(--line);border-radius:8px;padding:10px 14px;background:var(--panel)}
 .field{margin-top:13px}
@@ -539,35 +554,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
 
-    <div id="manageWrap" style="display:none">
-    <div class="sec-title"><span class="t">Manage</span><span class="rule"></span></div>
-
-    <div class="more-list">
-      <button type="button" class="more-row" id="rbin_toggle" onclick="toggleRecycleBin()">
-        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
-        <span class="t">Recycle Bin</span><span id="rbin_badge"></span><span class="chev">&#8250;</span>
-      </button>
-      <div id="rbin_wrap" class="more-detail" style="display:none">
-        <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
-        <div id="rbin_list"></div>
-      </div>
-
-      <button type="button" class="more-row" id="gcontacts_toggle" onclick="toggleGContacts()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-        <span class="t">Google Contacts</span><span class="chev">&#8250;</span>
-      </button>
-      <div id="gcontacts_wrap" class="more-detail" style="display:none">
-        <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
-        <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
-        <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
-      </div>
-
-      <button type="button" class="more-row" onclick="exportLeadsCsv()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
-        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
-      </button>
-    </div>
-    </div>
   </div>
 
   <!-- INSIGHTS VIEW -->
@@ -853,6 +839,29 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <button type="button" class="more-row" onclick="openLeadImport()">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
         <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" id="rbin_toggle" onclick="toggleRecycleBin()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
+        <span class="t">Recycle Bin</span><span id="rbin_badge"></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="rbin_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
+        <div id="rbin_list"></div>
+      </div>
+
+      <button type="button" class="more-row" id="gcontacts_toggle" onclick="toggleGContacts()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="t">Google Contacts</span><span class="chev">&#8250;</span>
+      </button>
+      <div id="gcontacts_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
+        <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
+        <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+      </div>
+
+      <button type="button" class="more-row" onclick="exportLeadsCsv()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
+        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
       </button>
     </div>
 
@@ -1246,6 +1255,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="sub" id="d_sub"></div>
   <div id="d_conflict"></div>
   <div class="actions" id="d_actions"></div>
+  <div class="nextstep" id="d_nextstep" style="display:none"></div>
   <div id="d_review" style="display:none"></div>
   <div id="ct_noteprompt" style="display:none;margin-top:10px">
     <p class="note" style="text-align:left;margin:0 0 6px" id="ct_prompttext">What happened?</p>
@@ -1739,10 +1749,6 @@ function load(){
       }
     }
     $('loader').style.display='none';
-    // Reveal the Recycle Bin + Google Contacts section only once the leads
-    // are in — it stays hidden during "Raising the curtain" so both load in
-    // together after the main page, rather than sitting there mid-load.
-    $('manageWrap').style.display='block';
     renderChips(); renderLeads(); renderInsights(); maybeShowSetupNudge(); renderPaymentsToConfirm();
     // The brand-new-install setup wizard now opens at startup (maybeLaunchSetupWizard_),
     // before the Leads view paints, so a new user lands straight on it — no flash here.
@@ -1780,8 +1786,7 @@ function renderTaskDue(){
   if(!due.length){ box.style.display='none'; box.innerHTML=''; return; }
   due.sort(function(a,b){ return (pd(a.due)||0)-(pd(b.due)||0); });
   box.style.display='';
-  tdSetMeta('taskDueCard', due.length, tdPreview(due.map(function(T){ return String(T.task||'Task'); })));
-  box.innerHTML='<div class="followupdue-card"><div class="followupdue-title">Tasks Due Today</div>'
+  box.innerHTML='<div class="followupdue-card"><div class="followupdue-title td-chrome">Tasks Due Today</div>'
     + due.map(function(T){
         // Same tap-to-edit time affordance as the Follow-up Due card (see
         // editGfuTime/saveGfuTime) — dotted underline signals it's
@@ -1796,7 +1801,8 @@ function renderTaskDue(){
         // This card specifically mirrors "Follow-Up Due Today" (the
         // .gfu-card layout) instead: name/date block on top, action button
         // stacked underneath it, left-aligned.
-        return '<div class="followupdue-row" style="display:block">'
+        var late=daysLate_(f);
+        return '<div class="followupdue-row" style="display:block"'+tdItem('task:'+T.id, {name:T.task||'Task', tag:'Task', note:T.repeat?('Repeats '+T.repeat):'', when:lateText_(late), late:late, rank:3})+'>'
           +'<div class="followupdue-info" onclick="openTask(\''+esc(T.id)+'\')">'
             +'<div style="text-align:right">'
               +'<span id="taskdue_time_'+T._row+'" onclick="event.stopPropagation();editTaskDueTime('+T._row+')" style="color:var(--gold-bright);font-weight:600;font-size:11.5px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(timeLabel)+'</span>'
@@ -2162,11 +2168,8 @@ function renderUnpaidBalanceCard(){
   var rows={}; overdue.forEach(function(L){ rows[L._row]=true; });
   Object.keys(UB_SHOW_SNOOZE).forEach(function(r){ if(!rows[r]) delete UB_SHOW_SNOOZE[r]; });
   box.style.display='';
-  tdSetMeta('unpaidBalanceCard', overdue.length,
-    tdPreview(overdue.map(function(L){ return String(L[C.name]||'Lead'); })),
-    fmtMoney(overdue.reduce(function(s,L){ return s+balanceFinal(L); }, 0)));
   box.innerHTML='<div class="gfu-card" style="border-color:var(--crimson);background:rgba(192,82,54,.07)">'
-    +'<div class="gfu-title" style="color:#E9927B">Unpaid Balance \u2014 Event Has Passed</div>'
+    +'<div class="gfu-title td-chrome" style="color:#E9927B">Unpaid Balance \u2014 Event Has Passed</div>'
     + overdue.map(function(L){
         var ed=pd(L[C.eventDate]);
         var daysAgo=Math.round((today-ed)/86400000);
@@ -2192,7 +2195,7 @@ function renderUnpaidBalanceCard(){
             +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--line);color:var(--muted)" onclick="snoozeUnpaidBalance('+L._row+',7)">Snooze 1 week</button>'
             +'</div>';
         }
-        return '<div class="gfu-item">'
+        return '<div class="gfu-item"'+tdItem('ub:'+L._row, {name:L[C.name]||'Lead', tag:'Unpaid balance', note:fmtMoney(owed)+' still owed', when:(daysAgo===1?'Event yesterday':'Event '+daysAgo+' days ago'), late:daysAgo, rank:1})+'>'
           +'<div class="gfu-name" onclick="openSheet('+L._row+')">'+esc(L[C.name]||'Lead')+'</div>'
           +'<div class="gfu-meta" style="color:#E9927B">'+meta+'</div>'
           +badges
@@ -2237,9 +2240,8 @@ function renderPartnerCheckInCard(){
   due.sort(function(a,b){ return (pd(a[C.referredDate])||0)-(pd(b[C.referredDate])||0); });
   if(!due.length){ box.style.display='none'; box.innerHTML=''; PT_INLINE_PROMPT_ROW=null; return; }
   box.style.display='';
-  tdSetMeta('partnerCheckInCard', due.length, tdPreview(due.map(function(L){ return String(L[C.referral]||'').trim(); })));
   box.innerHTML='<div class="gfu-card">'
-    +'<div class="gfu-title">Check In With Partner</div>'
+    +'<div class="gfu-title td-chrome">Check In With Partner</div>'
     + due.map(function(L){
         var partnerName=String(L[C.referral]||'').trim();
         var p=PARTNERS.find(function(x){ return String(x.name||'').trim()===partnerName; });
@@ -2276,7 +2278,7 @@ function renderPartnerCheckInCard(){
               +'<button class="bump" style="border-radius:8px" onclick="ptInlinePromptSave()">Log it \u2726</button>'
             +'</div></div>';
         }
-        return '<div class="gfu-item">'
+        return '<div class="gfu-item"'+tdItem('pt:'+L._row, {name:partnerName, tag:'Partner check-in', note:'About '+String(L[C.name]||'a lead'), when:'Referred '+daysAgo+' days ago', late:daysAgo-7, rank:4})+'>'
           +'<div class="gfu-name" onclick="'+(p?'openPartner(\''+esc(p.id).replace(/'/g,"\\'")+'\')':'')+'">'+esc(partnerName)+'</div>'
           +'<div class="gfu-meta">Following up on <b>'+leadLine+'</b>'+eventLine+' \u00b7 '+meta+'</div>'
           +'<div class="gfu-actions">'+actions+'</div>'
@@ -2341,14 +2343,8 @@ function renderGenFollowupDue(){
   var dueRows={}; due.forEach(function(L){ dueRows[L._row]=true; });
   Object.keys(GFU_SHOW_BUMPS).forEach(function(r){ if(!dueRows[r]) delete GFU_SHOW_BUMPS[r]; });
   box.style.display='';
-  tdSetMeta('genFollowupCard', due.length, tdPreview(due.map(function(L){ return String(L[C.name]||'Lead'); })));
-  var singleTime='';
-  if(due.length===1){
-    var soloTime=pd(due[0][C.followup]);
-    var soloLabel = soloTime && (soloTime.getHours()||soloTime.getMinutes()) ? hm12(soloTime) : '9:00 AM';
-    singleTime='<span id="gfu_time_'+due[0]._row+'" onclick="editGfuTime('+due[0]._row+')" style="margin-left:auto;color:var(--gold-bright);font-weight:700;font-size:14px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(soloLabel)+'</span>';
-  }
-  box.innerHTML='<div class="gfu-card"><div class="gfu-title" style="display:flex;align-items:baseline">Follow-Ups Due'+singleTime+'</div>'
+  // The follow-up time is always edited on the item itself (the Today list hides card titles).
+  box.innerHTML='<div class="gfu-card"><div class="gfu-title td-chrome">Follow-Ups Due</div>'
     + due.map(function(L){
         var metaParts=[];
         if(L[C.eventDate]) metaParts.push('<b>'+esc(fmtDateY(L[C.eventDate]))+'</b>');
@@ -2396,16 +2392,16 @@ function renderGenFollowupDue(){
         var hasConflict = !showKids && !!findDateConflict(L);
         var conflictHtml = showKids ? '' : conflictBadgeHtml(L);
 
-        return '<div class="gfu-item">'
+        var gNote=[L[C.eventDate]?('Event '+fmtDateY(L[C.eventDate])):'', L[C.eventType]||''].filter(Boolean).join(' \u00b7 ');
+        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3})+'>'
           +kidsHtml
           +conflictHtml
-          +(due.length>1 ? '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+          +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
             +'<span class="gfu-name" onclick="openSheet('+L._row+')">'+esc(L[C.name]||'Lead')+'</span>'
             +(!hasConflict && L[C.price]?'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')
             +preferredContactBadgeHtml(L)
             +'<span id="gfu_time_'+L._row+'" onclick="event.stopPropagation();editGfuTime('+L._row+')" style="margin-left:auto;color:var(--gold-bright);font-weight:600;font-size:11.5px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(fuTimeLabel)+'</span>'
           +'</div>'
-          : '<div class="gfu-name" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap" onclick="openSheet('+L._row+')"><span>'+esc(L[C.name]||'Lead')+(!hasConflict && L[C.price]?' <span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')+'</span>'+preferredContactBadgeHtml(L)+'</div>')
           +(meta?'<div class="gfu-meta">'+meta+'</div>':'')
           +statusChipHtml(L)
           +lastHtml
@@ -2595,7 +2591,7 @@ function decRebookItemHtml(item){
   if(email) actions+='<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="decRebookEmail(\''+esc(item.key)+'\')">Email</button>';
   actions+='<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="decRebookSnooze(\''+esc(item.key)+'\')">Snooze</button>';
   var nameHtml=(company?'<span style="color:var(--muted);font-weight:400">'+esc(company)+'</span> — ':'')+esc(c.name||'Client');
-  return '<div class="gfu-item">'
+  return '<div class="gfu-item"'+tdItem('rb:'+item.key, {name:(company?company+' \u2014 ':'')+(c.name||'Client'), tag:item.firstTouch?'Rebook \u2014 second touch':'Rebook for December', note:yearsTxt, when:'', late:0, rank:5})+'>'
     +'<div class="gfu-name"'+(c.lastRow?' onclick="openSheet('+c.lastRow+')"':'')+'>'+nameHtml+'</div>'
     +'<div class="gfu-meta">'+esc(yearsTxt+priceTxt)+'</div>'
     +(actions?'<div class="gfu-actions">'+actions+'</div>':'')
@@ -2607,13 +2603,11 @@ function renderDecemberRebook(){
   var data=computeDecemberRebookList();
   if(!data.fresh.length && !data.followup.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
-  var _decAll=data.fresh.concat(data.followup);
-  tdSetMeta('decRebookCard', _decAll.length, tdPreview(_decAll.map(function(x){ return x.client && x.client.name; })));
-  var html='<div class="gfu-card winter"><div class="gfu-title">December Rebooking</div>'
-    +'<p class="note" style="text-align:left;margin:0 0 10px">Your strongest month — a little outreach now goes a long way.</p>';
+  var html='<div class="gfu-card winter"><div class="gfu-title td-chrome">December Rebooking</div>'
+    +'<p class="note td-chrome" style="text-align:left;margin:0 0 10px">Your strongest month — a little outreach now goes a long way.</p>';
   html += data.fresh.map(decRebookItemHtml).join('');
   if(data.followup.length){
-    html += '<div class="sec-title" style="margin-top:4px"><span class="t">Following Up Again</span><span class="rule"></span></div>';
+    html += '<div class="sec-title td-chrome" style="margin-top:4px"><span class="t">Following Up Again</span><span class="rule"></span></div>';
     html += data.followup.map(decRebookItemHtml).join('');
   }
   html += '</div>';
@@ -2958,36 +2952,43 @@ function todayPill_(d){ return (d.getHours()||d.getMinutes()) ? 'Today '+d.toLoc
 function dueCardCovers_(L){
   if(L._pending) return false;
   if(isWorkingLead(L)) return true;
-  var f=pd(L[C.followup]);
-  return !L._stageDoneOptimistic && isBookedLike(L) && !!followupStageLabel(L) && !!f && f<=today0();
+  return bookedFollowupDue_(L);
 }
+// A Booked/Completed client whose follow-up date is today or earlier (compared by calendar day,
+// so a follow-up at 2 PM today counts today). Covers the automatic stages AND a date you set by
+// hand — a hand-set date used to fall through every list and never remind you.
+function bookedFollowupDue_(L){
+  if(L._stageDoneOptimistic || L._pending || !isBookedLike(L)) return false;
+  var f=pd(L[C.followup]); if(!f) return false;
+  return new Date(f.getFullYear(), f.getMonth(), f.getDate()) <= today0();
+}
+// Whole days a date is past (0 if today or in the future).
+function daysLate_(d){
+  if(!d) return 0;
+  var n=Math.round((today0()-new Date(d.getFullYear(), d.getMonth(), d.getDate()))/86400000);
+  return n>0 ? n : 0;
+}
+function lateText_(n){ return n>0 ? (n===1?'1 day late':n+' days late') : 'Today'; }
 function isToday_(d){ return !!d && d.getTime()>=today0().getTime() && d.getTime()<today0().getTime()+864e5; }
 function renderFollowupDue(){
   var box=$('followupDueCard'); if(!box) return;
   var t=today0();
-  var due=LEADS.filter(function(L){
-    if(L._stageDoneOptimistic || L._pending) return false; // just marked done — hidden instantly, server catching up
-    if(!isBookedLike(L)) return false;
-    var stage=followupStageLabel(L);
-    if(!stage) return false;
-    var f=pd(L[C.followup]);
-    return f && f<=t;
-  });
+  var due=LEADS.filter(bookedFollowupDue_); // (skips ones just marked done — hidden instantly, server catching up)
   due.sort(function(a,b){ return pd(a[C.followup]) - pd(b[C.followup]); });
   if(!due.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
-  tdSetMeta('followupDueCard', due.length, tdPreview(due.map(function(L){ return String(L[C.name]||'Lead'); })));
-  box.innerHTML='<div class="followupdue-card"><div class="followupdue-title">Follow-Ups Due Today</div>'
+  box.innerHTML='<div class="followupdue-card"><div class="followupdue-title td-chrome">Follow-Ups Due Today</div>'
     + due.map(function(L){
-        var idx=followupStageIndex(L), stage=STAGE_LABELS[idx], hint=STAGE_HINTS[idx];
-        var emailBtn = ((idx===1||idx===2) && L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
-        return '<div class="followupdue-row">'
+        var idx=followupStageIndex(L), stage=idx>-1?STAGE_LABELS[idx]:'Follow-up', hint=idx>-1?STAGE_HINTS[idx]:'';
+        var late=daysLate_(pd(L[C.followup]));
+        var emailBtn = (L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
+        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:hint, when:lateText_(late), late:late, rank:2})+'>'
           +'<div class="followupdue-info" onclick="openSheet('+L._row+')">'
             +'<div class="followupdue-name">'+esc(L[C.name]||'Lead')+'</div>'
             +'<div class="followupdue-stage">'+esc(stage)+(hint?' \u2014 '+esc(hint):'')+'</div>'
           +'</div>'
           +emailBtn
-          +'<button class="followupdue-btn" onclick="event.stopPropagation();markStageDone('+L._row+')">Mark done</button>'
+          +'<button class="followupdue-btn" onclick="event.stopPropagation();'+(idx>-1?'markStageDone':'clearBookedFollowup')+'('+L._row+')">Mark done</button>'
         +'</div>';
       }).join('')
     +'</div>';
@@ -3016,6 +3017,19 @@ function markStageDone(row){
     }
   }).withFailureHandler(function(){ if(lead) delete lead._stageDoneOptimistic; renderLeads(); if(CURRENT&&CURRENT._row===row) buildFollowupDoneBtn(); toast('Could not save \u2014 try again'); refreshQuiet(); })
   .markFollowupStageDone(row, '');
+}
+// "Mark done" for a booked client's hand-set follow-up (not one of the automatic stages):
+// clear the date. The server's automation then puts the client back on the normal cycle
+// (1 week before the event, or a review request once the show has happened).
+function clearBookedFollowup(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var old=L[C.followup];
+  L[C.followup]='';
+  renderLeads(); toast('Follow-up marked done \u2726');
+  var u={}; u[C.followup]='';
+  GS.withSuccessHandler(function(json){ ingest(json); renderChips(); renderLeads(); renderInsights(); })
+    .withFailureHandler(function(){ L[C.followup]=old; renderLeads(); toast('Could not save \u2014 try again'); })
+    .updateLead(row, u);
 }
 function renderDConflict(L){
   var el=$('d_conflict'); if(!el || !L) return;
@@ -3263,21 +3277,18 @@ function visible(){
   return LEADS.filter(function(L){ return matches(L, FILTER); });
 }
 
-/* ---------- "Today" digest — collapses the routine reminder cards into one calm
-   summary. Showtime (renderTodayShow) stays its own hero above; the Oracle stays
-   ambient below. This is a cosmetic layer only: it toggles the existing cards'
-   visibility, so every card's own buttons/logic are untouched. ---------- */
-var TODAY_OPEN={};
-// Each render function stashes its summary here (count/preview/pill) as it
-// computes its set, so the digest shows "3 follow-ups due — Sarah, Leo, +1"
-// without re-deriving (and drifting from) each card's own filter logic.
-var TODAY_META={};
-function tdSetMeta(id, count, preview, pill){ TODAY_META[id]={n:count, preview:preview||'', pill:pill||''}; }
-function tdPreview(names){
-  names=(names||[]).filter(Boolean);
-  if(!names.length) return '';
-  if(names.length<=2) return names.join(', ');
-  return names.slice(0,2).join(', ')+', +'+(names.length-2);
+/* ---------- "Today" list — every due item from the reminder cards, one row each, most urgent
+   first. Showtime (renderTodayShow) stays its own hero above; the Oracle stays ambient below.
+   Each card still computes its own set and buttons; its item roots carry data-td-* attributes
+   (tdItem) and this list reads them straight from the card, so the filters live in ONE place.
+   Tapping a row slots that card under the row, showing only the tapped item (CSS below). ---------- */
+var TD_CARDS=['paymentsToConfirm','unpaidBalanceCard','followupDueCard','taskDueCard','genFollowupCard','partnerCheckInCard','decRebookCard'];
+var TD_OPEN_KEY=null, TD_SIG='', TD_OBS=null;
+function tdKey_(k){ return String(k).replace(/[^A-Za-z0-9:_-]/g,'_'); }
+// Attributes for a due item's root element. o = {name, tag, note, when, late (days), rank (0 = most urgent group)}.
+function tdItem(key, o){
+  return ' data-td="'+tdKey_(key)+'" data-td-name="'+esc(o.name||'')+'" data-td-tag="'+esc(o.tag||'')+'" data-td-note="'+esc(o.note||'')
+    +'" data-td-when="'+esc(o.when||'')+'" data-td-late="'+(Number(o.late)>0?Math.round(o.late):0)+'" data-td-rank="'+(Number(o.rank)||0)+'"';
 }
 function tdIcon(id){
   var dollar='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
@@ -3291,48 +3302,71 @@ function tdIcon(id){
   };
   return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(P[id]||bell)+'</svg>';
 }
+// Re-sync whenever any card re-renders, whoever triggered it (many actions re-render just one card).
+function tdWatch_(){
+  if(TD_OBS || typeof MutationObserver==='undefined') return;
+  var pending=false;
+  TD_OBS=new MutationObserver(function(){
+    if(pending) return; pending=true;
+    setTimeout(function(){ pending=false; renderTodayDigest(); }, 0);
+  });
+  TD_CARDS.forEach(function(id){ var el=$(id); if(el) TD_OBS.observe(el, {childList:true}); });
+}
+function tdItems_(){
+  var items=[];
+  TD_CARDS.forEach(function(id){
+    var el=$(id); if(!el || !(el.innerHTML||'').trim()) return;
+    Array.prototype.forEach.call(el.querySelectorAll('[data-td]'), function(n){
+      items.push({card:id, key:n.getAttribute('data-td'), name:n.getAttribute('data-td-name'), tag:n.getAttribute('data-td-tag'),
+        note:n.getAttribute('data-td-note'), when:n.getAttribute('data-td-when'), late:Number(n.getAttribute('data-td-late'))||0,
+        rank:Number(n.getAttribute('data-td-rank'))||0});
+    });
+  });
+  // Payments waiting on you first, then whatever is most overdue, then by kind and name.
+  items.sort(function(a,b){
+    var pa=a.rank===0?0:1, pb=b.rank===0?0:1;
+    return (pa-pb) || (b.late-a.late) || (a.rank-b.rank) || String(a.name).localeCompare(String(b.name));
+  });
+  return items;
+}
 function renderTodayDigest(){
   var sum=$('todaySummary'); if(!sum) return;
-  // [id, singular noun, plural noun] — the count comes from TODAY_META.
-  var cards=[
-    ['paymentsToConfirm','payment to confirm','payments to confirm'],
-    ['followupDueCard','follow-up due','follow-ups due'],
-    ['genFollowupCard','follow-up due','follow-ups due'],
-    ['taskDueCard','task due','tasks due'],
-    ['unpaidBalanceCard','unpaid balance','unpaid balances'],
-    ['partnerCheckInCard','partner check-in','partner check-ins'],
-    ['decRebookCard','client to rebook','clients to rebook']
-  ];
-  // Presence is judged by CONTENT (innerHTML), never by display — the digest
-  // itself toggles display to collapse/expand, so checking display would make a
-  // collapsed card look absent on the next render. Empty cards clear their innerHTML.
-  // Park every card first so rebuilding the summary never destroys them, then
-  // slot each OPEN card directly under its own row.
+  tdWatch_();
+  var items=tdItems_();
+  if(TD_OPEN_KEY && !items.some(function(it){ return it.key===TD_OPEN_KEY; })) TD_OPEN_KEY=null;
+  var open=items.filter(function(it){ return it.key===TD_OPEN_KEY; })[0]||null;
+  // Cards are only ever shown inside the list, under their open row.
+  TD_CARDS.forEach(function(id){ var el=$(id); if(el) el.style.display=(open && open.card===id)?'':'none'; });
+  var css=$('tdOpenCss');
+  if(!css){ css=document.createElement('style'); css.id='tdOpenCss'; document.head.appendChild(css); }
+  css.textContent = open ? '#todaySummary .td-slot [data-td]:not([data-td="'+open.key+'"]){display:none!important}' : '';
+  // Rebuild only when the list itself changed — a card re-rendering in place (e.g. showing a note
+  // box after Call) must not be moved, or a field someone is typing in would lose focus.
+  var sig=JSON.stringify([TD_OPEN_KEY, items]);
+  if(sig===TD_SIG && (sum.innerHTML||'').trim()) return;
+  TD_SIG=sig;
   var park=$('todayPark');
-  if(park) cards.forEach(function(c){ var el=$(c[0]); if(el && el.parentNode!==park) park.appendChild(el); });
-  var present=cards.filter(function(c){ var el=$(c[0]); return el && (el.innerHTML||'').trim(); });
-  if(!present.length){ sum.style.display='none'; return; }
-  var rows=present.map(function(c){
-    var id=c[0], open=!!TODAY_OPEN[id], m=TODAY_META[id];
-    $(id).style.display = open ? '' : 'none'; // collapse unless the row is expanded
-    var label = m ? (m.n+' '+(m.n===1?c[1]:c[2])) : c[2];
-    var sub = m && m.preview ? '<span class="b">'+esc(m.preview)+'</span>' : '';
-    var pill = m && m.pill ? '<span class="pill">'+esc(m.pill)+'</span>' : '';
-    return '<button type="button" class="td-row'+(open?' open':'')+'" onclick="toggleToday(\''+id+'\')">'
-      +'<span class="ic">'+tdIcon(id)+'</span>'
-      +'<span class="t"><span class="a">'+esc(label)+'</span>'+sub+'</span>'
-      +pill
+  if(park) TD_CARDS.forEach(function(id){ var el=$(id); if(el && el.parentNode!==park) park.appendChild(el); });
+  if(!items.length){ sum.style.display='none'; sum.innerHTML=''; return; }
+  var rows=items.map(function(it, i){
+    var isOpen=it.key===TD_OPEN_KEY;
+    return '<button type="button" class="td-row td-item'+(isOpen?' open':'')+'" onclick="toggleTodayItem(\''+it.key+'\')">'
+      +'<span class="ic">'+tdIcon(it.card)+'</span>'
+      +'<span class="t"><span class="a">'+esc(it.name)+'</span>'
+        +'<span class="b"><span class="td-tag">'+esc(it.tag)+'</span>'+(it.note?' \u00b7 '+esc(it.note):'')+'</span></span>'
+      +(it.when?'<span class="td-when'+(it.late>0?' late':'')+'">'+esc(it.when)+'</span>':'')
       +'<span class="chev">&#8250;</span></button>'
-      +'<div class="td-slot" id="tdslot_'+id+'"></div>';
+      +'<div class="td-slot" id="tdslot_'+i+'"></div>';
   }).join('');
-  sum.innerHTML='<div class="td-card"><div class="td-head"><span class="td-star">&#10038;</span><span class="td-lbl">Today</span></div>'+rows+'</div>';
+  sum.innerHTML='<div class="td-card"><div class="td-head"><span class="td-star">&#10038;</span><span class="td-lbl">Today</span>'
+    +'<span class="td-count">'+items.length+'</span></div>'+rows+'</div>';
   sum.style.display='';
-  present.forEach(function(c){
-    var slot=$('tdslot_'+c[0]), el=$(c[0]);
-    if(slot && el && TODAY_OPEN[c[0]]) slot.appendChild(el);
-  });
+  if(open){
+    var slot=$('tdslot_'+items.indexOf(open)), el=$(open.card);
+    if(slot && el) slot.appendChild(el);
+  }
 }
-function toggleToday(id){ TODAY_OPEN[id]=!TODAY_OPEN[id]; renderTodayDigest(); }
+function toggleTodayItem(key){ TD_OPEN_KEY = (TD_OPEN_KEY===key) ? null : key; renderTodayDigest(); }
 // Empty-state nudge: when the account is nearly empty (and not mid-search or
 // drilled in from Insights), offer a one-tap bulk import — the "right place,
 // right time" version of the import entry point. Fades once real leads exist.
@@ -3410,6 +3444,7 @@ function dismissReferralUI(id){
   .dismissReferral(id);
 }
 function renderLeads(){
+  if(CURRENT) renderNextStep();
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   renderTodayShow();
   renderOracleNudge();
@@ -3835,8 +3870,9 @@ function deleteTaskUI(id){
   .deleteTask(id);
 }
 
-var STAGE_OFFSETS=[-30,-7,1], STAGE_LABELS=['30 days out','1 week out','Review request'];
-var STAGE_HINTS=['Prepare the balance invoice', 'Send the client a check-in email', 'Reach out to the client for a review through their event portal'];
+// Must match FOLLOWUP_STAGE_OFFSETS / FOLLOWUP_STAGE_LABELS in Code.js (the server sets these dates).
+var STAGE_OFFSETS=[-7,1], STAGE_LABELS=['1 week out','Review request'];
+var STAGE_HINTS=['Send the client a check-in email', 'Reach out to the client for a review through their event portal'];
 function followupStageIndex(L){
   if(!isBookedLike(L)) return -1;
   var ed=pd(L[C.eventDate]); if(!ed) return -1;
@@ -3890,6 +3926,86 @@ function buildActions(){
   }
   if(L[C.email]) acts+='<a class="act" href="javascript:void(0)" onclick="openEmailPicker()">Email</a>';
   $('d_actions').innerHTML=acts;
+}
+/* ---------- Lead "next step" ----------
+   One button under the client's name for the single thing to do next on this booking,
+   worked out from where it stands. Nothing pending (or Lost/Referred) -> no panel. */
+var NS_ARM=null;
+function nextStepFor_(L){
+  var st=String(L[C.status]||'New');
+  if(st==='Lost' || st==='Referral' || st==='Referred') return null;
+  var signed=String(L[C.contractSigned]||'')==='Yes';
+  var booked=isBookedLike(L);
+  var ed=pd(L[C.eventDate]); if(ed) ed=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
+  var daysSince = ed ? Math.round((today0()-ed)/86400000) : null;
+  var depIn=String(L[C.depositReceived]||'')==='Yes', balIn=String(L[C.balancePaid]||'')==='Yes';
+  // A payment the client says they've sent is waiting on you \u2014 confirm it first.
+  if(depositBase(L)>0 && !depIn && String(L[C.depositReported]||'')==='Yes') return {kind:'confirm-deposit', label:'Confirm deposit received',
+    why:'Client reports paying '+fmtMoney(depositFinal(L))+(L[C.paymentMethod]?' by '+L[C.paymentMethod]:'')+' \u2014 check it arrived'};
+  if(balanceBase(L)>0 && !balIn && (depIn || !(depositBase(L)>0)) && String(L[C.balanceReported]||'')==='Yes') return {kind:'confirm-balance', label:'Confirm balance received',
+    why:'Client reports paying '+fmtMoney(balanceFinal(L))+((L[C.balancePaymentMethod]||L[C.paymentMethod])?' by '+(L[C.balancePaymentMethod]||L[C.paymentMethod]):'')+' \u2014 check it arrived'};
+  // Then an unsigned agreement comes before money - even on a Booked lead (a client can pay
+  // the deposit before signing). Skipped once the show has happened, so clients booked before
+  // you used contracts don't nag.
+  if(!signed && (!booked || daysSince==null || daysSince<0)){
+    if(!L[C.contractSignUrl]) return {kind:'contract', label:'Generate contract',
+      why: !money(L[C.price]) ? 'Add the quoted price below first, then send the agreement'
+        : booked ? 'Booked \u2014 but no agreement yet. Send one to protect the date.'
+        : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+' quoted \u2014 send the agreement to lock in the date'};
+    if(booked) return {kind:'link', label:'Get the contract signed',
+      why:(String(L[C.depositReceived]||'')==='Yes' ? 'Deposit received \u2014 ' : 'Booked \u2014 ')+'agreement not signed yet. Tap to copy their portal link.'};
+    return {kind:'link', label:'Copy portal link', why:'Agreement sent \u2014 not signed yet. Send the link again if they need it.'};
+  }
+  var signedOn=pd(L['Contract Signed Date']);
+  if(depositBase(L)>0 && !depIn){
+    return {kind:'deposit', label:'Mark deposit received',
+      why:(signed?'Signed'+(signedOn?' '+fmtDateY(signedOn):'')+' \u00b7 ':'')+fmtMoney(depositFinal(L))+' deposit due'};
+  }
+  if(balanceBase(L)>0 && !balIn){
+    var dueDays=Number(L[C.balanceDueDays])>0 ? Number(L[C.balanceDueDays]) : 0;
+    var dueTxt='';
+    if(ed){ var due=new Date(ed); due.setDate(due.getDate()-dueDays);
+      dueTxt = due<today0() ? ' \u00b7 overdue since '+fmtDateY(due) : (dueDays ? ' \u00b7 due '+fmtDateY(due) : ' \u00b7 due on the event date'); }
+    return {kind:'balance', label:'Mark balance received', why:fmtMoney(balanceFinal(L))+' balance'+dueTxt};
+  }
+  // Same 2-week window as the automatic review-request follow-up, so old clients don't nag forever.
+  if(daysSince!=null && daysSince>=0 && daysSince<=14 && !(Number(L['Event Rating'])>0) && (L[C.email] || L[C.phone]))
+    return {kind:'review', label:'Ask for a review', why:'Show was '+fmtDateY(ed)+' \u2014 no review yet. Pick your thank-you / review message.'};
+  return null;
+}
+function renderNextStep(){
+  var box=$('d_nextstep'); if(!box) return;
+  var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT);
+  var step=L ? nextStepFor_(L) : null;
+  if(!step){ box.style.display='none'; box.innerHTML=''; NS_ARM=null; return; }
+  var armed=NS_ARM===step.kind;
+  box.innerHTML='<div class="ns-lbl">Next step</div>'
+    +'<div class="ns-why">'+esc(step.why)+'</div>'
+    +'<button type="button" class="save'+(armed?' armed':'')+'" onclick="doNextStep(\''+step.kind+'\')">'
+      +(armed?'Tap again to confirm':esc(step.label)+' \u2726')+'</button>';
+  box.style.display='block';
+}
+function doNextStep(kind){
+  if(!CURRENT) return;
+  var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
+  var step=nextStepFor_(L);
+  if(!step || step.kind!==kind){ renderNextStep(); return; } // the lead changed underneath — show the current step
+  if(kind==='contract'){ var genBtn=$('d_contractbtn'); if(genBtn) genBtn.scrollIntoView({behavior:'smooth', block:'center'}); generateContractUI(); return; }
+  if(kind==='link'){ copyToClipboard(L[C.contractSignUrl]); toast('Event portal link copied'); return; }
+  if(kind==='review'){ if(L[C.email]) openEmailPicker(); else openTextPicker(); return; }
+  // Money steps: arm-then-confirm, auto-revert after 3.5s (same safety pattern as delete/regenerate).
+  if(NS_ARM!==kind){
+    NS_ARM=kind; renderNextStep();
+    setTimeout(function(){ if(NS_ARM===kind){ NS_ARM=null; renderNextStep(); } }, 3500);
+    return;
+  }
+  NS_ARM=null;
+  if(kind==='confirm-deposit'){ confirmPayment(L._row, 'deposit'); return; }
+  if(kind==='confirm-balance'){ confirmPayment(L._row, 'balance'); return; }
+  var col = kind==='deposit' ? C.depositReceived : C.balancePaid;
+  var idx=KVF.findIndex(function(F){ return F.col===col; });
+  if(idx>-1) commitKV_(idx, 'Yes');
+  renderNextStep();
 }
 function currentBackLabel(){
   if(IFILTER) return IFILTER.label;
@@ -3957,6 +4073,8 @@ function openSheet(row){
   $('d_name').textContent = L[C.name]||'Lead';
   $('d_sub').textContent = [(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType]].filter(Boolean).join(' \u00b7 ');
   buildActions();
+  NS_ARM=null;
+  renderNextStep();
   renderLeadReview(L);
   var f=pd(L[C.followup]); $('d_followup').value = f? ymd(f):'';
   $('d_followtime').value = (f && (f.getHours()||f.getMinutes())) ? hm(f) : '';
@@ -4214,7 +4332,12 @@ function saveKV(i, fromBlur){
     inp.value=chk.v;
   }
   inp.dataset.saved='1';
-  var nv=inp.value, row=CURRENT._row, updates={};
+  commitKV_(i, inp.value);
+}
+// Save field KVF[i] = nv on the current lead (auto-dated received/paid, default deposit, etc.).
+// Shared by the field editor and the lead's "next step" button.
+function commitKV_(i, nv){
+  var F=KVF[i], row=CURRENT._row, updates={};
   if(F.type==='time' && nv){
     var ed=pd(CURRENT[C.eventDate]);
     var base = ed? ymd(ed) : '1970-01-01';
@@ -4267,7 +4390,7 @@ function saveKV(i, fromBlur){
       setTimeout(function(){ if($('kv_'+bdi)) editKV(bdi); }, 300);
     }
   }
-  $('kv_'+i).innerHTML=kvDisplay(F);
+  var kvEl=$('kv_'+i); if(kvEl) kvEl.innerHTML=kvDisplay(F);
   if(F.col===C.phone || F.col===C.email) buildActions();
   if(F.col===C.service || F.col===C.eventType)
     $('d_sub').textContent = [(CURRENT[C.service]?svcLabel(CURRENT[C.service]):''), CURRENT[C.eventType]].filter(Boolean).join(' \u00b7 ');
@@ -5155,6 +5278,7 @@ function doGenerateContract(){
     if(r.ok){
       btn.textContent='Regenerate Contract \u2726';
       renderContractResultPanel(r.signUrl, r.pdfUrl, r.docUrl);
+      if(CURRENT){ CURRENT[C.contractSignUrl]=r.signUrl; renderNextStep(); }
     } else {
       btn.textContent='Generate Contract \u2726';
       out.innerHTML =
@@ -5953,11 +6077,7 @@ function oracleOverdue(){
     var f=pd(L[C.followup]);
     return f && f<today0();
   });
-  var due=LEADS.filter(function(L){
-    if(L._stageDoneOptimistic || !isBookedLike(L) || !followupStageLabel(L)) return false;
-    var f=pd(L[C.followup]);
-    return f && f<=new Date();
-  });
+  var due=LEADS.filter(bookedFollowupDue_);
   if(!overdue.length && due.length) return '<b>'+due.length+'</b> booked client'+(due.length===1?'':'s')+' ha'+(due.length===1?'s':'ve')+' a follow-up due: '+due.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ')+'. No new inquiries are overdue.';
   if(!overdue.length) return 'Nothing overdue \u2014 you\u2019re caught up.';
   var names=overdue.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ');
@@ -8709,6 +8829,14 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.45', d:'Sep 2026', notes:[
+    'A redesigned "Today" list on Leads: every follow-up, task, and payment to confirm now shows as its own row with the client\u2019s name and how late it is, sorted by urgency \u2014 instead of being grouped into categories.',
+    'Each lead now shows a \u201cNext step\u201d right under their name \u2014 generate the contract, get it signed, mark a payment received, or ask for a review \u2014 so you don\u2019t have to scroll to find what to do.',
+    'The client booking page now walks clients through signing and paying their deposit as one step, and clearly shows what\u2019s left (signed / deposit / balance) every time they return.',
+    'A lead is now marked Booked automatically once the agreement is signed and the deposit is in (or none is required) \u2014 no need to change the status yourself.',
+    'Recycle Bin, Google Contacts sync, and client export moved from the bottom of Leads into Settings \u2192 Tools.',
+    'Client portal: full booking details (date, location, deposit/balance, total) now stay visible after signing, dates read in full, and \u201cACH\u201d shows as \u201cBank transfer.\u201d'
+  ]},
   { v:'1.5.44', d:'Sep 2026', notes:[
     'Security: your bank account and routing numbers are no longer included in the public contract and store pages. They appear only after a client opens their own contract link, so nothing changes for your clients.',
     'Security: anything a client or store visitor types (name, review, payment method) can no longer be used to sneak a formula into your sheet.',
@@ -9100,12 +9228,9 @@ function renderPaymentsToConfirm(){
     }
   });
   if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
-  tdSetMeta('paymentsToConfirm', items.length,
-    tdPreview(items.map(function(it){ return it.rawName + (it.method?(' · '+it.method):''); })),
-    fmtMoney(items.reduce(function(s,it){ return s+(it.amt||0); }, 0)));
   var rows=items.map(function(it){
     var mLabel=it.method?(' · '+esc(it.method)):'';
-    return '<div style="border-top:1px solid var(--line);padding:10px 0">'
+    return '<div style="border-top:1px solid var(--line);padding:10px 0"'+tdItem('pay:'+it.row+':'+it.kind, {name:it.rawName, tag:(it.kind==='balance'?'Balance':'Deposit')+' to confirm', note:fmtMoney(it.amt)+(it.method?' \u00b7 '+it.method:''), when:'Reported', late:0, rank:0})+'>'
       +'<div style="font-weight:600;color:var(--cream)">'+it.name+' — '+it.kind+'</div>'
       +'<div style="font-size:12.5px;color:var(--muted);margin:2px 0 8px">Reports paying '+esc(fmtMoney(it.amt))+mLabel+' — verify it arrived, then confirm.</div>'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
@@ -9114,8 +9239,8 @@ function renderPaymentsToConfirm(){
       +'</div></div>';
   }).join('');
   box.innerHTML='<div class="card" style="border-color:var(--gold)">'
-    +'<div style="font-weight:700;color:var(--gold-bright)">Payments to confirm <span style="color:var(--muted);font-weight:400;font-size:12px">'+items.length+'</span></div>'
-    +'<div style="font-size:12.5px;color:var(--muted);margin-top:2px">A client reported paying. Nothing is marked received until you confirm it arrived.</div>'
+    +'<div class="td-chrome" style="font-weight:700;color:var(--gold-bright)">Payments to confirm <span style="color:var(--muted);font-weight:400;font-size:12px">'+items.length+'</span></div>'
+    +'<div class="td-chrome" style="font-size:12.5px;color:var(--muted);margin-top:2px">A client reported paying. Nothing is marked received until you confirm it arrived.</div>'
     +rows+'</div>';
   box.style.display='';
 }

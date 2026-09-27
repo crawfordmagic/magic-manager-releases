@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.44';
+var APP_VERSION = '1.5.45';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -2237,6 +2237,8 @@ function submitContractSignature(token, typedName, paymentMethod) {
       sh.getRange(rowNum, cols.signedCol).setValue('Yes');
       sh.getRange(rowNum, cols.signedNameCol).setValue(typedName);
       sh.getRange(rowNum, cols.signedDateCol).setValue(new Date());
+      // Deposit already in (paid before signing) or none required -> this signature books it.
+      try { if (maybeMarkBooked_(sh, rowNum)) syncBookedCalendarEvent_(sh, rowNum, false); } catch (e) { console.error('Auto-book on signing failed: ' + e); }
 
       try {
         // Re-fetch the row (not the headers — those haven't changed) now
@@ -5023,6 +5025,33 @@ function duplicateLeadAsNewBooking_(row) {
   }
 }
 
+// A lead becomes Booked automatically the moment it has BOTH a signed agreement and its
+// deposit (or no deposit is required). Only upgrades a lead that is still being worked
+// (New / Pending / No response) — never overrides Booked, Completed, Lost or a referral.
+// Called from the two places those facts get recorded: updateLead_ (deposit marked received —
+// by the owner, a confirmed reported payment, or a verified card) and submitContractSignature.
+// Returns true when it changed the status.
+function maybeMarkBooked_(sh, rowNum) {
+  var heads = headers_(sh);
+  var row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
+  var get = function (h) { var i = heads.indexOf(h); return i > -1 ? row[i] : ''; };
+  var status = String(get('Status') || '').trim() || 'New';
+  if (['New', 'Pending', 'No response'].indexOf(status) < 0) return false;
+  if (String(get('Contract Signed') || '') !== 'Yes') return false;
+  var deposit = Number(String(get('Deposit Amount') || '').replace(/[^0-9.]/g, '')) || 0;
+  if (deposit > 0 && String(get('Deposit Received') || '') !== 'Yes') return false;
+  var statusCol = heads.indexOf('Status') + 1;
+  if (!statusCol) return false;
+  sh.getRange(rowNum, statusCol).setValue('Booked');
+  try {
+    var ts = get('Timestamp');
+    var key = ts instanceof Date ? String(ts.getTime()) : String(ts || '');
+    logSheet_().appendRow([new Date(), key, String(get('Customer Name') || ''), 'Note',
+      'Status set to Booked \u2014 agreement signed and ' + (deposit > 0 ? 'deposit received' : 'no deposit required'), Utilities.getUuid()]);
+  } catch (e) {}
+  return true;
+}
+
 function updateLead_(rowNum, updates) {
   const sh = sheet_();
   const heads = headers_(sh);
@@ -5047,6 +5076,10 @@ function updateLead_(rowNum, updates) {
       sh.getRange(rowNum, doneCol).setValue(false);
     }
   });
+  // Only on a deposit change, so a status you set by hand is never flipped back.
+  if ('Deposit Received' in updates || 'Deposit Amount' in updates) {
+    try { maybeMarkBooked_(sh, rowNum); } catch (e) { console.error('Auto-book check failed: ' + e); }
+  }
   try { runFrequentAutomations_(); } catch (e) { /* automations never block a save */ }
   try { scheduleCalendarRebuild_(); } catch (e) { /* calendar hiccups never block a save */ }
   try { syncBookedCalendarEvent_(sh, rowNum, wasBooked); } catch (e) { /* booking calendar hiccups never block a save */ }

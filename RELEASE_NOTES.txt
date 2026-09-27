@@ -1,13 +1,15 @@
 What's new in this update:
 
-• Security: your bank account and routing numbers (if you use Bank Transfer or Wire) are no longer included in the public contract and store pages. They show up only after a client opens their own contract link, so your clients see the same payment instructions as before.
+• Leads has a redesigned “Today” list: every follow-up, task, and payment waiting on you now shows as its own row — client name, what it is, and how overdue it is — sorted so the most urgent things are on top. Tap a row to act on it.
 
-• Security: text typed by clients and store visitors (names, reviews, payment method) can no longer be used to slip a spreadsheet formula into your sheet.
+• Each lead now shows a “Next step” right under their name: generate the contract, get it signed, mark a deposit or balance received, or ask for a review — whichever applies. No more scrolling to the bottom to find the contract button.
 
-• Client receipt links repair themselves. If a receipt file is ever moved to the Trash or deleted, the link is restored or rebuilt automatically, so a client never lands on a "file was deleted" page.
+• The client booking page now combines signing and paying the deposit into one step, and shows a clear “Signed / Deposit / Balance” status every time a client returns to it.
 
-• Your scheduled background jobs can now only be started by Google's own timer or by you.
+• A lead is now marked Booked automatically the moment the agreement is signed and the deposit is received (or no deposit is required) — you don’t have to set the status by hand anymore.
 
-• Card payments are checked more strictly: a payment is only marked received automatically if Stripe confirms it was made for that exact contract and payment. Anything else is recorded as "reported" for you to confirm, as before.
+• Recycle Bin, Google Contacts sync, and “Export my clients” moved from the bottom of the Leads screen into Settings → Tools.
 
-• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. Missing Sign.html in particular would hide the Bank Transfer / Wire options from your clients. (Your data is never affected.)
+• Client portal polish: booking details (date, location, deposit/balance, total) stay visible after signing instead of disappearing, dates are spelled out in full, and “ACH” now reads “Bank transfer.”
+
+• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

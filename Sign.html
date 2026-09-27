@@ -55,6 +55,16 @@
   .dic{color:var(--gold);flex:0 0 auto}
   .doclabel{flex:1}
   .docarrow{color:var(--gold);flex:0 0 auto}
+  .step{display:flex;align-items:center;gap:10px;margin:26px 0 2px;font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--cream)}
+  .step .n{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:1px solid var(--gold);color:var(--gold-bright);font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .step-sub{font-size:12.5px;color:var(--muted);margin:0 0 4px 36px}
+  .progress{display:flex;gap:6px;margin:4px 0 18px}
+  .progress .p{flex:1;text-align:center;padding:9px 4px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font-size:11.5px;color:var(--muted);line-height:1.35}
+  .progress .p b{display:block;font-size:12.5px;color:var(--muted)}
+  .progress .p.done{border-color:var(--gold);color:var(--gold-bright)}
+  .progress .p.done b{color:var(--gold-bright)}
+  .progress .p.now{border-color:var(--gold);background:var(--tint);color:var(--cream)}
+  .progress .p.now b{color:var(--cream)}
 </style>
 <?!= themeHtml ?>
 </head>
@@ -144,7 +154,7 @@ function documentButtonsHtml(d, signed){
 // receipt, pay the balance once it's actually due, or see the balance
 // receipt. Same link the whole way through, nothing new to send later.
 function bookingIdHtml(d){
-  var line2 = [d.client, d.eventDate].filter(Boolean).join(' \u2014 ');
+  var line2 = esc([d.client, longDate(d.eventDate)].filter(Boolean).join(' \u2014 '));
   if(!line2) return '';
   var invLine = d.invoiceNumber ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">Invoice '+d.invoiceNumber+'</div>' : '';
   return '<div class="bookingid"><div class="lead">Your booking with '+CFG.OWNER_NAME+'</div><div class="name">'+line2+'</div>'+invLine+'</div>';
@@ -158,9 +168,38 @@ function renderStatusPage(d){
   html += '<div class="signed"><div class="big">&#10038;</div><div>This agreement was signed'
     +(d.signedName?' by <b>'+esc(d.signedName)+'</b>':'')+'. Thank you!</div></div>';
 
-  html += '<div class="card">'
-    +row('Services', d.services)
-    +'</div>';
+  var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — skip straight to the balance
+  var showDepositPrompt = !noDeposit && !d.depositPaid;
+  var balanceDue = d.daysUntilEvent!==null && d.daysUntilEvent<=d.balanceDueDays;
+  // No longer gated on balanceDue — once the deposit's handled, the client
+  // can pay the balance whenever they're ready rather than being blocked
+  // until it's officially due. The due date still gets shown as context
+  // right above the prompt when it's not yet due, just not used to
+  // prevent paying early.
+  var showBalancePrompt = !d.balancePaid && (noDeposit || d.depositPaid);
+  var kind = showDepositPrompt ? 'deposit' : 'balance';
+  var payHtml='';
+  if(showDepositPrompt || showBalancePrompt){
+    var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : (PAYMENT_METHODS[0]||'Credit Card');
+    var initAmt = computeAmounts(d.depositBase, d.balanceBase, initialMethod);
+    var baseShown = kind==='balance' ? initAmt.balance : initAmt.deposit;
+    if(kind==='balance' && !balanceDue){
+      payHtml += '<p class="note" style="margin:0 0 6px">Feel free to pay early \u2014 officially due '+(d.balanceDueDateFmt||'a date closer to your event')+'.</p>';
+    }
+    payHtml += '<label>How will you be paying your '+(kind==='balance'?'balance':'deposit')+'?</label>'
+      +'<select id="paymentMethod">'+methodOptions(initialMethod)+'</select>'
+      +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
+  }
+  html += progressHtml(d);
+  if(showDepositPrompt){
+    // Signed but no deposit yet: this is the one thing left, so it goes right here, first.
+    html += '<div class="card" style="border-color:var(--gold);background:var(--tint)">'
+      +'<div class="paydetails-title">Last step: your deposit</div>'
+      +'<div style="font-size:13.5px">Your agreement is signed. Your date is held once your '+fmtMoney(Number(d.depositBase)||0)+' deposit is received.</div>'
+      +payHtml+'</div>';
+    payHtml='';
+  }
+  html += bookingSummaryHtml(d);
 
   // A booked client's per-service message (Settings -> Event messages by service), matched to
   // this booking's service. Shown once signed — but only while the event is still upcoming.
@@ -178,37 +217,12 @@ function renderStatusPage(d){
   // the event has passed and the balance is paid).
   html += feedbackCardHtml(d);
 
-  var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — skip straight to the balance
-  var showDepositPrompt = !noDeposit && !d.depositPaid;
-  var balanceDue = d.daysUntilEvent!==null && d.daysUntilEvent<=d.balanceDueDays;
-  // No longer gated on balanceDue — once the deposit's handled, the client
-  // can pay the balance whenever they're ready rather than being blocked
-  // until it's officially due. The due date still gets shown as context
-  // right above the prompt when it's not yet due, just not used to
-  // prevent paying early.
-  var showBalancePrompt = !d.balancePaid && (noDeposit || d.depositPaid);
-
   if(d.depositPaid) html += receiptCardHtml('Deposit', d.depositReceiptUrl);
-  if(d.balancePaid){
-    html += receiptCardHtml('Final Balance', d.balanceReceiptUrl);
-  } else if(!d.depositPaid && !noDeposit){
-    html += '<div class="paydetails"><div class="paydetails-title">Balance</div><div>Your remaining balance of '+fmtMoney(d.balanceBase)+' will be due once your deposit is received.</div></div>';
-  }
+  // (When the balance isn't due yet, the summary card above already says when it is.)
+  if(d.balancePaid) html += receiptCardHtml('Final Balance', d.balanceReceiptUrl);
 
-  var kind = showDepositPrompt ? 'deposit' : 'balance';
-  if(showDepositPrompt || showBalancePrompt){
-    var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : (PAYMENT_METHODS[0]||'Credit Card');
-    var initAmt = computeAmounts(d.depositBase, d.balanceBase, initialMethod);
-    var baseShown = kind==='balance' ? initAmt.balance : initAmt.deposit;
-    if(kind==='balance' && !balanceDue){
-      html += '<p class="note" style="margin:0 0 6px">Feel free to pay early \u2014 officially due '+(d.balanceDueDateFmt||'a date closer to your event')+'.</p>';
-    }
-    html += '<label>How will you be paying your '+(kind==='balance'?'balance':'deposit')+'?</label>'
-      +'<select id="paymentMethod">'+PAYMENT_METHODS.map(function(m){
-        return '<option value="'+m+'"'+(m===initialMethod?' selected':'')+'>'+m+'</option>';
-      }).join('')+'</select>'
-      +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, baseShown, kind)+'</div>';
-  }
+  html += payHtml; // the balance prompt (the deposit prompt, if due, was placed at the top)
+
 
   html += documentButtonsHtml(d, true);
   html += signatureBlockHtml();
@@ -265,7 +279,7 @@ function feedbackCardHtml(d){
       +[1,2,3,4,5].map(function(n){ return '<span class="fbstar" data-n="'+n+'" onclick="setFbRating('+n+')">☆</span>'; }).join('')
     +'</div>'
     +'<textarea id="fbText" rows="3" placeholder="Anything you’d like to share? (optional)" style="width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--cream);font-size:15px;padding:10px;outline:none;resize:vertical;font-family:inherit"></textarea>'
-    +'<label style="display:flex;align-items:center;gap:9px;margin:4px 0 12px;font-size:13.5px;color:var(--cream);cursor:pointer"><input type="checkbox" id="fbReference" style="width:auto;flex:0 0 auto;margin:0"><span>I’m happy to be a reference for future clients.</span></label>'
+    +'<label style="display:flex;align-items:center;gap:9px;margin:4px 0 12px;font-size:13.5px;color:var(--cream);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="fbReference" style="width:auto;flex:0 0 auto;margin:0"><span>I’m happy to be a reference for future clients.</span></label>'
     +'<button class="paybtn" id="fbSubmit" style="border:none;width:100%" onclick="submitFeedback()">Submit feedback</button>'
     +'<div id="fbErr" style="color:#E9927B;font-size:13px;text-align:center;margin-top:8px;min-height:16px"></div>'
   +'</div>';
@@ -499,7 +513,7 @@ function renderForm(d){
   var amountRows = noDeposit
     ? '<div class="row"><span class="k">Total</span><span class="v">'+fmtMoney(d.balanceBase)+'</span></div>'
     : '<div class="row"><span class="k">'+depositLabel+'</span><span class="v" id="depositOut">'+fmtMoney(amt.deposit)+'</span></div>'
-      +'<div class="row"><span class="k">Balance due on event date</span><span class="v" id="balanceOut">'+fmtMoney(amt.balance)+'</span></div>';
+      +'<div class="row"><span class="k">Balance due '+esc(balanceDueText(d))+'</span><span class="v" id="balanceOut">'+fmtMoney(amt.balance)+'</span></div>';
   var html=paidBannerHtml()+bookingIdHtml(d)+'<div class="card">'
     +row('Services', d.services)
     +addressRow('Location', d.location)
@@ -511,29 +525,29 @@ function renderForm(d){
       +'<span class="doclabel">View the full agreement (PDF)</span>'
       +'<svg class="docarrow" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7l-10 10"/><path d="M8 7l9 0l0 9"/></svg></a>':'');
 
-  if(d.depositPaid){
-    // Already received before this contract link was ever opened — paid
-    // another way, in advance of signing — so there's nothing to ask for
-    // here. Show what's already on record instead of a payment prompt.
-    html += receiptCardHtml('Deposit', d.depositReceiptUrl);
-  } else if(noDeposit){
-    // No deposit is collected — sign now, pay the full balance afterward from the
-    // booking page. Nothing to pay at signing, so no payment prompt is shown here.
-    html += '<p class="note" style="text-align:left">No deposit required — just sign below, then you can pay your balance of '+fmtMoney(d.balanceBase)+' anytime from your booking page.</p>';
-  } else {
-    html += '<label>How will you be paying?</label>'
-      +'<select id="paymentMethod">'+PAYMENT_METHODS.map(function(m){
-        return '<option value="'+m+'"'+(m===initialMethod?' selected':'')+'>'+m+'</option>';
-      }).join('')+'</select>'
-      +'<div id="paymentExtra">'+renderExtrasHtml(initialMethod, amt.deposit, 'deposit')+'</div>';
+  // Signing and the deposit are one flow: the client picks how they'll pay (it's written into
+  // the agreement, with any card fee), signs, and lands straight on paying the deposit.
+  var askDeposit = !d.depositPaid && !noDeposit;
+  html += '<div class="step">Confirm your booking</div>';
+  if(askDeposit){
+    html += '<label>How will you be paying your deposit?</label>'
+      +'<select id="paymentMethod">'+methodOptions(initialMethod)+'</select>';
   }
-
   html += '<label>Type your full name to sign</label>'
     +'<input type="text" id="signName" placeholder="Your full name" autocomplete="name">'
     +'<div class="agree"><input type="checkbox" id="agreeBox"><span>I have read the full agreement and accept its terms.</span></div>'
-    +'<button id="signBtn" disabled onclick="doSign()">Sign &amp; Accept</button>'
-    +'<p class="note">Typing your name above and tapping Sign &amp; Accept serves as your electronic signature on this agreement.</p>'
-    +documentButtonsHtml(d, false)
+    +'<button id="signBtn" disabled onclick="doSign()">'+(askDeposit ? signPayLabel(amt.deposit) : 'Sign &amp; Accept')+'</button>'
+    +'<p class="note">Typing your name and tapping the button serves as your electronic signature on this agreement.'
+      +(askDeposit ? ' Right after signing you\u2019ll pay your deposit \u2014 your date is held once it\u2019s received.' : '')+'</p>';
+  if(d.depositPaid){
+    // Already received before this contract link was ever opened (paid another way, in
+    // advance of signing), so there's nothing to ask for. Show what's on record instead.
+    html += receiptCardHtml('Deposit', d.depositReceiptUrl);
+  } else if(noDeposit){
+    // No deposit is collected: sign, then pay the full balance from the booking page.
+    html += '<p class="note" style="text-align:left">No deposit required \u2014 after signing you can pay your balance of '+fmtMoney(d.balanceBase)+' anytime from this page.</p>';
+  }
+  html += documentButtonsHtml(d, false)
     +signatureBlockHtml();
   c.innerHTML=html;
   var nameInp=document.getElementById('signName'), agreeBox=document.getElementById('agreeBox'), btn=document.getElementById('signBtn'), pmSel=document.getElementById('paymentMethod');
@@ -547,9 +561,52 @@ function renderForm(d){
       var a=computeAmounts(d.depositBase, d.balanceBase, pmSel.value);
       document.getElementById('depositOut').textContent=fmtMoney(a.deposit);
       document.getElementById('balanceOut').textContent=fmtMoney(a.balance);
-      document.getElementById('paymentExtra').innerHTML=renderExtrasHtml(pmSel.value, a.deposit, 'deposit');
+      btn.innerHTML=signPayLabel(a.deposit);
     };
   }
+}
+function signPayLabel(amount){ return 'Sign &amp; pay deposit — '+fmtMoney(amount); }
+// "10/31/2026" (as the server sends it) -> "Saturday, October 31, 2026". Anything else passes through.
+function longDate(s){
+  var m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(s||'').trim());
+  if(!m) return String(s||'');
+  var d=new Date(+m[3], +m[1]-1, +m[2]);
+  return d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+}
+// What a client sees in the payment list (the stored value stays the short name).
+function methodLabel(m){ return m==='ACH' ? 'Bank transfer (ACH)' : m; }
+function methodOptions(selected){
+  return PAYMENT_METHODS.map(function(m){ return '<option value="'+m+'"'+(m===selected?' selected':'')+'>'+esc(methodLabel(m))+'</option>'; }).join('');
+}
+// "by October 24, 2026" when the balance is due before the show, else "on the event date".
+function balanceDueText(d){
+  return (Number(d.balanceDueDays)>0 && d.balanceDueDateFmt) ? 'by '+d.balanceDueDateFmt : 'on the event date';
+}
+// The booking at a glance — shown on every visit, before and after signing.
+function bookingSummaryHtml(d){
+  var noDeposit = !(Number(d.depositBase) > 0);
+  var total = (Number(d.depositBase)||0) + (Number(d.balanceBase)||0);
+  var h = '<div class="card">'   // (the date is in the heading right above)
+    + row('Services', esc(d.services||''))
+    + addressRow('Location', esc(d.location||''));
+  if(!noDeposit){
+    h += row('Deposit', fmtMoney(Number(d.depositBase)||0) + (d.depositPaid ? ' <span style="color:var(--gold-bright)">\u2713 received</span>' : ''));
+    h += row('Balance', fmtMoney(Number(d.balanceBase)||0) + (d.balancePaid ? ' <span style="color:var(--gold-bright)">\u2713 received</span>' : '<div style="font-weight:400;color:var(--muted);font-size:12px">due '+esc(balanceDueText(d))+'</div>'));
+  }
+  h += row('Total', fmtMoney(total) + (noDeposit && d.balancePaid ? ' <span style="color:var(--gold-bright)">\u2713 paid</span>' : ''));
+  return h + '</div>';
+}
+// Signed \u00b7 Deposit \u00b7 Balance, so a returning client sees at a glance what's done and what's next.
+function progressHtml(d){
+  var noDeposit = !(Number(d.depositBase) > 0);
+  var steps=[['Signed', true, '\u2713']];
+  if(!noDeposit) steps.push(['Deposit', !!d.depositPaid, d.depositPaid ? '\u2713 Paid' : 'Due now']);
+  steps.push(['Balance', !!d.balancePaid, d.balancePaid ? '\u2713 Paid' : 'Due '+(Number(d.balanceDueDays)>0 && d.balanceDueDateFmt ? d.balanceDueDateFmt.replace(/, \d{4}$/,'') : 'at event')]);
+  var firstOpen=-1; for(var i=0;i<steps.length;i++){ if(!steps[i][1]){ firstOpen=i; break; } }
+  return '<div class="progress">'+steps.map(function(st, i){
+    var cls = st[1] ? 'done' : (i===firstOpen ? 'now' : '');
+    return '<div class="p '+cls+'"><b>'+st[0]+'</b>'+esc(st[2])+'</div>';
+  }).join('')+'</div>';
 }
 function row(k,v){
   return '<div class="row"><span class="k">'+k+'</span><span class="v">'+(v||'\u2014')+'</span></div>';
