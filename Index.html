@@ -61,8 +61,12 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .sec-title.danger .t{color:var(--crimson)}
 .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:8px;
   box-shadow:inset 0 0 0 1px rgba(11,11,16,.9), inset 0 0 0 2px rgba(201,160,80,.12);
-  padding:14px 14px 12px;margin-bottom:10px}
+  padding:14px 26px 12px 14px;margin-bottom:10px}
 .card:active{background:var(--panel2)}
+/* A tappable lead row opens the full lead — the same chevron used throughout the app (Settings,
+   Today's list) for "tap to see more", so a new user recognizes a lead card as tappable on sight. */
+.card>.row-chev{position:absolute;top:50%;right:10px;transform:translateY(-50%)}
+.row-chev{color:var(--muted);font-size:15px;flex:0 0 auto;line-height:1}
 .card.past{opacity:.55}
 .tcheck{flex:0 0 27px;width:27px;height:27px;border-radius:50%;border:1.5px solid var(--gold);
   color:#141008;font-size:14px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
@@ -551,6 +555,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <button id="qClear" class="search-clear" type="button" aria-label="Clear search" onclick="clearSearch()">&#10005;</button>
     </div>
     <div class="chips" id="statusChips"></div>
+    <div id="leadTapHintCard" style="display:none"></div>
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
 
@@ -828,27 +833,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
     <div class="insight-group-label">Tools</div>
     <div class="more-list">
-      <button type="button" class="more-row" onclick="openMsgTemplates()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
-        <span class="t">Message templates</span><span class="chev">&#8250;</span>
+      <button type="button" class="more-row" onclick="exportLeadsCsv()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
+        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
       </button>
-      <button type="button" class="more-row" onclick="openRefLink()">
-        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
-        <span class="t">Referral link</span><span class="chev">&#8250;</span>
-      </button>
-      <button type="button" class="more-row" onclick="openLeadImport()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
-        <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
-      </button>
-      <button type="button" class="more-row" id="rbin_toggle" onclick="toggleRecycleBin()">
-        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
-        <span class="t">Recycle Bin</span><span id="rbin_badge"></span><span class="chev">&#8250;</span>
-      </button>
-      <div id="rbin_wrap" class="more-detail" style="display:none">
-        <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
-        <div id="rbin_list"></div>
-      </div>
-
       <button type="button" class="more-row" id="gcontacts_toggle" onclick="toggleGContacts()">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
         <span class="t">Google Contacts</span><span class="chev">&#8250;</span>
@@ -859,10 +847,28 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
       </div>
 
-      <button type="button" class="more-row" onclick="exportLeadsCsv()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
-        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
+      <button type="button" class="more-row" onclick="openLeadImport()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
+        <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
       </button>
+      <button type="button" class="more-row" onclick="openMsgTemplates()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+        <span class="t">Message templates</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" id="rbin_toggle" onclick="toggleRecycleBin()">
+        <span class="ic"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
+        <span class="t">Recycle Bin</span><span id="rbin_badge"></span><span class="chev">&#8250;</span>
+      </button>
+      <div id="rbin_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Deleted leads sit here for 30 days before they're gone for good.</p>
+        <div id="rbin_list"></div>
+      </div>
+
+      <button type="button" class="more-row" onclick="openRefLink()">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
+        <span class="t">Referral link</span><span class="chev">&#8250;</span>
+      </button>
+
     </div>
 
     <div class="insight-group-label">Your settings</div>
@@ -1590,6 +1596,10 @@ function linkify(s){
   });
 }
 function money(v){ var n=parseFloat(String(v||'').replace(/[^0-9.]/g,'')); return isNaN(n)?0:n; }
+// Whether a price has actually been typed — distinct from money()===0, which is also true for
+// a BLANK price. Keeping them separate lets a deliberately entered "0" (a comped/free show)
+// through, while a lead nobody has priced yet still gets stopped and pointed at the field.
+function hasPrice(L){ return String(L[C.price]||'').trim()!==''; }
 function fmtMoney(v){ var n=money(v); return n ? '$'+n.toLocaleString() : ''; }
 /* ---------- Deposit / card fee ---------- */
 // The deposit and balance fields always store the base amount agreed to —
@@ -2741,6 +2751,8 @@ function closeTopClients(){
   $('topclientsSheet').classList.remove('open'); syncOverlay();
 }
 function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml){
+  // The chevron only appears when the row actually opens something (onclick is truthy) — several
+  // callers pass '' for a plain, non-tappable summary row, and that must stay visibly inert.
   return '<div class="upcomingfu-row" onclick="'+onclick+'">'
     +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:baseline;gap:8px">'
@@ -2750,6 +2762,7 @@ function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml)
       +(meta?'<div style="font-size:12px;color:var(--muted)">'+esc(meta)+'</div>':'')
     +'</div>'
     +(rightText?'<span class="pill '+(rightClass||'gold')+'">'+esc(rightText)+'</span>':'')
+    +(onclick?'<span class="row-chev">&#8250;</span>':'')
     +'</div>';
 }
 function compactLeadSection(title, arr, dangerHeader, rowFn, collapseKey){
@@ -2837,6 +2850,7 @@ function leadRow_Upcoming(L){
       +badges
     +'</div>'
     +(d?'<span class="pill gold">'+esc(fmtDateY(L[C.eventDate]))+'</span>':'')
+    +'<span class="row-chev">&#8250;</span>'
     +'</div>';
 }
 function armOrToggleQuickPayment(row, colKey){
@@ -3458,6 +3472,7 @@ function renderLeads(){
   renderEmptyImportPrompt();
   renderSharingWarn();
   renderReferralInbox();
+  renderLeadTapHint();
   var t=today0(), h='';
 
   if(IFILTER){
@@ -3910,6 +3925,7 @@ function section(title, arr, danger, dim){
       +(f?'<div class="row2">'
         +'<span class="pill follow '+(overdue?'red':'gold')+'">&#10038; '+fmtFU(f)+'</span>'
         +'</div>':'')
+      +'<span class="row-chev">&#8250;</span>'
       +'</div>';
   });
   return h;
@@ -3948,10 +3964,13 @@ function nextStepFor_(L){
   // the deposit before signing). Skipped once the show has happened, so clients booked before
   // you used contracts don't nag.
   if(!signed && (!booked || daysSince==null || daysSince<0)){
-    if(!L[C.contractSignUrl]) return {kind:'contract', label:'Generate contract',
-      why: !money(L[C.price]) ? 'Add the quoted price below first, then send the agreement'
-        : booked ? 'Booked \u2014 but no agreement yet. Send one to protect the date.'
-        : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+' quoted \u2014 send the agreement to lock in the date'};
+    if(!L[C.contractSignUrl]){
+      if(!hasPrice(L)) return {kind:'set-price', label:'Add quoted price',
+        why: booked ? 'Booked \u2014 enter the quoted price so you can send the agreement.' : 'Enter what you\u2019re charging, then send the agreement.'};
+      return {kind:'contract', label:'Generate contract',
+        why: booked ? 'Booked \u2014 but no agreement yet. Send one to protect the date.'
+          : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+' quoted \u2014 send the agreement to lock in the date'};
+    }
     if(booked) return {kind:'link', label:'Get the contract signed',
       why:(String(L[C.depositReceived]||'')==='Yes' ? 'Deposit received \u2014 ' : 'Booked \u2014 ')+'agreement not signed yet. Tap to copy their portal link.'};
     return {kind:'link', label:'Copy portal link', why:'Agreement sent \u2014 not signed yet. Send the link again if they need it.'};
@@ -3990,6 +4009,7 @@ function doNextStep(kind){
   var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
   var step=nextStepFor_(L);
   if(!step || step.kind!==kind){ renderNextStep(); return; } // the lead changed underneath — show the current step
+  if(kind==='set-price'){ openPriceField_(); return; }
   if(kind==='contract'){ var genBtn=$('d_contractbtn'); if(genBtn) genBtn.scrollIntoView({behavior:'smooth', block:'center'}); generateContractUI(); return; }
   if(kind==='link'){ copyToClipboard(L[C.contractSignUrl]); toast('Event portal link copied'); return; }
   if(kind==='review'){ if(L[C.email]) openEmailPicker(); else openTextPicker(); return; }
@@ -5252,8 +5272,21 @@ var CONTRACT_ARM = false;
 // Only regenerating an EXISTING contract gets this protection — the very
 // first generation for a lead has nothing yet to accidentally lose, so
 // that one stays a single tap.
+// Scrolls to the Quoted field in the KVF list and opens it for editing — used both by the
+// "Add quoted price" next step and as generateContractUI's own guard, so there's one place
+// that knows how to send someone to that field.
+function openPriceField_(){
+  var pi=KVF.findIndex(function(F){ return F.col===C.price; });
+  if(pi<0) return;
+  var el=$('kv_'+pi); if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(function(){ editKV(pi); }, 350);
+}
 function generateContractUI(){
   if(!CURRENT) return;
+  // A blank price would otherwise generate a real agreement quoting nothing — stop and point
+  // at the field instead (a deliberately typed "0", e.g. a comped show, is allowed through).
+  if(!hasPrice(CURRENT)){ toast('Add the quoted price first'); openPriceField_(); return; }
   var isRegenerate = !!CURRENT[C.contractSignUrl];
   var btn=$('d_contractbtn');
   if(isRegenerate && !CONTRACT_ARM){
@@ -7946,6 +7979,32 @@ function dismissTplHint(){
   ['epicker_hint','tpicker_hint'].forEach(function(id){ var b=$(id); if(b){ b.style.display='none'; b.innerHTML=''; } });
 }
 
+/* Same idea, for a newer user landing on the Leads list itself: nothing there says a lead card
+   is tappable (fixed visually with the chevron on each row — see .row-chev), but a first-timer
+   still may not notice it, so a short tip backs that up for their first few sessions. Counted
+   once per page load (not per re-render, which happens constantly), shown a few times, then
+   gone for good once dismissed or the count runs out. */
+var LEAD_TAP_HINT_MAX=4;
+var LEAD_TAP_HINT_COUNTED=false;
+function renderLeadTapHint(){
+  var box=$('leadTapHintCard'); if(!box) return;
+  var off=false, n=0;
+  try{ off=localStorage.getItem('mm_leadtaphint_off')==='1'; n=Number(localStorage.getItem('mm_leadtaphint_n')||0); }catch(e){}
+  if(off || n>=LEAD_TAP_HINT_MAX || !LEADS || !LEADS.length || (Q && Q.trim())){ box.style.display='none'; box.innerHTML=''; return; }
+  if(!LEAD_TAP_HINT_COUNTED){
+    LEAD_TAP_HINT_COUNTED=true;
+    try{ localStorage.setItem('mm_leadtaphint_n', String(n+1)); }catch(e){}
+  }
+  box.innerHTML='<div style="margin:0 0 12px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">'
+    +'<b style="color:var(--gold-bright)">Tip:</b> tap any lead below to see their full details, contract, and payments.'
+    +' <a href="javascript:void(0)" onclick="dismissLeadTapHint()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>';
+  box.style.display='';
+}
+function dismissLeadTapHint(){
+  try{ localStorage.setItem('mm_leadtaphint_off','1'); }catch(e){}
+  var box=$('leadTapHintCard'); if(box){ box.style.display='none'; box.innerHTML=''; }
+}
+
 /* ---------- My referral link (Settings) ---------- */
 var RL_RESET_ARM=false;
 function openRefLink(){
@@ -8403,7 +8462,7 @@ function renderWizard(){
     +'<div class="wiz-body">'
     +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1><p class="wiz-sub">Let&rsquo;s get your business set up &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p><div class="wiz-preview"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn">'+esc(WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pc">This is what your clients see</div></div></section>'
     +stepsHtml
-    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div class="wiz-finstar">&#10038;</div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your brand.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your store, contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
+    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div class="wiz-finstar">&#10038;</div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your store, contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
     +'</div>'
     +'<div class="wiz-nav" id="wizNav"><button type="button" class="wiz-btn wiz-ghost" id="wizBack" hidden>Back</button><button type="button" class="wiz-btn wiz-primary" id="wizNext">Get started</button></div>'
     +'<a href="javascript:void(0)" class="wiz-skip" id="wizSkip" hidden>Skip for now &mdash; finish later</a>'
@@ -8829,6 +8888,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.46', d:'Sep 2026', notes:[
+    'You can no longer generate a contract with a blank quoted price \u2014 the lead\u2019s \u201cNext step\u201d now offers \u201cAdd quoted price\u201d directly, which jumps straight to that field.',
+    'Lead cards now show a small arrow so it\u2019s clear you can tap one for its full details \u2014 with a one-time tip for new accounts.',
+    'Settings \u2192 Tools is now sorted alphabetically.'
+  ]},
   { v:'1.5.45', d:'Sep 2026', notes:[
     'A redesigned "Today" list on Leads: every follow-up, task, and payment to confirm now shows as its own row with the client\u2019s name and how late it is, sorted by urgency \u2014 instead of being grouped into categories.',
     'Each lead now shows a \u201cNext step\u201d right under their name \u2014 generate the contract, get it signed, mark a payment received, or ask for a review \u2014 so you don\u2019t have to scroll to find what to do.',

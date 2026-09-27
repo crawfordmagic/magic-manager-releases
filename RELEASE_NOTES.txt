@@ -1,15 +1,9 @@
 What's new in this update:
 
-• Leads has a redesigned “Today” list: every follow-up, task, and payment waiting on you now shows as its own row — client name, what it is, and how overdue it is — sorted so the most urgent things are on top. Tap a row to act on it.
+• A contract can no longer be generated with a blank quoted price. When a lead hasn't been priced yet, its “Next step” now offers “Add quoted price” directly — tap it and it jumps straight to that field.
 
-• Each lead now shows a “Next step” right under their name: generate the contract, get it signed, mark a deposit or balance received, or ask for a review — whichever applies. No more scrolling to the bottom to find the contract button.
+• Lead cards now show a small arrow (›) so it's clear you can tap one to see its full details, contract, and payments — with a one-time tip for new accounts and a note in the setup wizard.
 
-• The client booking page now combines signing and paying the deposit into one step, and shows a clear “Signed / Deposit / Balance” status every time a client returns to it.
-
-• A lead is now marked Booked automatically the moment the agreement is signed and the deposit is received (or no deposit is required) — you don’t have to set the status by hand anymore.
-
-• Recycle Bin, Google Contacts sync, and “Export my clients” moved from the bottom of the Leads screen into Settings → Tools.
-
-• Client portal polish: booking details (date, location, deposit/balance, total) stay visible after signing instead of disappearing, dates are spelled out in full, and “ACH” now reads “Bank transfer.”
+• Settings → Tools (Recycle Bin, Google Contacts, Import, etc.) is now sorted alphabetically.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
