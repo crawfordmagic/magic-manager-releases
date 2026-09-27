@@ -8521,6 +8521,136 @@ function howItWorksHtml(){
     return '<li><span class="how-n">'+(i+1)+'</span><div><div class="how-t">'+esc(s.t)+'</div><div class="how-d">'+s.d+'</div></div></li>';
   }).join('')+'</ol>';
 }
+/* ---------- Welcome demo: one booking, start to finish (setup wizard) ---------- */
+// A short animation of the flow HOW_IT_WORKS describes (its titles label the four scenes, so the
+// two can't drift). Plays once and rests on the last frame with a Replay link — never loops.
+// Shown on the wizard's welcome screen. With "reduce motion" turned on, the plain list is shown instead.
+var DEMO_IC = {
+  bell:'<path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6"/><path d="M9 17v1a3 3 0 0 0 6 0v-1"/>',
+  send:'<path d="M10 14l11 -11"/><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/>',
+  check:'<path d="M5 12l5 5l10 -10"/>',
+  calendar:'<path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/><path d="M8 15h2v2h-2z"/>',
+  receipt:'<path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
+  clock:'<path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/>',
+  star:'<path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/>',
+  replay:'<path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>'
+};
+function demoIc_(k){ return '<svg class="bd-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+DEMO_IC[k]+'</svg>'; }
+function demoReducedMotion_(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+function bookingDemoHtml(id){
+  function lab(i){ return '<div class="bd-lab">'+(i+1)+' \u00b7 '+esc(HOW_IT_WORKS[i].t)+'</div>'; }
+  function row(p, ic, t){ return '<div class="bd-row bd-pop" data-p="'+p+'">'+demoIc_(ic)+'<span>'+t+'</span></div>'; }
+  return '<div class="bd" id="'+id+'" role="img" aria-label="A short animation: a lead comes in, you send the agreement, your client signs and pays, and the app handles the rest.">'
+    +'<div class="bd-dots">'+[0,1,2,3].map(function(i){ return '<span class="bd-dot" data-d="'+i+'"></span>'; }).join('')+'</div>'
+    +'<div class="bd-stage">'
+      +'<div class="bd-scene" data-s="0">'+lab(0)
+        +'<div class="bd-card bd-pop bd-note" data-p="0">'+demoIc_('bell')+'<div><div class="bd-strong">New inquiry from your website</div><div class="bd-mut">just now</div></div></div>'
+        +'<div class="bd-card bd-pop" data-p="1"><div class="bd-between"><span class="bd-name">Sarah Mitchell</span><span class="bd-chip">New</span></div><div class="bd-mut">Cocktail party \u00b7 Sat, Oct 18 \u00b7 40 guests</div></div>'
+      +'</div>'
+      +'<div class="bd-scene" data-s="1">'+lab(1)
+        +'<div class="bd-card"><div class="bd-name">Sarah Mitchell</div><div class="bd-between bd-mt"><span class="bd-mut">Quoted price</span><span class="bd-price">$</span></div></div>'
+        +'<div class="bd-btn bd-gen bd-pop" data-p="2">Generate contract</div>'
+        +'<div class="bd-btn bd-send bd-pop" data-p="3">Send portal link</div>'
+      +'</div>'
+      +'<div class="bd-scene" data-s="2">'+lab(2)
+        +'<div class="bd-card"><div class="bd-mut">Signed by</div><div class="bd-sign"><span class="bd-signame"></span><span class="bd-caret" hidden></span></div><div class="bd-line"></div></div>'
+        +'<div class="bd-btn bd-pay bd-pop" data-p="4"></div>'
+        +'<div class="bd-center"><span class="bd-status">Pending</span></div>'
+      +'</div>'
+      +'<div class="bd-scene" data-s="3">'+lab(3)
+        +row(5, 'calendar', 'Added to your Google Calendar')
+        +row(6, 'receipt', 'Deposit receipt available on Sarah\u2019s portal link')
+        +row(7, 'clock', 'Reminder set: one week before the show')
+        +row(8, 'star', 'Review request after the show')
+        +'<div class="bd-end bd-pop" data-p="9">That\u2019s a booking. \u2726</div>'
+        +'<a href="javascript:void(0)" class="bd-replay" onclick="playBookingDemo(\''+id+'\')" hidden>'+demoIc_('replay')+'Replay</a>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+}
+var DEMO_T_ = {};
+var DEMO_PACE_ = 1.5; // stretches the whole timeline (1 = the original ~15s; Rich found that a bit quick)
+function stopBookingDemo(id){ (DEMO_T_[id]||[]).forEach(clearTimeout); DEMO_T_[id]=[]; }
+function demoScene_(root, n){
+  root.querySelectorAll('.bd-scene').forEach(function(e){ e.classList.toggle('on', Number(e.getAttribute('data-s'))===n); });
+  root.querySelectorAll('.bd-dot').forEach(function(e){ e.classList.toggle('on', Number(e.getAttribute('data-d'))<=n); });
+}
+function playBookingDemo(id){
+  var root=$(id); if(!root) return;
+  stopBookingDemo(id);
+  var T=DEMO_T_[id];
+  function q(sel){ return root.querySelector(sel); }
+  function at(ms, fn){ T.push(setTimeout(fn, ms*DEMO_PACE_)); }
+  function pop(n){ var e=q('.bd-pop[data-p="'+n+'"]'); if(e) e.classList.add('in'); }
+  root.querySelectorAll('.bd-pop').forEach(function(e){ e.classList.remove('in'); });
+  q('.bd-price').textContent='$'; q('.bd-signame').textContent=''; q('.bd-caret').hidden=true;
+  var st=q('.bd-status'); st.classList.remove('booked'); st.textContent='Pending';
+  q('.bd-replay').hidden=true;
+  // Buttons that get tapped and then turn into their confirmation, like in the real app.
+  var TAPS={
+    send:{ key:'bd-send', label:'Send portal link', done:'bd-card bd-ok bd-note', html:demoIc_('send')+'<span>Portal link sent to Sarah</span>' },
+    pay:{ key:'bd-pay', label:'Sign &amp; pay deposit \u2014 $750.00', done:'bd-card bd-ok bd-between', html:'<span class="bd-note">'+demoIc_('check')+'Deposit paid</span><span class="bd-okv">$750.00</span>' }
+  };
+  function tapState(name, done){
+    var t=TAPS[name], el=q('.'+t.key);
+    el.className='bd-pop in '+(done?t.done:'bd-btn')+' '+t.key;
+    el.innerHTML=done?t.html:t.label;
+  }
+  function tap(name, ms){
+    at(ms, function(){ q('.'+TAPS[name].key).classList.add('press'); });
+    at(ms+200, function(){ tapState(name, true); });
+  }
+  Object.keys(TAPS).forEach(function(n){ tapState(n, false); q('.'+TAPS[n].key).classList.remove('in'); });
+  demoScene_(root, 0); at(300, function(){ pop(0); }); at(1100, function(){ pop(1); });
+  at(3400, function(){ demoScene_(root, 1); });
+  ['$1','$15','$150','$1,500'].forEach(function(v, i){ at(3900+i*200, function(){ q('.bd-price').textContent=v; }); });
+  at(4700, function(){ pop(2); });
+  at(5500, function(){ q('.bd-gen').classList.add('press'); });
+  at(5700, function(){ q('.bd-gen').classList.remove('press'); });
+  at(6100, function(){ pop(3); });
+  tap('send', 7000);
+  at(8600, function(){ demoScene_(root, 2); });
+  var signName='Sarah Mitchell';
+  at(8900, function(){ q('.bd-caret').hidden=false; });
+  signName.split('').forEach(function(ch, i){ at(9000+i*90, function(){ q('.bd-signame').textContent=signName.slice(0, i+1); }); });
+  at(9000+signName.length*90+400, function(){ q('.bd-caret').hidden=true; });
+  at(10700, function(){ pop(4); });
+  tap('pay', 11500);
+  at(12500, function(){ st.classList.add('booked'); st.textContent='Booked \u2726'; });
+  at(14200, function(){ demoScene_(root, 3); });
+  [5,6,7,8,9].forEach(function(p, i){ at(14600+i*450, function(){ pop(p); }); });
+  at(17000, function(){ q('.bd-replay').hidden=false; });
+}
+// Jump to the last frame (e.g. coming back to the welcome screen) — no replaying on its own.
+function finishBookingDemo(id){
+  var root=$(id); if(!root) return;
+  stopBookingDemo(id);
+  demoScene_(root, 3);
+  root.querySelectorAll('.bd-scene[data-s="3"] .bd-pop').forEach(function(e){ e.classList.add('in'); });
+  root.querySelector('.bd-replay').hidden=false;
+}
+// "You're all set" celebration: the star spins in and a dense cloud of small gold sparkles
+// in many sizes appears around it, starting right at its edge. Each one rests at a soft glow and now and then
+// gives a slow, gentle flare (a twinkle, not an on/off blink) — twice, with the timing random on
+// every showing, so it never reads as a pattern or a wave.
+// Each then fades out on its own, leaving just the star (~9-12s, plays once). The layout is a fixed
+// golden-angle spiral — densest right around the star, no gaps. With "reduce motion" on, the app's
+// global rule stops all animation — the sparkles stay hidden and the star just shows.
+var CEL_SPARK_COUNT_ = 34;
+function celebrateHtml(){
+  var html='', colors=['--gold','--gold-bright','--cream'];
+  function rnd(lo, hi){ return Math.round(lo+Math.random()*(hi-lo)); }
+  for(var i=0;i<CEL_SPARK_COUNT_;i++){
+    var t=Math.pow((i+.5)/CEL_SPARK_COUNT_, .7), ang=i*2.39996; // golden angle (radians); the .7 packs more near the star
+    var dx=Math.round(Math.cos(ang)*(24+t*122)), dy=Math.round(Math.sin(ang)*(22+t*34));
+    // Size: mostly small points, some medium, a few larger — the larger ones only farther out, so they don't crowd the star.
+    var sz=Math.round(5+Math.pow(Math.random(), 2.2)*(6+t*8));
+    var inAt=rnd(0, 900), tw=rnd(2400, 3400), n=2, twAt=inAt+700+rnd(0, 2600), outAt=twAt+n*tw+rnd(0, 500); // first flares spread across a whole cycle, so they never flare together
+    html+='<span class="wiz-spark" style="--dx:'+dx+'px;--dy:'+dy+'px;--s:'+sz+'px;--c:var('+colors[i%3]+')'
+      +';--in:'+inAt+'ms;--tw:'+tw+'ms;--n:'+n+';--twat:'+twAt+'ms;--out:'+outAt+'ms">&#10022;</span>';
+  }
+  return '<div class="wiz-cel" aria-hidden="true">'+html+'<div class="wiz-finstar">&#10038;</div></div>';
+}
 var WIZARD_STEPS = [
   { eyebrow:'The basics', title:'Your business', sub:'These appear in your app, on your contracts, and on the page your clients see.', keys:['BUSINESS_NAME','OWNER_NAME','TAGLINE','LOGO_URL'] },
   { eyebrow:'Contact', title:'How clients reach you', sub:'Shown to clients on their event portal and your contract.', keys:['EMAIL','PHONE','WEBSITE','ADDRESS'] },
@@ -8563,7 +8693,51 @@ function wizCss(){ return [
   '.wiz-more-h{display:flex;align-items:center;gap:8px;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--gold-bright);font-weight:700;margin:0 0 8px}',
   '.wiz-more-p{font-size:14px;line-height:1.62;color:var(--cream);margin:0}',
   '.wiz-more-p strong{color:var(--gold-bright);font-weight:700}',
-  '@media (prefers-reduced-motion:reduce){.wiz-fill{transition:none}}'
+  '@media (prefers-reduced-motion:reduce){.wiz-fill{transition:none}}',
+  // welcome demo
+  '.bd{margin:4px 0 14px;text-align:left}',
+  '.bd-dots{display:flex;gap:6px;justify-content:center;margin:2px 0 14px}',
+  '.bd-dot{width:26px;height:4px;border-radius:2px;background:var(--panel2);transition:background .6s}',
+  '.bd-dot.on{background:var(--gold)}',
+  '.bd-stage{position:relative;height:222px}',
+  '.bd-scene{position:absolute;inset:0;opacity:0;transform:translateY(14px);transition:opacity .9s,transform .9s;pointer-events:none}',
+  '.bd-scene.on{opacity:1;transform:none;pointer-events:auto}',
+  '.bd-lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:0 0 10px}',
+  '.bd-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:13px;color:var(--cream)}',
+  '.bd-pop{opacity:0;transform:translateY(10px) scale(.97);transition:opacity .75s,transform .75s}',
+  '.bd-pop.in{opacity:1;transform:none}',
+  '.bd-note{display:flex;gap:10px;align-items:center}',
+  '.bd-ic{color:var(--gold-bright);flex:0 0 auto}',
+  '.bd-ok{border-color:var(--sage)}.bd-ok .bd-ic{color:var(--sage)}',
+  '.bd-okv{color:var(--sage);font-weight:700}',
+  '.bd-strong{color:var(--gold-bright);font-weight:600}',
+  '.bd-mut{color:var(--muted);font-size:12.5px;margin-top:3px}',
+  '.bd-name{font-weight:700;font-size:14px}',
+  '.bd-between{display:flex;justify-content:space-between;align-items:center;gap:10px}',
+  '.bd-mt{margin-top:6px}',
+  '.bd-price{color:var(--gold-bright);font-weight:700}',
+  '.bd-chip{font-size:11px;border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:1px 8px}',
+  '.bd-btn{background:var(--gold);color:#171008;border-radius:10px;padding:10px;text-align:center;font-size:13.5px;font-weight:700;margin-bottom:10px;transition:opacity .75s,transform .2s}',
+  '.bd-btn.press{transform:scale(.95)}',
+  '.bd-sign{display:flex;align-items:flex-end;min-height:44px;padding:4px 0 5px;font-family:\'Playfair Display\',Georgia,serif;font-style:italic;font-weight:600;font-size:25px;line-height:1.2;color:var(--gold-bright)}',
+  '.bd-caret{display:inline-block;width:2px;height:24px;margin:0 0 3px 3px;background:var(--gold-bright);animation:bdBlink 1s steps(1) infinite}',
+  '@keyframes bdBlink{50%{opacity:0}}',
+  '.bd-line{border-top:1px solid var(--line)}',
+  '.bd-center{text-align:center;margin-top:4px}',
+  '.bd-status{display:inline-block;font-size:13px;font-weight:700;border-radius:14px;padding:5px 16px;border:1px solid var(--line);color:var(--muted);transition:all .7s}',
+  '.bd-status.booked{background:var(--gold);border-color:var(--gold);color:#171008}',
+  '.bd-row{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--cream);margin-bottom:11px}',
+  '.bd-end{text-align:center;color:var(--gold-bright);font-size:17px;font-weight:700;margin-top:14px;font-family:\'Playfair Display\',serif}',
+  '.bd-replay{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:12.5px;text-decoration:none;margin-top:6px}',
+  '.bd-replay .bd-ic{color:var(--muted);width:15px;height:15px}',
+  // "You're all set" celebration
+  '.wiz-cel{position:relative;height:120px;display:flex;align-items:center;justify-content:center;margin-bottom:4px}',
+  '.wiz-cel .wiz-finstar{position:relative;z-index:1;margin:0;animation:celStar 1s cubic-bezier(.3,1.4,.5,1) both}',
+  '@keyframes celStar{0%{opacity:0;transform:scale(.3) rotate(-60deg)}100%{opacity:1;transform:scale(1) rotate(0)}}',
+  '.wiz-spark{position:absolute;left:50%;top:50%;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);font-size:var(--s);line-height:1;color:var(--c);opacity:0;transform:translate(var(--dx),var(--dy));animation:celIn .7s ease-out var(--in) forwards,celTwinkle var(--tw) ease-in-out var(--twat) var(--n),celOut 1.4s ease-in-out var(--out) forwards}',
+  '@keyframes celIn{0%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}100%{opacity:.45;transform:translate(var(--dx),var(--dy)) scale(.85)}}',
+  '@keyframes celTwinkle{0%,25%,100%{opacity:.45;transform:translate(var(--dx),var(--dy)) scale(.85) rotate(0deg)}55%{opacity:1;transform:translate(var(--dx),var(--dy)) scale(1.2) rotate(18deg)}90%{opacity:.5;transform:translate(var(--dx),var(--dy)) scale(.9) rotate(6deg)}}',
+  '@keyframes celOut{0%{opacity:.45;transform:translate(var(--dx),var(--dy)) scale(.85)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}'
 ].join(''); }
 
 function launchWizard(){
@@ -8613,9 +8787,13 @@ function renderWizard(){
     +'<div class="wiz-top"><div class="wiz-brand"><span class="wiz-star">&#10038;</span><span>Magic Manager Setup</span></div>'
     +'<div class="wiz-progwrap" id="wizProgwrap" hidden><div class="wiz-progrow"><span class="wiz-stepnum" id="wizStepnum"></span><span class="wiz-pct" id="wizPct"></span></div><div class="wiz-track"><div class="wiz-fill" id="wizFill"></div></div></div></div>'
     +'<div class="wiz-body">'
-    +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1><p class="wiz-sub">Here&rsquo;s how it works:</p>'+howItWorksHtml()+'<p class="wiz-sub">Now let&rsquo;s set up your business &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p><div class="wiz-preview"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn">'+esc(WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pc">This is what your clients see</div></div></section>'
+    +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1>'
+    +(demoReducedMotion_()
+      ? '<p class="wiz-sub">Here&rsquo;s how it works:</p>'+howItWorksHtml()
+      : '<p class="wiz-sub" style="margin-bottom:12px">Watch a booking happen, start to finish.</p>'+bookingDemoHtml('wizDemo'))
+    +'<p class="wiz-sub">Now let&rsquo;s set up your business &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p></section>'
     +stepsHtml
-    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div class="wiz-finstar">&#10038;</div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your store, contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
+    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div id="wizCelebrate"><div class="wiz-finstar">&#10038;</div></div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
     +'</div>'
     +'<div class="wiz-nav" id="wizNav"><button type="button" class="wiz-btn wiz-ghost" id="wizBack" hidden>Back</button><button type="button" class="wiz-btn wiz-primary" id="wizNext">Get started</button></div>'
     +'<a href="javascript:void(0)" class="wiz-skip" id="wizSkip" hidden>Skip for now &mdash; finish later</a>'
@@ -8648,8 +8826,14 @@ function wizShow(){
   $('wizBack').hidden=(i===0 || i>total);
   $('wizSkip').hidden=(i>total);
   $('wizNav').hidden=(i>total);
-  $('wizNext').textContent = i===0?'Get started':(i===total?'Finish setup':'Continue');
+  $('wizNext').textContent = i===0?'Set up my business':(i===total?'Finish setup':'Continue');
   try{ ov.scrollTop=0; }catch(e){}
+  // Welcome demo: plays the first time only; coming back shows its last frame.
+  if(i===0 && $('wizDemo')){ if(!WIZ.demoPlayed){ WIZ.demoPlayed=true; playBookingDemo('wizDemo'); } else finishBookingDemo('wizDemo'); }
+  else stopBookingDemo('wizDemo');
+  // "You're all set": (re)inserted on arrival so the celebration starts fresh.
+  var cel=$('wizCelebrate');
+  if(cel && i>total) cel.innerHTML=celebrateHtml();
 }
 
 function wizGo(delta){
@@ -8674,6 +8858,7 @@ function wizFinish(skipped){
 }
 
 function closeWizard(){
+  stopBookingDemo('wizDemo');
   var ov=$('wizardOverlay'); if(ov){ ov.style.display='none'; ov.innerHTML=''; }
   document.body.style.overflow='';
   try{ var sv=$('view-settings'); if(sv && sv.style.display!=='none') renderSettings(); }catch(e){}
@@ -9046,6 +9231,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.52', d:'Sep 2026', notes:[
+    'A new first impression: the setup wizard now opens with a short animation of a real booking, start to finish \u2014 a lead comes in, the contract is generated and sent, the client signs and pays the deposit, and it\u2019s marked Booked with the calendar, receipt, reminder and review request handled for you. It plays once, with a Replay link.',
+    'Finishing setup now ends with a gold sparkle celebration around the star.',
+    'Phones set to \u201creduce motion\u201d see the simple step-by-step list instead of the animations.'
+  ]},
   { v:'1.5.51', d:'Sep 2026', notes:[
     'Faster everyday actions: logging a call, text or email note, and adding, editing or deleting an expense now show instantly and save in the background (if a save ever fails, it\u2019s undone with a message and nothing you typed is lost).',
     'Faster client portal: a client\u2019s link opens with their booking right away, signing goes straight to the deposit step, and \u201cI\u2019ve sent my deposit\u201d and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.',

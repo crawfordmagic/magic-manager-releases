@@ -1,9 +1,9 @@
 What's new in this update:
 
-• Faster everyday actions: logging a call, text or email note, and adding, editing or deleting an expense now show instantly and save in the background. If a save ever fails, it's undone with a message and nothing you typed is lost.
+• A new first impression: the setup wizard now opens with a short animation of a real booking, start to finish — a lead comes in, the contract is generated and sent, the client signs and pays the deposit, and it's marked Booked with the calendar, receipt, reminder and review request handled for you. It plays once, with a Replay link.
 
-• Faster client portal: a client's link opens with their booking right away (no more "Loading your agreement…"), signing goes straight to the deposit step, and "I've sent my deposit" and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.
+• Finishing setup now ends with a gold sparkle celebration around the star.
 
-• If a signed contract PDF ever can't be created, you now get an email about it (before, it failed silently).
+• Phones set to "reduce motion" see the simple step-by-step list instead of the animations.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
