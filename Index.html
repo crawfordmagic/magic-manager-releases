@@ -67,6 +67,12 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
    Today's list) for "tap to see more", so a new user recognizes a lead card as tappable on sight. */
 .card>.row-chev{position:absolute;top:50%;right:10px;transform:translateY(-50%)}
 .row-chev{color:var(--muted);font-size:15px;flex:0 0 auto;line-height:1}
+.how{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:12px;text-align:left}
+.how li{display:flex;gap:12px;align-items:flex-start}
+.how-n{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:1px solid var(--gold);color:var(--gold-bright);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.how-t{font-weight:700;color:var(--cream);font-size:14.5px}
+.how-d{color:var(--muted);font-size:13px;line-height:1.55;margin-top:2px}
+.how-d b{color:var(--gold-bright);font-weight:600}
 .card.past{opacity:.55}
 .tcheck{flex:0 0 27px;width:27px;height:27px;border-radius:50%;border:1.5px solid var(--gold);
   color:#141008;font-size:14px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center}
@@ -567,6 +573,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:6px"></select>
     </div>
     <div id="insightsScopeNote" style="margin:0 0 12px;font-size:12px;color:var(--gold-bright);font-weight:600;letter-spacing:.02em"></div>
+    <div id="insightsEmptyNote" style="display:none;margin:0 0 14px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">Your numbers fill in here as you add leads and log expenses &mdash; nothing to set up.</div>
     <div class="stats" id="statGrid"></div>
 
     <div class="oracle-box" style="border:1px solid var(--gold);border-radius:12px;padding:14px;margin-top:14px">
@@ -1361,6 +1368,15 @@ var CFG = <?!= JSON.stringify(cfg) ?>;
    on the server, which checks this page's private access key. GS mimics GS
    (withSuccessHandler / withFailureHandler / any method name) so call sites read as before. */
 var APP_KEY = <?!= JSON.stringify(appKey) ?>;
+// One-time onboarding pieces already seen/dismissed — from the server (uiSeen_ in Code.js), never
+// localStorage, so a "Got it" can't come back on an iPhone. seen(k) reads, markSeen(k) records.
+var UI_SEEN = <?!= JSON.stringify(typeof uiSeen === 'undefined' ? {} : uiSeen) ?> || {};
+function seen(key){ return !!UI_SEEN[key]; }
+function markSeen(key){
+  if(UI_SEEN[key]) return;
+  UI_SEEN[key]=true; // right away — don't wait on the round trip
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).markSeen(key);
+}
 var PAGE_API = 2;   // must equal PAGE_API_ in Code.js (checked both ways so a half-finished update says so)
 var SERVER_API = <?!= JSON.stringify(typeof serverApi === 'undefined' ? 0 : serverApi) ?>;
 if (SERVER_API !== PAGE_API) {
@@ -1522,7 +1538,6 @@ function ingest(json){
   if('oracleGate' in o) ORACLE_GATE_DUE=!!o.oracleGate;
   if('sharingBlocked' in o) SHARING_BLOCKED=!!o.sharingBlocked;
   if('referralInbox' in o) REFERRAL_INBOX=Array.isArray(o.referralInbox)?o.referralInbox:[];
-  if('leadTapHintOff' in o) LEAD_TAP_HINT_OFF=!!o.leadTapHintOff;
   if('topClientThreshold' in o) TOP_CLIENT_THRESHOLD=Number(o.topClientThreshold)||2000;
   if('kvfOrder' in o) KVF_ORDER=Array.isArray(o.kvfOrder)?o.kvfOrder:[];
   if('kvfHidden' in o) KVF_HIDDEN=Array.isArray(o.kvfHidden)?o.kvfHidden:[];
@@ -3385,6 +3400,16 @@ function toggleTodayItem(key){ TD_OPEN_KEY = (TD_OPEN_KEY===key) ? null : key; r
 // Empty-state nudge: when the account is nearly empty (and not mid-search or
 // drilled in from Insights), offer a one-tap bulk import — the "right place,
 // right time" version of the import entry point. Fades once real leads exist.
+// A brand-new account's Leads screen: instead of a passive "nothing here", say how leads get in.
+// Only while there are no leads at all, so it goes away on its own with the first one.
+function firstLeadEmptyHtml_(){
+  var zap=(HELP_GUIDES.filter(function(g){ return /zapier/i.test(g.url||''); })[0]||{}).url||'';
+  return '<div class="empty" style="padding:22px 10px"><span class="star">&#10038;</span>'
+    +'<div style="color:var(--cream);font-weight:600;margin-bottom:4px">Your leads will live here</div>'
+    +'<div style="margin-bottom:14px">Add your first one now, or have inquiries arrive on their own'+(zap?' by <a href="'+esc(zap)+'" target="_blank" rel="noopener" style="color:var(--gold-bright)">connecting your website form</a>':'')+'.</div>'
+    +'<button class="save" style="margin:0 auto;max-width:280px" onclick="go(\'add\', document.querySelector(\'.tab[data-v=add]\'))">+ Add your first lead</button>'
+    +'</div>';
+}
 function renderEmptyImportPrompt(){
   var box=$('emptyImportCard'); if(!box) return;
   if(IFILTER || (Q && Q.length) || !LEADS || LEADS.length>2){ box.style.display='none'; box.innerHTML=''; return; }
@@ -3568,7 +3593,7 @@ function renderLeads(){
     h+=upcomingFuHTML(todayRest.concat(upcoming));
     h+=staleFuHTML(stale);
     h+=compactLeadSection('No follow-up set', noneSet, false, leadRow_NoFollowup, 'nofu');
-    if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>'+
+    if(!rows.length) h = (!LEADS.length) ? firstLeadEmptyHtml_() : '<div class="empty"><span class="star">&#10038;</span>'+
       (FILTER==='Follow up' ? 'No leads in play right now. New inquiries land here.' : 'No leads here yet.')+'</div>';
   }
   $('leadList').innerHTML=h;
@@ -4074,6 +4099,7 @@ function toggleLeadReference(row){
 function openSheet(row){
   CURRENT = LEADS.find(function(L){ return L._row===row; });
   if(!CURRENT) return;
+  if(!seen('leadTap')){ markSeen('leadTap'); renderLeadTapHint(); } // they've found it — retire the tip
   if(CURRENT._pending){ CURRENT=null; toast('Still saving — one moment'); return; }
   var L=CURRENT;
   // Rebuild the contract panel from whatever's actually saved on this lead,
@@ -4895,6 +4921,7 @@ function markLeadReferred(lead){
     .updateLead(row, updates);
 }
 function onEmailSent(){
+  markSeen('tplHint'); // used a template — the picker tip has done its job
   if(EPICKER_MODE==='lead'){ autoLog('Email'); return; }
   if(EPICKER_MODE==='rebook'){ rebookLog(REBOOK_LOGKEY, REBOOK_NAME, 'Email'); return; }
   if(EPICKER_MODE==='partner' && PTCUR){
@@ -4938,7 +4965,6 @@ function onTextRefLeadChange(){
   TXTPICKER_REFLEAD = key ? LEADS.find(function(L){ return String(L._tsKey)===key; }) : null;
 }
 function renderTextPicker(){
-  var wasOpen=$('tpicker').classList.contains('open'); // re-renders (e.g. reordering) shouldn't count as a fresh open
   $('tpicker_phone').textContent = TXTPICKER_PHONE || 'no phone on file';
   var list = TXTPICKER_MODE==='partner' ? PARTNERTXTPL : TXTPL;
   var reorderable = TXTPICKER_MODE!=='partner';
@@ -4956,7 +4982,7 @@ function renderTextPicker(){
         +'<button class="tdel" title="Edit this template" aria-label="Edit this template" onclick="event.stopPropagation();openTextTemplateEditor(\''+esc(t.id)+'\')">&#9998;</button>'
         +'</div>'; }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No '+(TXTPICKER_MODE==='partner'?'partner ':'')+'text templates yet &mdash; add one below.</div>';
-  tplHintUpdate_('tpicker_hint', !wasOpen);
+  tplHintUpdate_('tpicker_hint');
   $('overlay').classList.add('open'); $('tpicker').classList.add('open');
 }
 function moveTextTemplateUI(id, direction){
@@ -4972,6 +4998,7 @@ function moveTextTemplateUI(id, direction){
 }
 function closeTextPicker(){ $('tpicker').classList.remove('open'); syncOverlay(); }
 function onTextSent(id){
+  markSeen('tplHint'); // used a template — the picker tip has done its job
   // Search whichever list is actually showing — a partner-mode picker
   // renders from PARTNERTXTPL, so looking the id up in TXTPL alone would
   // never find it and silently exit before logging anything.
@@ -5113,7 +5140,6 @@ function insertTextMergeField(){
   queueTextTplSave();
 }
 function renderEmailPicker(){
-  var wasOpen=$('epicker').classList.contains('open'); // re-renders (e.g. reordering) shouldn't count as a fresh open
   var pseudoLead=EPICKER_CTX, to=EPICKER_TO, refLead=EPICKER_REFLEAD;
   var list = EPICKER_MODE==='partner' ? PARTNERTPL : TPL;
   var reorderable = EPICKER_MODE!=='partner';
@@ -5132,7 +5158,7 @@ function renderEmailPicker(){
         +'</div>'; }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No '+(EPICKER_MODE==='partner'?'partner ':'')+'templates yet &mdash; add one below.</div>';
   var pl=$('epicker_plain'); pl.href=mailUrl(to,'',''); pl.target='_top';
-  tplHintUpdate_('epicker_hint', !wasOpen);
+  tplHintUpdate_('epicker_hint');
   $('overlay').classList.add('open'); $('epicker').classList.add('open');
 }
 function moveTemplateUI(id, direction){
@@ -5267,7 +5293,15 @@ function renderContractResultPanel(signUrl, pdfUrl, docUrl){
     +'<button class="bump" style="width:100%;border-radius:8px;margin-bottom:6px" onclick="copyToClipboard(\''+esc(signUrl)+'\');toast(\'Event portal link copied\')">Copy Event Portal Link</button>'
     +'<a class="act" href="'+esc(pdfUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">View PDF</a>'
     +'<a class="act" href="'+esc(docUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">Edit in Google Docs</a>'
+    +(seen('portalPreview') ? '' :
+      '<div id="portalPreviewTip" style="margin-top:10px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream);text-align:left">'
+      +'<b style="color:var(--gold-bright)">Tip:</b> <a href="'+esc(signUrl)+'" target="_blank" rel="noopener" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright)">open the portal yourself</a> to see exactly what your client sees &mdash; opening it won&rsquo;t sign or pay anything.'
+      +' <a href="javascript:void(0)" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>')
     +'</div>';
+}
+function dismissPortalPreviewTip(){
+  markSeen('portalPreview');
+  var t=$('portalPreviewTip'); if(t) t.style.display='none';
 }
 var CONTRACT_ARM = false;
 // Only regenerating an EXISTING contract gets this protection — the very
@@ -5907,6 +5941,11 @@ function renderInsights(){
   fillInsightsScope();
   var _sy=insightsScopeYear();
   var _note=$('insightsScopeNote'); if(_note) _note.textContent='Showing: '+(_sy===null?'All Time':_sy)+' · all sections below';
+  var _empty=$('insightsEmptyNote');
+  if(_empty){
+    var nothingYet=!(LEADS&&LEADS.length) && !(EXPENSES&&EXPENSES.length);
+    _empty.style.display=nothingYet?'':'none';
+  }
   var all=insightsScopedLeads();
   var booked=all.filter(isBookedLike);
   var pending=all.filter(function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; });
@@ -7961,45 +8000,37 @@ function addStarterTemplatesUI(){
     toast(n ? 'Added '+n+' starter template'+(n===1?'':'s')+' ✦' : 'You already have all the starter templates');
   }).withFailureHandler(function(){ reset(); toast('Could not add templates — try again'); }).addStarterTemplates();
 }
-/* First-use hint at the top of the Email / Text pickers: shown for the first few times the picker
-   opens (per device), then gone; dismissable. Per-device convenience only — localStorage, try/catch. */
-var TPL_HINT_MAX=4;
-function tplHintUpdate_(boxId, isNewOpen){
+/* First-use hint at the top of the Email / Text pickers. Gone for good once they tap "Got it"
+   OR actually send a template (they've learned it) — stored server-side via seen()/markSeen(),
+   not localStorage, so it can't come back on an iPhone. */
+function tplHintUpdate_(boxId){
   var box=$(boxId); if(!box) return;
-  var off=false, n=0;
-  try{ off=localStorage.getItem('mm_tplhint_off')==='1'; n=Number(localStorage.getItem('mm_tplhint_n')||0); }catch(e){}
-  if(isNewOpen && !off){ n++; try{ localStorage.setItem('mm_tplhint_n', String(n)); }catch(e){} }
-  if(off || n>TPL_HINT_MAX){ box.style.display='none'; box.innerHTML=''; return; }
+  if(seen('tplHint')){ box.style.display='none'; box.innerHTML=''; return; }
   box.innerHTML='<div style="margin:0 0 12px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream);text-align:left">'
     +'<b style="color:var(--gold-bright)">Tip:</b> tap a template to start your message. Tap the pencil (&#9998;) to edit one, or use <b>Create new template</b> below. Fields like <b>{firstname}</b> fill in automatically. You can manage them all anytime in <b>Settings &rarr; Message templates</b>.'
     +' <a href="javascript:void(0)" onclick="dismissTplHint()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>';
   box.style.display='';
 }
 function dismissTplHint(){
-  try{ localStorage.setItem('mm_tplhint_off','1'); }catch(e){}
+  markSeen('tplHint');
   ['epicker_hint','tpicker_hint'].forEach(function(id){ var b=$(id); if(b){ b.style.display='none'; b.innerHTML=''; } });
 }
 
 /* Same idea, for a newer user landing on the Leads list itself: nothing there says a lead card
    is tappable (fixed visually with the chevron on each row — see .row-chev), but a first-timer
-   still may not notice it, so a short tip backs that up. Dismissal is stored SERVER-SIDE
-   (LEAD_TAP_HINT_OFF, via ingest()) rather than the browser's localStorage — the app runs
-   inside Apps Script's sandboxed iframe, whose storage Safari doesn't reliably keep between
-   sessions, so a browser-only "Got it" can silently reappear (reported 2026-09-27). Once
-   dismissed on the server, it's gone for good, on every device. */
-var LEAD_TAP_HINT_OFF=false;
+   still may not notice it, so a short tip backs that up. Gone for good once they tap "Got it"
+   OR simply open a lead (they've learned it) — stored server-side via seen()/markSeen(). */
 function renderLeadTapHint(){
   var box=$('leadTapHintCard'); if(!box) return;
-  if(LEAD_TAP_HINT_OFF || !LEADS || !LEADS.length || (Q && Q.trim())){ box.style.display='none'; box.innerHTML=''; return; }
+  if(seen('leadTap') || !LEADS || !LEADS.length || (Q && Q.trim())){ box.style.display='none'; box.innerHTML=''; return; }
   box.innerHTML='<div style="margin:0 0 12px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">'
     +'<b style="color:var(--gold-bright)">Tip:</b> tap any lead below to see their full details, contract, and payments.'
     +' <a href="javascript:void(0)" onclick="dismissLeadTapHint()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>';
   box.style.display='';
 }
 function dismissLeadTapHint(){
-  LEAD_TAP_HINT_OFF=true; // optimistic — hide it now, don't wait on the round trip
+  markSeen('leadTap');
   var box=$('leadTapHintCard'); if(box){ box.style.display='none'; box.innerHTML=''; }
-  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).dismissLeadTapHint();
 }
 
 /* ---------- My referral link (Settings) ---------- */
@@ -8366,6 +8397,19 @@ function doSettingsAutosave(){
 // field editors (settingsFieldHtml) and saved via the SAME saveSettings. Everything
 // else (legal name, W-9/insurance, ACH/wire/check, lead sources, store, advanced)
 // stays in the full Settings screen; the wizard just gets a new install running fast.
+// The whole flow in four steps. Shown once on the setup wizard's welcome screen and kept for
+// good under Help, from this one list so the two never drift apart.
+var HOW_IT_WORKS = [
+  { t:'Leads come in', d:'Add one from the <b>Add</b> tab, import a spreadsheet, or connect your website form so inquiries arrive on their own.' },
+  { t:'Send the agreement', d:'Open a lead, add the quoted price, and tap <b>Generate contract</b>. You get a private portal link to send your client.' },
+  { t:'Your client signs and pays', d:'They sign and pay the deposit on their portal. Once both are in, the lead is marked <b>Booked</b> for you.' },
+  { t:'The app keeps up for you', d:'Follow-up reminders (a week before the show, and a review request after), your Google Calendar, and payment receipts are all handled automatically.' }
+];
+function howItWorksHtml(){
+  return '<ol class="how">'+HOW_IT_WORKS.map(function(s, i){
+    return '<li><span class="how-n">'+(i+1)+'</span><div><div class="how-t">'+esc(s.t)+'</div><div class="how-d">'+s.d+'</div></div></li>';
+  }).join('')+'</ol>';
+}
 var WIZARD_STEPS = [
   { eyebrow:'The basics', title:'Your business', sub:'These appear in your app, on your contracts, and on the page your clients see.', keys:['BUSINESS_NAME','OWNER_NAME','TAGLINE','LOGO_URL'] },
   { eyebrow:'Contact', title:'How clients reach you', sub:'Shown to clients on their event portal and your contract.', keys:['EMAIL','PHONE','WEBSITE','ADDRESS'] },
@@ -8428,8 +8472,9 @@ function launchWizard(){
 function maybeLaunchSetupWizard_(){
   try{
     var configured = CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME!=='Your Business';
-    if(configured || localStorage.getItem('mm_wizard_seen')) return false;
-    localStorage.setItem('mm_wizard_seen','1');
+    var legacySeen=false; try{ legacySeen=!!localStorage.getItem('mm_wizard_seen'); }catch(e){}
+    if(configured || seen('wizard') || legacySeen) return false;
+    markSeen('wizard'); // server-side, so skipping setup never makes it pop up again on every open
     var ov=document.getElementById('wizardOverlay');
     if(!ov){ ov=document.createElement('div'); ov.id='wizardOverlay'; document.body.appendChild(ov); }
     ov.style.cssText='position:fixed;inset:0;z-index:1000;background:#0B0B10';
@@ -8457,7 +8502,7 @@ function renderWizard(){
     +'<div class="wiz-top"><div class="wiz-brand"><span class="wiz-star">&#10038;</span><span>Magic Manager Setup</span></div>'
     +'<div class="wiz-progwrap" id="wizProgwrap" hidden><div class="wiz-progrow"><span class="wiz-stepnum" id="wizStepnum"></span><span class="wiz-pct" id="wizPct"></span></div><div class="wiz-track"><div class="wiz-fill" id="wizFill"></div></div></div></div>'
     +'<div class="wiz-body">'
-    +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1><p class="wiz-sub">Let&rsquo;s get your business set up &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p><div class="wiz-preview"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn">'+esc(WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pc">This is what your clients see</div></div></section>'
+    +'<section class="wiz-step" data-i="0" hidden><h1 class="wiz-h1">Welcome to Magic Manager.</h1><p class="wiz-sub">Here&rsquo;s how it works:</p>'+howItWorksHtml()+'<p class="wiz-sub">Now let&rsquo;s set up your business &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p><div class="wiz-preview"><div class="wiz-pl">Your Event Portal</div><div class="wiz-pn">'+esc(WIZ.cfg.BUSINESS_NAME||'Your business')+'</div><div class="wiz-pc">This is what your clients see</div></div></section>'
     +stepsHtml
     +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div class="wiz-finstar">&#10038;</div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your store, contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
     +'</div>'
@@ -8468,7 +8513,12 @@ function renderWizard(){
   document.body.style.overflow='hidden';
   $('wizNext').onclick=function(){ wizGo(1); };
   $('wizBack').onclick=function(){ wizGo(-1); };
-  $('wizSkip').onclick=function(){ wizFinish(true); };
+  $('wizSkip').onclick=function(){
+    // From the welcome screen nothing has been entered yet — just close (the Welcome card on Leads
+    // and Settings both lead back here). Past that, save what they've typed so far.
+    if(WIZ.i===0){ closeWizard(); toast('Set up anytime from Settings'); return; }
+    wizFinish(true);
+  };
   var wd=$('wizDone'); if(wd) wd.onclick=closeWizard;
   var bn=$('set_BUSINESS_NAME'); if(bn) bn.addEventListener('input', function(){ var e=$('wizPvName'); if(e) e.textContent=this.value||'Your business'; });
   var tg=$('set_TAGLINE'); if(tg) tg.addEventListener('input', function(){ var e=$('wizPvTag'); if(e) e.textContent=this.value; });
@@ -8485,7 +8535,7 @@ function wizShow(){
   $('wizProgwrap').hidden=!content;
   if(content){ $('wizStepnum').textContent='Step '+i+' of '+total; var p=Math.round(i/total*100); $('wizPct').textContent=p+'%'; $('wizFill').style.width=p+'%'; }
   $('wizBack').hidden=(i===0 || i>total);
-  $('wizSkip').hidden=(i===0 || i>total);
+  $('wizSkip').hidden=(i>total);
   $('wizNav').hidden=(i>total);
   $('wizNext').textContent = i===0?'Get started':(i===total?'Finish setup':'Continue');
   try{ ov.scrollTop=0; }catch(e){}
@@ -8885,6 +8935,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.48', d:'Sep 2026', notes:[
+    'New \u201cHow Magic Manager works\u201d overview (in the setup wizard and at the top of Help), plus a \u201cGood to know\u201d section in Help covering tasks, referral partners, receipts, what your client sees, and the Store.',
+    'Friendlier first-time screens: an empty Leads screen now shows how to add your first lead, and Insights explains that it fills in as you go.',
+    'One-time tips now stay dismissed for good on every device, and retire on their own once you\u2019ve used the feature. The setup wizard can also be skipped from its first screen and won\u2019t pop up again.'
+  ]},
   { v:'1.5.47', d:'Sep 2026', notes:[
     'Fixed the \u201ctap a lead\u201d tip reappearing after you\u2019d already dismissed it \u2014 \u201cGot it\u201d now sticks for good.'
   ]},
@@ -8982,6 +9037,19 @@ var CHANGELOG_ = [
     'More accurate receipts: the real payment date, method-change refresh, and a card-amount check.'
   ]}
 ];
+// Features that are easy to miss. Opt-in reference only (Help) — never pushed at anyone.
+var HELP_KNOW = [
+  { q:'Tasks and reminders',
+    a:'Tap the <b>Tasks</b> chip on the Leads screen to add a to-do. Dated tasks pop up on your phone at 9 AM (or at the time you pick), and repeating ones schedule the next one when you check them off.' },
+  { q:'Referral partners',
+    a:'The <b>Partners</b> chip keeps the people you trade work with. When you mark a lead <b>Referred</b> to a partner, the app reminds you to check in with them a week later.' },
+  { q:'Receipts for expenses',
+    a:'When you add an expense, take a photo of the receipt or attach a file. Receipts are saved to your Google Drive, filed by year.' },
+  { q:'Seeing what your client sees',
+    a:'Open any lead\u2019s event portal link yourself to see exactly what your client sees. Opening it won\u2019t sign or pay anything.' },
+  { q:'Selling products (the Store)',
+    a:'Turn on the <b>Store page</b> in <b>Settings</b> to get a simple public checkout page for merch, gift cards, or downloads \u2014 separate from your event bookings.' }
+];
 var HELP_FIXES = [
   { q:'I applied an update, but nothing looks different',
     a:'Fully close and reopen the app — on a phone, swipe it away and open it again; on a computer, refresh the page. Magic Manager only checks for a new version about once a day, so the change usually appears right after a refresh. If the "Update available" banner keeps showing even after you’ve applied the update, it’s safe to ignore until the next daily check clears it.' },
@@ -9043,7 +9111,8 @@ function renderHelp(info){
       status='<div class="help-status ok">You’re up to date ✓</div>';
     }
   }
-  html+='<div class="help-sec">About</div>'
+  html+='<div class="help-sec">How Magic Manager works</div>'+howItWorksHtml();
+  html+='<div class="help-sec" style="margin-top:18px">About</div>'
     + '<div class="help-about">'
     +   '<div class="help-ver">Magic Manager · <b>v'+esc(ver)+'</b></div>'
     +   status
@@ -9064,6 +9133,14 @@ function renderHelp(info){
             +'<div class="t">'+esc(g.title)+' →</div><div class="d">'+esc(g.desc)+'</div></a>';
         }).join('');
   }
+  // "Good to know" reuses the Quick-fix accordion (ids continue after HELP_FIXES so toggleHelpFix works).
+  html+='<div class="help-sec" style="margin-top:18px">Good to know</div>'
+    + HELP_KNOW.map(function(f,j){
+        var i=HELP_FIXES.length+j;
+        return '<div class="help-fix" id="helpfix_'+i+'">'
+          +'<button type="button" class="q" onclick="toggleHelpFix('+i+')"><span>'+esc(f.q)+'</span><span class="chev">&#8250;</span></button>'
+          +'<div class="a">'+f.a+'</div></div>';  // f.a is trusted, hand-written HTML
+      }).join('');
   html+='<div class="help-sec" style="margin-top:18px">Quick fixes</div>'
     + HELP_FIXES.map(function(f,i){
         return '<div class="help-fix" id="helpfix_'+i+'">'

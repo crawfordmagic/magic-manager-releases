@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.47';
+var APP_VERSION = '1.5.48';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -979,6 +979,7 @@ function doGet(e) {
   indexTpl.cfg = getConfig_();
   indexTpl.appKey = providedKey;
   indexTpl.serverApi = PAGE_API_;
+  indexTpl.uiSeen = uiSeen_();
   return indexTpl.evaluate()
     .setTitle(getConfig_().BUSINESS_NAME + ' — Leads')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
@@ -1041,7 +1042,7 @@ var API_ = {
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
   startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, syncContactsToGoogle: syncContactsToGoogle_,
   setTaxRate: setTaxRate_, getLeads: getLeads_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
-  saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, dismissLeadTapHint: dismissLeadTapHint_, logPartnerContact: logPartnerContact_,
+  saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, markSeen: markSeen_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
   updatePartner: updatePartner_, deletePartner: deletePartner_, getReferralInboxLink: getReferralInboxLink_,
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
@@ -4399,8 +4400,7 @@ function getLeads_() {
     storeSales: getStoreSales_(),
     storeProducts: getStoreProducts_(),
     sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
-    referralInbox: getReferralInbox_(),
-    leadTapHintOff: (PropertiesService.getScriptProperties().getProperty('LEAD_TAP_HINT_OFF') === '1')
+    referralInbox: getReferralInbox_()
   });
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a
@@ -4473,13 +4473,32 @@ function markOracleTipShown_(){
   props.setProperty('ORACLE_TIP_NEXT_INTERVAL', String(nextInterval));
   return JSON.stringify({ok:true});
 }
-// "Got it" on the lead-tap tip. Stored server-side (like the Oracle tip / update banner above),
-// not in the browser's localStorage — the app runs inside Apps Script's sandboxed iframe, whose
-// storage Safari doesn't reliably keep between sessions, so a browser-only dismiss can silently
-// reappear. This one, once dismissed, stays dismissed.
-function dismissLeadTapHint_(){
-  PropertiesService.getScriptProperties().setProperty('LEAD_TAP_HINT_OFF', '1');
-  return JSON.stringify({ok:true});
+// One-time onboarding pieces the owner has already seen or dismissed (tips, the setup wizard,
+// the "see what your client sees" note). Kept server-side, like the Oracle tip / update banner
+// above, NOT in the browser's localStorage: the app runs inside Apps Script's sandboxed iframe,
+// whose storage Safari doesn't reliably keep between sessions, so a browser-only "Got it" can
+// come back (reported 2026-09-27). Handed to the page at load (doGet) so the wizard can check
+// it before anything paints. Only these keys are accepted.
+var UI_SEEN_KEYS_ = ['leadTap', 'tplHint', 'wizard', 'portalPreview'];
+function uiSeen_() {
+  var props = PropertiesService.getScriptProperties(), stored = {}, out = {};
+  try { stored = JSON.parse(props.getProperty('UI_SEEN') || '{}') || {}; } catch (e) { stored = {}; }
+  if (props.getProperty('LEAD_TAP_HINT_OFF') === '1') stored.leadTap = true; // dismissed in 1.5.47, before this store
+  UI_SEEN_KEYS_.forEach(function (k) { if (stored[k] === true) out[k] = true; });
+  return out;
+}
+function markSeen_(key) {
+  key = String(key || '');
+  if (UI_SEEN_KEYS_.indexOf(key) < 0) return JSON.stringify({ ok: false });
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(5000);
+    var s = uiSeen_(); s[key] = true;
+    PropertiesService.getScriptProperties().setProperty('UI_SEEN', JSON.stringify(s));
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
+  }
+  return JSON.stringify({ ok: true });
 }
 
 // Lightweight response for lead-only operations (edit/add/delete a lead, log

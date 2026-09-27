@@ -1,5 +1,11 @@
 What's new in this update:
 
-• Fixed the “tap a lead” tip reappearing after you'd already dismissed it. “Got it” now sticks for good, on every device.
+• New “How Magic Manager works” overview — four quick steps from inquiry to booked show — on the setup wizard's welcome screen and at the top of Help. Help also has a new “Good to know” section covering tasks, referral partners, receipt photos, seeing what your client sees, and the Store.
+
+• Friendlier first-time screens: an empty Leads screen now shows how to add your first lead (or connect your website form), and Insights explains that it fills in as you add leads and expenses.
+
+• After your first contract, a one-time tip suggests opening the client portal yourself to see exactly what your client sees.
+
+• One-time tips now stay dismissed for good on every device, and retire on their own once you've used the feature. The setup wizard can be skipped from its very first screen and won't pop up again.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
