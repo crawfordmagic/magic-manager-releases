@@ -128,14 +128,14 @@ var CONFIG_FIELDS_ = [
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the event portal.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
   { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
-  { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own booking page — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
+  { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own event portal — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
   { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract.', section: 'contact' },
   { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional).', section: 'contact' },
   { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com.', section: 'contact' },
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', section: 'contact' },
   // Getting paid
-  { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their booking page goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
+  { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their event portal goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
   { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
   { key: 'PAYMENT_REPORT_EMAIL', label: 'Payment-report emails', help: 'When on, you get an email whenever a client taps "I’ve sent my payment" so you know to verify and confirm it. Turn it off to rely on the "Payments to confirm" card in the app, which always shows regardless. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client reports a payment', section: 'payments' },
   { key: 'SIGN_NOTIFY_EMAIL', label: 'Contract-signed emails', help: 'When on, you get an email the moment a client signs their contract. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client signs', section: 'payments' },
@@ -152,17 +152,17 @@ var CONFIG_FIELDS_ = [
   { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', section: 'methods' },
   { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'methods' },
   { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'methods' },
-  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your client page. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the client page (you can still record a cash payment yourself on a lead).', section: 'methods' },
+  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', section: 'methods' },
   // Services & client page
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
-  { key: 'PORTAL_THEME', label: 'Client portal look', help: 'Optional. Match your brand on the page your clients see — accent color, background, and fonts. Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
+  { key: 'PORTAL_THEME', label: 'Event portal look', help: 'Optional. Match your brand on your event portal — accent color, background, and fonts. Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
-  { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event hub after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
-  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google "write a review" link — the short one that opens the review box directly (it looks like https://g.page/r/…/review). Get it from your Google Business Profile → "Ask for reviews" / "Get more reviews" and copy the link. After a client pays their balance and the event has passed, their portal asks for a rating + comment; a 4- or 5-star rating then offers to share it on Google — and their comment is copied to their clipboard so they just tap the stars and paste. Lower ratings stay private with you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
+  { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event portal after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
+  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google "write a review" link — the short one that opens the review box directly (it looks like https://g.page/r/…/review). Get it from your Google Business Profile → "Ask for reviews" / "Get more reviews" and copy the link. After a client pays their balance and the event has passed, their event portal asks for a rating + comment; a 4- or 5-star rating then offers to share it on Google — and their comment is copied to their clipboard so they just tap the stars and paste. Lower ratings stay private with you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
   // Contract terms
   { key: 'CANCELLATION_POLICY', label: 'Cancellation policy', help: 'Your cancellation and refund terms, in your own words. This replaces the standard cancellation wording in the Terms section of the contract. Leave blank to keep the standard wording. (It\'s your agreement — review the wording yourself, or with an advisor.)', multiline: true, section: 'contract' },
   { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
@@ -183,11 +183,11 @@ var CONFIG_FIELDS_ = [
 // Setup screen sections, in display order. `open` = expanded by default (the
 // two must-fill sections); the rest start collapsed to keep first-run calm.
 var SETTINGS_SECTIONS_ = [
-  { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on the page your clients see.', open: false },
-  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and the client event portal.', open: false },
+  { id: 'business', title: 'Your business', desc: 'The essentials — these appear in your app, on your contracts, and on your event portal.', open: false },
+  { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and your event portal.', open: false },
   { id: 'payments', title: 'Getting paid', desc: 'Your deposit, the card processing fee, and the emails you get when a client reports a payment or signs their contract.', open: false },
   { id: 'methods', title: 'Payment methods', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
-  { id: 'services', title: 'Services & client page', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
+  { id: 'services', title: 'Services & event portal', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
   { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
   { id: 'storefront', title: 'Store (optional)', desc: 'Sell products with a simple public checkout page — merch, gift cards, anything that isn\'t an event booking. Off unless you turn it on.', open: false },
   { id: 'comms', title: 'Calls & texts', desc: 'Tapping Call or Text opens your phone\'s built-in apps by default. To route through another app (like Google Voice), set it up here — most people can leave this alone.', open: false },
@@ -442,7 +442,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.52';
+var APP_VERSION = '1.5.53';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}

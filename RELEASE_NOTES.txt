@@ -1,9 +1,5 @@
 What's new in this update:
 
-• A new first impression: the setup wizard now opens with a short animation of a real booking, start to finish — a lead comes in, the contract is generated and sent, the client signs and pays the deposit, and it's marked Booked with the calendar, receipt, reminder and review request handled for you. It plays once, with a Replay link.
-
-• Finishing setup now ends with a gold sparkle celebration around the star.
-
-• Phones set to "reduce motion" see the simple step-by-step list instead of the animations.
+• One name everywhere: the page your clients use to sign, pay and see their booking is now called the "event portal" throughout the app, Settings and Help (it was sometimes the "client portal" or "booking page"). In Settings, "Client portal look" is now "Event portal look". Nothing about how it works has changed.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

@@ -4024,8 +4024,8 @@ function nextStepFor_(L){
           : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+' quoted \u2014 send the agreement to lock in the date'};
     }
     if(booked) return {kind:'link', label:'Get the contract signed',
-      why:(String(L[C.depositReceived]||'')==='Yes' ? 'Deposit received \u2014 ' : 'Booked \u2014 ')+'agreement not signed yet. Tap to copy their portal link.'};
-    return {kind:'link', label:'Copy portal link', why:'Agreement sent \u2014 not signed yet. Send the link again if they need it.'};
+      why:(String(L[C.depositReceived]||'')==='Yes' ? 'Deposit received \u2014 ' : 'Booked \u2014 ')+'agreement not signed yet. Tap to copy their event portal link.'};
+    return {kind:'link', label:'Copy event portal link', why:'Agreement sent \u2014 not signed yet. Send the link again if they need it.'};
   }
   var signedOn=pd(L['Contract Signed Date']);
   if(depositBase(L)>0 && !depIn){
@@ -5333,7 +5333,7 @@ function renderContractResultPanel(signUrl, pdfUrl, docUrl){
     +'<a class="act" href="'+esc(docUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">Edit in Google Docs</a>'
     +(seen('portalPreview') ? '' :
       '<div id="portalPreviewTip" style="margin-top:10px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream);text-align:left">'
-      +'<b style="color:var(--gold-bright)">Tip:</b> <a href="'+esc(signUrl)+'" target="_blank" rel="noopener" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright)">open the portal yourself</a> to see exactly what your client sees &mdash; opening it won&rsquo;t sign or pay anything.'
+      +'<b style="color:var(--gold-bright)">Tip:</b> <a href="'+esc(signUrl)+'" target="_blank" rel="noopener" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright)">open the event portal yourself</a> to see exactly what your client sees &mdash; opening it won&rsquo;t sign or pay anything.'
       +' <a href="javascript:void(0)" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright);white-space:nowrap">Got it</a></div>')
     +'</div>';
 }
@@ -8324,7 +8324,7 @@ function maybeShowSetupNudge(){
   box.style.display='';
   box.innerHTML = '<div class="card" style="border-color:var(--gold)">'
     + '<div style="font-weight:700;color:var(--gold-bright);margin-bottom:4px">Welcome ✦</div>'
-    + '<div style="font-size:13.5px;color:var(--cream);margin-bottom:10px">Make this app yours — add your business name, contact info, and payment details so your app, contracts, and client pages show <em>your</em> brand.</div>'
+    + '<div style="font-size:13.5px;color:var(--cream);margin-bottom:10px">Make this app yours — add your business name, contact info, and payment details so your app, contracts, and event portal show <em>your</em> brand.</div>'
     + '<button class="save" style="margin-top:0" onclick="launchWizard()">Set up my business</button>'
     + '</div>';
 }
@@ -8512,8 +8512,8 @@ function doSettingsAutosave(){
 // good under Help, from this one list so the two never drift apart.
 var HOW_IT_WORKS = [
   { t:'Leads come in', d:'Add one from the <b>Add</b> tab, import a spreadsheet, or connect your website form so inquiries arrive on their own.' },
-  { t:'Send the agreement', d:'Open a lead, add the quoted price, and tap <b>Generate contract</b>. You get a private portal link to send your client.' },
-  { t:'Your client signs and pays', d:'They sign and pay the deposit on their portal. Once both are in, the lead is marked <b>Booked</b> for you.' },
+  { t:'Send the agreement', d:'Open a lead, add the quoted price, and tap <b>Generate contract</b>. You get a private event portal link to send your client.' },
+  { t:'Your client signs and pays', d:'They sign and pay the deposit on their event portal. Once both are in, the lead is marked <b>Booked</b> for you.' },
   { t:'The app keeps up for you', d:'Follow-up reminders (a week before the show, and a review request after), your Google Calendar, and payment receipts are all handled automatically.' }
 ];
 function howItWorksHtml(){
@@ -8550,7 +8550,7 @@ function bookingDemoHtml(id){
       +'<div class="bd-scene" data-s="1">'+lab(1)
         +'<div class="bd-card"><div class="bd-name">Sarah Mitchell</div><div class="bd-between bd-mt"><span class="bd-mut">Quoted price</span><span class="bd-price">$</span></div></div>'
         +'<div class="bd-btn bd-gen bd-pop" data-p="2">Generate contract</div>'
-        +'<div class="bd-btn bd-send bd-pop" data-p="3">Send portal link</div>'
+        +'<div class="bd-btn bd-send bd-pop" data-p="3">Send event portal link</div>'
       +'</div>'
       +'<div class="bd-scene" data-s="2">'+lab(2)
         +'<div class="bd-card"><div class="bd-mut">Signed by</div><div class="bd-sign"><span class="bd-signame"></span><span class="bd-caret" hidden></span></div><div class="bd-line"></div></div>'
@@ -8559,7 +8559,7 @@ function bookingDemoHtml(id){
       +'</div>'
       +'<div class="bd-scene" data-s="3">'+lab(3)
         +row(5, 'calendar', 'Added to your Google Calendar')
-        +row(6, 'receipt', 'Deposit receipt available on Sarah\u2019s portal link')
+        +row(6, 'receipt', 'Deposit receipt available on Sarah\u2019s event portal')
         +row(7, 'clock', 'Reminder set: one week before the show')
         +row(8, 'star', 'Review request after the show')
         +'<div class="bd-end bd-pop" data-p="9">That\u2019s a booking. \u2726</div>'
@@ -8588,7 +8588,7 @@ function playBookingDemo(id){
   q('.bd-replay').hidden=true;
   // Buttons that get tapped and then turn into their confirmation, like in the real app.
   var TAPS={
-    send:{ key:'bd-send', label:'Send portal link', done:'bd-card bd-ok bd-note', html:demoIc_('send')+'<span>Portal link sent to Sarah</span>' },
+    send:{ key:'bd-send', label:'Send event portal link', done:'bd-card bd-ok bd-note', html:demoIc_('send')+'<span>Event portal link sent to Sarah</span>' },
     pay:{ key:'bd-pay', label:'Sign &amp; pay deposit \u2014 $750.00', done:'bd-card bd-ok bd-between', html:'<span class="bd-note">'+demoIc_('check')+'Deposit paid</span><span class="bd-okv">$750.00</span>' }
   };
   function tapState(name, done){
@@ -8652,7 +8652,7 @@ function celebrateHtml(){
   return '<div class="wiz-cel" aria-hidden="true">'+html+'<div class="wiz-finstar">&#10038;</div></div>';
 }
 var WIZARD_STEPS = [
-  { eyebrow:'The basics', title:'Your business', sub:'These appear in your app, on your contracts, and on the page your clients see.', keys:['BUSINESS_NAME','OWNER_NAME','TAGLINE','LOGO_URL'] },
+  { eyebrow:'The basics', title:'Your business', sub:'These appear in your app, on your contracts, and on your event portal.', keys:['BUSINESS_NAME','OWNER_NAME','TAGLINE','LOGO_URL'] },
   { eyebrow:'Contact', title:'How clients reach you', sub:'Shown to clients on their event portal and your contract.', keys:['EMAIL','PHONE','WEBSITE','ADDRESS'] },
   { eyebrow:'Getting paid', title:'How you collect', sub:'Set your deposit and switch on the digital methods you use. More options — ACH, wire, and mailed check — are optional and can be added anytime under Settings.', keys:['DEPOSIT_PERCENT','CARD_FEE_ENABLED','VENMO_USERNAME','CASHAPP_CASHTAG','PAYPAL_USERNAME','ZELLE_HANDLE'] },
   { eyebrow:'What you offer', title:'Your services', sub:'The audiences you serve, plus the choices that fill your app\'s dropdowns.', keys:['AUDIENCES','SERVICES','EVENT_TYPES','LEAD_SOURCES'] }
@@ -8793,7 +8793,7 @@ function renderWizard(){
       : '<p class="wiz-sub" style="margin-bottom:12px">Watch a booking happen, start to finish.</p>'+bookingDemoHtml('wizDemo'))
     +'<p class="wiz-sub">Now let&rsquo;s set up your business &mdash; about 5 minutes. Everything&rsquo;s optional and you can change it later, so feel free to move quickly.</p></section>'
     +stepsHtml
-    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div id="wizCelebrate"><div class="wiz-finstar">&#10038;</div></div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and client portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
+    +'<section class="wiz-step" data-i="'+(total+1)+'" hidden><div class="wiz-fin"><div id="wizCelebrate"><div class="wiz-finstar">&#10038;</div></div><h1 class="wiz-h1" style="text-align:center">You&rsquo;re all set.</h1><p class="wiz-sub" style="text-align:center;margin-bottom:0">Your app, contracts, and event portal now show your&nbsp;brand.</p><p class="wiz-sub" style="text-align:center;margin-top:6px">One thing to know: tap any lead&rsquo;s card in the list to open its full details, contract, and payments.</p><div class="wiz-more"><div class="wiz-more-h"><span>&#10038;</span><span>There&rsquo;s more waiting in Settings</span></div><p class="wiz-more-p">Your contract terms, tax form &amp; proof of insurance, extra payment methods (ACH, wire, check), and call &amp; text routing all live there. When you have a moment, please head to <strong>Settings</strong> for the complete setup &mdash; at your convenience.</p></div><button type="button" class="wiz-btn wiz-primary" id="wizDone" style="width:100%">Open Magic Manager</button></div></section>'
     +'</div>'
     +'<div class="wiz-nav" id="wizNav"><button type="button" class="wiz-btn wiz-ghost" id="wizBack" hidden>Back</button><button type="button" class="wiz-btn wiz-primary" id="wizNext">Get started</button></div>'
     +'<a href="javascript:void(0)" class="wiz-skip" id="wizSkip" hidden>Skip for now &mdash; finish later</a>'
@@ -9119,7 +9119,7 @@ function businessdocsEditorHtml(f, val, cfg){
   // uploading a W-9: these files are viewable by anyone with a client's booking
   // link, and a W-9 normally carries an SSN — so recommend an EIN instead.
   var tip = '<div style="background:rgba(201,160,80,.08);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin:0 0 10px;font-size:11.5px;line-height:1.5;color:var(--cream)">'
-    + '<b style="color:var(--gold-bright)">Before you upload a W-9:</b> anything you add here can be viewed by anyone who has a client’s booking link. A W-9 normally shows your Social Security number — so it’s common to put an <b>EIN</b> on it instead. You can get an EIN free from the IRS in a few minutes, and then you’re never sharing your SSN. (Your call — your accountant can confirm what’s best for you.)'
+    + '<b style="color:var(--gold-bright)">Before you upload a W-9:</b> anything you add here can be viewed by anyone who has a client’s event portal link. A W-9 normally shows your Social Security number — so it’s common to put an <b>EIN</b> on it instead. You can get an EIN free from the IRS in a few minutes, and then you’re never sharing your SSN. (Your call — your accountant can confirm what’s best for you.)'
     + '</div>';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
@@ -9196,7 +9196,7 @@ function removeBizDoc(kind){
 // number does — including that 0 waives the deposit — so the owner isn't guessing.
 function depositPctExampleText(p){
   p = Math.max(0, Math.min(100, Number(p)||0));
-  if(p<=0) return 'Set to 0: no deposit. Clients pay the full amount in one payment — the deposit step is skipped, so their booking page goes straight to paying the balance.';
+  if(p<=0) return 'Set to 0: no deposit. Clients pay the full amount in one payment — the deposit step is skipped, so their event portal goes straight to paying the balance.';
   var sample=1000, dep=Math.round(sample*p/100), bal=sample-dep;
   return 'Example: on a $'+sample+' booking you collect a $'+dep+' deposit up front, then a $'+bal+' balance before the event.';
 }
@@ -9231,6 +9231,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.53', d:'Sep 2026', notes:[
+    'One name everywhere: the page your clients use to sign, pay and see their booking is now called the \u201cevent portal\u201d throughout the app, Settings and Help (it was sometimes the \u201cclient portal\u201d or \u201cbooking page\u201d). In Settings, \u201cClient portal look\u201d is now \u201cEvent portal look\u201d. Nothing about how it works has changed.'
+  ]},
   { v:'1.5.52', d:'Sep 2026', notes:[
     'A new first impression: the setup wizard now opens with a short animation of a real booking, start to finish \u2014 a lead comes in, the contract is generated and sent, the client signs and pays the deposit, and it\u2019s marked Booked with the calendar, receipt, reminder and review request handled for you. It plays once, with a Replay link.',
     'Finishing setup now ends with a gold sparkle celebration around the star.',
@@ -9238,7 +9241,7 @@ var CHANGELOG_ = [
   ]},
   { v:'1.5.51', d:'Sep 2026', notes:[
     'Faster everyday actions: logging a call, text or email note, and adding, editing or deleting an expense now show instantly and save in the background (if a save ever fails, it\u2019s undone with a message and nothing you typed is lost).',
-    'Faster client portal: a client\u2019s link opens with their booking right away, signing goes straight to the deposit step, and \u201cI\u2019ve sent my deposit\u201d and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.',
+    'Faster event portal: a client\u2019s link opens with their booking right away, signing goes straight to the deposit step, and \u201cI\u2019ve sent my deposit\u201d and the feedback form confirm instantly. The signed PDF is prepared in the background and appears under Your Documents a few seconds later.',
     'If a signed contract PDF ever can\u2019t be created, you now get an email about it (before, it failed silently).'
   ]},
   { v:'1.5.50', d:'Sep 2026', notes:[
@@ -9266,13 +9269,13 @@ var CHANGELOG_ = [
   { v:'1.5.45', d:'Sep 2026', notes:[
     'A redesigned "Today" list on Leads: every follow-up, task, and payment to confirm now shows as its own row with the client\u2019s name and how late it is, sorted by urgency \u2014 instead of being grouped into categories.',
     'Each lead now shows a \u201cNext step\u201d right under their name \u2014 generate the contract, get it signed, mark a payment received, or ask for a review \u2014 so you don\u2019t have to scroll to find what to do.',
-    'The client booking page now walks clients through signing and paying their deposit as one step, and clearly shows what\u2019s left (signed / deposit / balance) every time they return.',
+    'The event portal now walks clients through signing and paying their deposit as one step, and clearly shows what\u2019s left (signed / deposit / balance) every time they return.',
     'A lead is now marked Booked automatically once the agreement is signed and the deposit is in (or none is required) \u2014 no need to change the status yourself.',
     'Recycle Bin, Google Contacts sync, and client export moved from the bottom of Leads into Settings \u2192 Tools.',
-    'Client portal: full booking details (date, location, deposit/balance, total) now stay visible after signing, dates read in full, and \u201cACH\u201d shows as \u201cBank transfer.\u201d'
+    'Event portal: full booking details (date, location, deposit/balance, total) now stay visible after signing, dates read in full, and \u201cACH\u201d shows as \u201cBank transfer.\u201d'
   ]},
   { v:'1.5.44', d:'Sep 2026', notes:[
-    'Security: your bank account and routing numbers are no longer included in the public contract and store pages. They appear only after a client opens their own contract link, so nothing changes for your clients.',
+    'Security: your bank account and routing numbers are no longer included in the public contract and store pages. They appear only after a client opens their own event portal link, so nothing changes for your clients.',
     'Security: anything a client or store visitor types (name, review, payment method) can no longer be used to sneak a formula into your sheet.',
     'Client receipt links now repair themselves: if a receipt file is ever moved to the Trash or deleted, the client\u2019s link is restored or rebuilt automatically instead of showing "file deleted".',
     'Scheduled background jobs can now only be started by Google\u2019s own timer or by you.',
@@ -9309,14 +9312,14 @@ var CHANGELOG_ = [
   ]},
   { v:'1.5.36', d:'Sep 2026', notes:[
     'Transparent logos now get a solid black square behind them on contracts and receipts (only when the logo is transparent; turn off under Settings → Advanced → Logo backing).',
-    'New "Clean — Open Sans" font option for the client portal look.'
+    'New "Clean — Open Sans" font option for the event portal look.'
   ]},
   { v:'1.5.35', d:'Sep 2026', notes:[
     'One-tap lead referral: refer a lead to a partner who also uses Magic Manager and they can add it to their app from your email (Settings → Referral link; see Help).',
     'Fixed the "Confirm received" button and other green labels that had lost their color.'
   ]},
   { v:'1.5.34', d:'Sep 2026', notes:[
-    'New Settings → Client portal look: accent color, light/custom background and font pairings for the page your clients see (default look unchanged).',
+    'New Settings → Event portal look: accent color, light/custom background and font pairings for your event portal (default look unchanged).',
     'Source is now a dropdown, and Source / Event Type have + Add new… that also adds to your Settings lists.',
     'Email alert the moment a client signs their contract (toggle under Getting paid).',
     'Day-after-event review reminder now points you to ask for a review through the event portal, with an Email button.',
