@@ -1,5 +1,7 @@
 What's new in this update:
 
-• One name everywhere: the page your clients use to sign, pay and see their booking is now called the "event portal" throughout the app, Settings and Help (it was sometimes the "client portal" or "booking page"). In Settings, "Client portal look" is now "Event portal look". Nothing about how it works has changed.
+• Your signature on contracts and receipts: in Settings → Your business → Your signature, pick a signature style (Dancing Script, Mr De Haviland, Mr Dafoe or Qwigley) with a live preview, or upload a picture of your own signature. An uploaded signature is kept private in your Google Drive and is used instead of the style. New contracts and receipts use it; ones you've already sent don't change.
+
+• Tip: if your logo is on a see-through background and you'd rather not have the black square behind it on contracts and receipts, turn off Settings → Advanced → Logo backing.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

@@ -40,6 +40,7 @@ var CONFIG_DEFAULTS_ = {
   DEPOSIT_PERCENT: '50',
   LOGO_URL: '',
   LOGO_BACKING: 'yes',
+  SIGNATURE_FONT: 'Dancing Script', SIGNATURE_FILE_ID: '',
   GOVERNING_LAW: '',
   CANCELLATION_POLICY: '',
   ADDITIONAL_TERMS: '',
@@ -128,6 +129,7 @@ var CONFIG_FIELDS_ = [
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the event portal.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
   { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
+  { key: 'SIGNATURE_FONT', label: 'Your signature', help: 'How your name is signed on contracts and receipts. Upload a picture of your signature (a PNG with a transparent background looks best), or pick a signature style.', editor: 'signature', section: 'business' },
   { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own event portal — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
   { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract.', section: 'contact' },
@@ -425,6 +427,78 @@ function removeBusinessDoc_(kind) {
   }
 }
 
+/* ---------- Your signature (contracts + receipts) ----------
+ * The owner's name on the contract ("Service Provider Signature") and the receipt sign-off is
+ * either an uploaded signature image or the name in a chosen script font. The image is stored
+ * PRIVATELY in Drive (never shared by link — only the script reads it to place it in the
+ * document); an image, when present, wins over the font. Both changes rebuild the cached
+ * contract template (saveSettings_ clears it). */
+var SIGNATURE_FONTS_ = { 'Dancing Script': 13, 'Mr De Haviland': 19, 'Mr Dafoe': 14, 'Qwigley': 19 }; // name -> point size that reads as a signature
+var SIGNATURE_IMAGE_TYPES_ = ['image/png', 'image/jpeg', 'image/gif']; // what Google Docs can place
+
+function signatureFont_() {
+  var f = String(getConfig_().SIGNATURE_FONT || '').trim();
+  return SIGNATURE_FONTS_[f] ? f : 'Dancing Script';
+}
+function signatureBlob_() {
+  var id = String(getConfig_().SIGNATURE_FILE_ID || '').trim();
+  if (!id) return null;
+  try { return DriveApp.getFileById(id).getBlob(); } catch (e) { return null; }
+}
+// Put the owner's signature at the end of a paragraph: the uploaded image (about a signature
+// line tall) or the name in the chosen script font.
+function appendSignature_(para, name) {
+  var blob = signatureBlob_();
+  if (blob) {
+    try {
+      var img = para.appendInlineImage(blob);
+      var w = img.getWidth(), h = img.getHeight(), H = 42;
+      if (w && h) { var W = Math.round(w * H / h); if (W > 220) { W = 220; H = Math.round(h * W / w); } img.setWidth(W).setHeight(H); }
+      return;
+    } catch (e) {}
+  }
+  var font = signatureFont_();
+  var t = para.appendText(String(name || ''));
+  try { t.setBold(false).setFontFamily(font).setFontSize(SIGNATURE_FONTS_[font]); } catch (e) {}
+}
+
+function signatureResult_() {
+  var cfg = getConfig_();
+  return JSON.stringify({ ok: true, hasImage: !!String(cfg.SIGNATURE_FILE_ID || '').trim(), font: signatureFont_() });
+}
+function uploadSignature_(base64Data, mimeType, fileName) {
+  try {
+    var mime = String(mimeType || '').toLowerCase();
+    if (SIGNATURE_IMAGE_TYPES_.indexOf(mime) < 0) return JSON.stringify({ ok: false, error: 'Please upload a PNG or JPG image of your signature.' });
+    if (!base64Data) return JSON.stringify({ ok: false, error: 'No file was received — please try again.' });
+    var bytes = Utilities.base64Decode(base64Data);
+    if (bytes.length > 5 * 1024 * 1024) return JSON.stringify({ ok: false, error: 'That image is over 5 MB — please use a smaller one.' });
+    var oldId = getConfig_().SIGNATURE_FILE_ID;
+    if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
+    var file = businessDocsFolder_().createFile(Utilities.newBlob(bytes, mime, fileName || 'Signature')); // private: not shared
+    saveSettings_({ SIGNATURE_FILE_ID: file.getId() });
+    return signatureResult_();
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+function removeSignature_() {
+  try {
+    var oldId = getConfig_().SIGNATURE_FILE_ID;
+    if (oldId) { try { DriveApp.getFileById(String(oldId)).setTrashed(true); } catch (e) {} }
+    saveSettings_({ SIGNATURE_FILE_ID: '' });
+    return signatureResult_();
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+// The uploaded signature as a data URI, for the Settings preview (the file itself stays private).
+function getSignaturePreview_() {
+  var blob = signatureBlob_();
+  if (!blob) return JSON.stringify({ ok: true, dataUri: '' });
+  return JSON.stringify({ ok: true, dataUri: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) });
+}
+
 /* ---------- Licensing (sell + protect) ----------
  * Each sold copy carries a LICENSE_KEY (a Script Property the buyer enters when they
  * activate). The seller bakes their deployed license-hub URL into LICENSE_HUB_URL below
@@ -442,7 +516,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.53';
+var APP_VERSION = '1.5.54';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1018,6 +1092,7 @@ function publicCfg_() {
   out.HAS_ACH = !!(src.ACH_ACCOUNT && src.ACH_ROUTING);
   out.HAS_WIRE = !!(src.WIRE_ACCOUNT && src.WIRE_ROUTING);
   PRIVATE_PAY_KEYS_.forEach(function (k) { delete out[k]; });
+  delete out.SIGNATURE_FILE_ID; // the owner's signature image is private to documents
   out.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
   return out;
 }
@@ -1030,7 +1105,8 @@ function bankDetails_() {
 
 var API_ = {
   getSettings: getSettings_, saveSettings: saveSettings_, previewPortalTheme: previewPortalTheme_,
-  uploadBusinessDoc: uploadBusinessDoc_, removeBusinessDoc: removeBusinessDoc_, activateLicense: activateLicense_,
+  uploadBusinessDoc: uploadBusinessDoc_, removeBusinessDoc: removeBusinessDoc_,
+  uploadSignature: uploadSignature_, removeSignature: removeSignature_, getSignaturePreview: getSignaturePreview_, activateLicense: activateLicense_,
   startTrial: startTrial_, getTrialInfo: getTrialInfo_, markTrialWarned: markTrialWarned_, getUpdateInfo: getUpdateInfo_,
   snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_,
   confirmReportedPayment: confirmReportedPayment_, dismissReportedPayment: dismissReportedPayment_,
@@ -1653,20 +1729,13 @@ function buildContractTemplate_() {
 
   var providerSigCell = sigRow.getCell(1);
   var provLabel = 'Service Provider Signature: ';
-  var provFull = provLabel + getConfig_().OWNER_NAME;
-  var provLine = cellLine(providerSigCell, true, provFull);
+  var provLine = cellLine(providerSigCell, true, provLabel);
   provLine.setSpacingAfter(2);
   var provText = provLine.editAsText();
   provText.setBold(0, provLabel.length - 1, true);
   styleText(provText, BODY_SIZE);
-  // Best-effort script styling on just the name — falls back gracefully
-  // to plain text if this particular font isn't available.
-  try {
-    var nameStart = provLabel.length;
-    var nameEnd = provText.getText().length - 1;
-    provText.setFontFamily(nameStart, nameEnd, 'Dancing Script');
-    provText.setFontSize(nameStart, nameEnd, 13);
-  } catch (e) {}
+  // The owner's signature: their uploaded image, or their name in the chosen script font.
+  appendSignature_(provLine, getConfig_().OWNER_NAME);
   boldLine(providerSigCell, 'Date: ', '{{providersigndate}}');
 
   doc.saveAndClose();
@@ -1866,10 +1935,8 @@ function generateReceiptPdf_(kind, get) {
   closing.editAsText().setItalic(true).setFontFamily(FONT).setFontSize(10.5);
   closing.setSpacingBefore(20).setSpacingAfter(2);
 
-  const signOff = body.appendParagraph(getConfig_().OWNER_NAME);
-  const signOffText = signOff.editAsText();
-  signOffText.setFontFamily(FONT).setFontSize(13);
-  try { signOffText.setFontFamily('Dancing Script'); } catch (e) {}
+  const signOff = body.appendParagraph('');
+  appendSignature_(signOff, getConfig_().OWNER_NAME); // uploaded image, or the name in the chosen script font
 
   doc.saveAndClose();
   const pdfBlob = DriveApp.getFileById(doc.getId()).getAs('application/pdf');

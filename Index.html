@@ -8341,6 +8341,7 @@ function settingsFieldHtml(f, raw, cfg){
   if(f.editor==='storefront') return storefrontEditorHtml(f, val, cfg);
   if(f.editor==='storemethods') return storemethodsEditorHtml(f, val, cfg);
   if(f.editor==='businessdocs') return businessdocsEditorHtml(f, val, cfg);
+  if(f.editor==='signature') return signatureEditorHtml(f, val, cfg);
   if(f.editor==='depositpct') return depositpctEditorHtml(f, val, cfg);
   if(f.editor==='cardfee') return cardfeeEditorHtml(f, val, cfg);
   if(f.editor==='toggle') return toggleEditorHtml(f, val, cfg);
@@ -9190,6 +9191,102 @@ function removeBizDoc(kind){
     .removeBusinessDoc(kind);
 }
 
+/* ---------- Your signature (Settings) ---------- */
+// Style = the script font the owner's name is signed in on contracts and receipts (autosaves
+// like any field via set_SIGNATURE_FONT). Image = an uploaded signature, saved straight to
+// Drive (privately) like the W-9 upload; when present it's used instead of the style.
+var SIGNATURE_FONTS = ['Dancing Script','Mr De Haviland','Mr Dafoe','Qwigley'];
+var SIG = { hasImage:false, dataUri:'' }, SIG_DEL_ARM=false;
+function signatureEditorHtml(f, val, cfg){
+  // the four script fonts, so the preview shows the real thing
+  if(!$('sigFontsLink')){ var l=document.createElement('link'); l.id='sigFontsLink'; l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?family=Dancing+Script&family=Mr+De+Haviland&family=Mr+Dafoe&family=Qwigley&display=swap'; document.head.appendChild(l); }
+  var cur = SIGNATURE_FONTS.indexOf(val)>-1 ? val : 'Dancing Script';
+  SIG = { hasImage: !!(cfg && cfg.SIGNATURE_FILE_ID), dataUri:'' }; SIG_DEL_ARM=false;
+  if(SIG.hasImage) loadSignaturePreview_();
+  return '<div class="field"><label>'+esc(f.label)+'</label>'
+    + (f.help?'<div style="margin:4px 0 10px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + '<div id="sigImageBox">'+signatureImageHtml_()+'</div>'
+    + '<label for="set_SIGNATURE_FONT" style="display:block;margin:12px 0 4px;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)">Signature style</label>'
+    + '<select id="set_SIGNATURE_FONT" onchange="renderSignatureStyle_()">'
+    +   SIGNATURE_FONTS.map(function(n){ return '<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>'; }).join('')
+    + '</select>'
+    + '<div id="sigStylePreview" style="margin-top:8px;background:#fff;border-radius:8px;padding:10px 14px;color:#111;font-size:28px;line-height:1.3;font-family:\''+cur+'\',cursive">'+esc((cfg&&cfg.OWNER_NAME)||'Your Name')+'</div>'
+    + '<div id="sigStyleNote" style="margin-top:4px;font-size:11px;color:var(--muted)">'+signatureStyleNote_()+'</div>'
+    + '</div>';
+}
+function signatureStyleNote_(){ return SIG.hasImage ? 'Your uploaded signature is used on documents — this style applies only if you remove it.' : 'Shown on your contracts and receipts.'; }
+function renderSignatureStyle_(){
+  var s=$('set_SIGNATURE_FONT'), p=$('sigStylePreview'), n=$('sigStyleNote');
+  if(s && p) p.style.fontFamily="'"+s.value+"',cursive";
+  if(n) n.textContent=signatureStyleNote_();
+}
+function signatureImageHtml_(){
+  var btn='width:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer';
+  var file='<input type="file" accept="image/png,image/jpeg,image/gif" style="display:none" onchange="handleSignatureUpload(this)">';
+  var inner;
+  if(SIG.hasImage){
+    inner=(SIG.dataUri?'<div style="background:#fff;border-radius:8px;padding:8px 12px;margin-bottom:8px"><img src="'+SIG.dataUri+'" alt="Your signature" style="display:block;max-height:60px;max-width:100%"></div>':'')
+      +'<div class="hstack" style="gap:6px;flex-wrap:wrap">'
+      +'<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sage)">Uploaded</span>'
+      +'<label style="'+btn+';background:var(--panel);border:1px solid var(--line);color:var(--cream)">Replace'+file+'</label>'
+      +'<button type="button" onclick="removeSignatureUI()" style="'+btn+';background:'+(SIG_DEL_ARM?'rgba(192,82,54,.2)':'var(--panel)')+';border:1px solid '+(SIG_DEL_ARM?'var(--crimson)':'var(--line)')+';color:'+(SIG_DEL_ARM?'#E9927B':'var(--muted)')+'">'+(SIG_DEL_ARM?'Tap again to remove':'Remove')+'</button>'
+      +'</div>';
+  } else {
+    inner='<label style="'+btn+';display:inline-block;background:rgba(201,160,80,.14);border:1px solid var(--gold);color:var(--gold-bright)">Upload signature image'+file+'</label>';
+  }
+  return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px">'
+    +'<div style="font-weight:600;color:var(--cream);font-size:13px;margin-bottom:6px">Signature image <span style="font-weight:400;color:var(--muted);font-size:11.5px">(optional — kept private in your Google Drive)</span></div>'
+    + inner + '</div>';
+}
+function renderSignatureImage_(){ var b=$('sigImageBox'); if(b) b.innerHTML=signatureImageHtml_(); renderSignatureStyle_(); }
+function loadSignaturePreview_(){
+  GS.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(e){ d=null; }
+    if(d && d.ok){ SIG.dataUri=d.dataUri||''; renderSignatureImage_(); }
+  }).getSignaturePreview();
+}
+function applySignatureResult_(d){
+  if(!d || !d.ok) return false;
+  SIG.hasImage=!!d.hasImage; if(!SIG.hasImage) SIG.dataUri='';
+  if(CFG) CFG.SIGNATURE_FILE_ID = SIG.hasImage ? 'set' : '';
+  renderSignatureImage_(); return true;
+}
+function handleSignatureUpload(input){
+  var f=input.files && input.files[0]; if(!f) return;
+  var type=(f.type||'').toLowerCase();
+  if(['image/png','image/jpeg','image/gif'].indexOf(type)<0){ toast('Please upload a PNG or JPG image'); input.value=''; return; }
+  if(f.size > 5*1024*1024){ toast('That image is over 5 MB — please use a smaller one'); input.value=''; return; }
+  SIG_DEL_ARM=false;
+  var reader=new FileReader();
+  reader.onload=function(){
+    var dataUri=String(reader.result), base64=dataUri.split(',')[1];
+    toast('Uploading…');
+    GS.withSuccessHandler(function(json){
+      var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
+      if(applySignatureResult_(d)){ SIG.dataUri=dataUri; renderSignatureImage_(); toast('Signature uploaded ✦'); }
+      else toast((d&&d.error)||'Could not upload — try again');
+    }).withFailureHandler(function(){ toast('Could not upload — try again'); })
+      .uploadSignature(base64, type, f.name||'Signature');
+  };
+  reader.onerror=function(){ toast('Could not read that file'); };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function removeSignatureUI(){
+  if(!SIG_DEL_ARM){
+    SIG_DEL_ARM=true; renderSignatureImage_();
+    setTimeout(function(){ if(SIG_DEL_ARM){ SIG_DEL_ARM=false; renderSignatureImage_(); } }, 3500);
+    return;
+  }
+  SIG_DEL_ARM=false; toast('Removing…');
+  GS.withSuccessHandler(function(json){
+    var d; try{ d=JSON.parse(json); }catch(err){ d=null; }
+    if(applySignatureResult_(d)) toast('Removed — your signature style is used instead'); else toast((d&&d.error)||'Could not remove — try again');
+  }).withFailureHandler(function(){ toast('Could not remove — try again'); })
+    .removeSignature();
+}
+
 /* ---------- Deposit percent (Settings) ---------- */
 // A plain percent field (0–100) saved through the normal Save-settings flow (its
 // input carries the set_DEPOSIT_PERCENT id). A live example spells out what the
@@ -9231,6 +9328,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.54', d:'Sep 2026', notes:[
+    'Your signature on contracts and receipts: in Settings \u2192 Your business \u2192 Your signature, pick a signature style (Dancing Script, Mr De Haviland, Mr Dafoe or Qwigley) with a live preview, or upload a picture of your own signature. An uploaded signature is kept private in your Google Drive and is used instead of the style.',
+    'Tip: if your logo is on a see-through background and you\u2019d rather not have the black square behind it on contracts and receipts, turn off Settings \u2192 Advanced \u2192 Logo backing.'
+  ]},
   { v:'1.5.53', d:'Sep 2026', notes:[
     'One name everywhere: the page your clients use to sign, pay and see their booking is now called the \u201cevent portal\u201d throughout the app, Settings and Help (it was sometimes the \u201cclient portal\u201d or \u201cbooking page\u201d). In Settings, \u201cClient portal look\u201d is now \u201cEvent portal look\u201d. Nothing about how it works has changed.'
   ]},
