@@ -1,7 +1,11 @@
 What's new in this update:
 
-• Your signature on contracts and receipts: in Settings → Your business → Your signature, pick a signature style (Dancing Script, Mr De Haviland, Mr Dafoe or Qwigley) with a live preview, or upload a picture of your own signature. An uploaded signature is kept private in your Google Drive and is used instead of the style. New contracts and receipts use it; ones you've already sent don't change.
+• A clearer lead page: the top now shows the essentials — event date, type, how far away it is, the price and status — followed by a Signed → Deposit → Balance tracker (the same three steps your client sees on their event portal), then the Next step card and Call / Text / Email.
 
-• Tip: if your logo is on a see-through background and you'd rather not have the black square behind it on contracts and receipts, turn off Settings → Advanced → Logo backing.
+• Lead details show only the fields that have a value; the empty ones sit behind "+ Add details". The follow-up is a single tidy row that opens when you tap it.
+
+• The big "Generate Contract" button at the bottom of a lead is now a quiet Contract section: it holds the event portal link, PDF and Google Doc links plus a small Regenerate, and steps aside while the Next step card is already offering to generate the contract.
+
+• The Leads list filters are grouped into Active and Archive, with the year picker as a small pill on the Archive row (it only filters the archive chips). While you search, the filters dim to show search covers every lead — and tapping a filter ends the search.
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)

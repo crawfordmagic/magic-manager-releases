@@ -339,6 +339,12 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .chip .n.zero{background:transparent;color:var(--muted);font-weight:600;opacity:.6}
 .chip.on .n{background:rgba(20,16,8,.18);color:#141008}
 .chip.zero{opacity:.55;animation:none}
+/* Active / Archive groups + the year pill that belongs to the archive chips */
+.chips .glab{grid-column:1/-1;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:4px 2px 0}
+.chips .glab.grow{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.yearpill{width:auto;font-size:12px;font-weight:600;padding:5px 26px 5px 12px;border-radius:999px;color:var(--gold-bright);background-color:transparent;border:1px solid var(--line)}
+.chips.paused .chip,.chips.paused .glab{opacity:.4}
+.pausednote{display:none;font-size:12px;color:var(--gold-bright);font-weight:600;margin:8px 2px 0}
 
 /* ---------- Insights ---------- */
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
@@ -465,6 +471,23 @@ a.help-fix{display:block;text-decoration:none}
 .sheet h2{font-family:'Playfair Display',serif;font-size:23px;font-weight:700}
 .sheet .sub{color:var(--muted);font-size:13px;margin-top:2px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 4px}
+/* lead page: summary, progress tracker, details, follow-up row */
+.lsum{margin-top:4px}
+.lsum .l1{font-size:14px;color:var(--cream);font-weight:600}
+.lsum .l1 .mut{color:var(--muted);font-weight:400}
+.lsum .l2{font-size:13.5px;color:var(--muted);margin-top:1px}
+.lsum .l2 b{color:var(--gold-bright)}
+.trk{display:flex;gap:6px;margin:12px 0 2px}
+.trk .tk{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:6px 4px;text-align:center;font-size:11.5px;font-weight:700;color:var(--muted);line-height:1.3}
+.trk .tk small{display:block;font-weight:500;font-size:10.5px}
+.trk .tk.done{border-color:var(--sage);color:var(--sage)}
+.trk .tk.now{border-color:var(--gold);color:var(--gold-bright)}
+.dlab{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:20px 0 0}
+.dmore{display:block;margin-top:8px;font-size:13px;font-weight:700;color:var(--gold-bright);cursor:pointer;text-decoration:none}
+.drow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
+.drow .dl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600}
+.drow .dsum{flex:1;font-size:13.5px;color:var(--cream)}
+.drow .dchg{font-size:12px;font-weight:700;color:var(--gold-bright)}
 .nextstep{margin:12px 0 4px;padding:12px;border:1px solid var(--gold);border-radius:12px;background:rgba(201,160,80,.07)}
 .nextstep .ns-lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-bright)}
 .nextstep .ns-why{font-size:13px;color:var(--muted);margin:3px 0 10px}
@@ -563,6 +586,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <button id="qClear" class="search-clear" type="button" aria-label="Clear search" onclick="clearSearch()">&#10005;</button>
     </div>
     <div class="chips" id="statusChips"></div>
+    <div class="pausednote" id="searchPausedNote">Searching all leads &middot; tap a filter to switch back</div>
     <div id="leadTapHintCard" style="display:none"></div>
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
@@ -1291,11 +1315,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="grab"></div>
   <a class="act" id="d_backlink" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeSheet()">&#8592; Magic Manager</a>
   <h2 id="d_name" onclick="editName()"></h2>
-  <div class="sub" id="d_sub"></div>
+  <div class="lsum" id="d_sub"></div>
   <div id="d_conflict"></div>
-  <div class="actions" id="d_actions"></div>
+  <div class="trk" id="d_track" style="display:none"></div>
   <div class="nextstep" id="d_nextstep" style="display:none"></div>
   <div id="d_review" style="display:none"></div>
+  <div class="actions" id="d_actions"></div>
   <div id="ct_noteprompt" style="display:none;margin-top:10px">
     <p class="note" style="text-align:left;margin:0 0 6px" id="ct_prompttext">What happened?</p>
     <input id="ct_notetext" placeholder="e.g. answered, wants pricing for 50 guests&#8230;">
@@ -1305,22 +1330,34 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
   </div>
 
-  <div class="field" id="d_followwrap"><label>Next follow-up</label>
-    <div class="grid2">
-      <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
-      <input type="time" id="d_followtime" onblur="onFollowupChange()">
-    </div>
-    <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
-    <div class="bumps">
-      <button class="bump" onclick="bump(1)">+1 day</button>
-      <button class="bump" onclick="bump(3)">+3 days</button>
-      <button class="bump" onclick="bump(7)">+1 week</button>
-      <button class="bump" onclick="bump(14)">+2 weeks</button>
+  <div id="d_details">
+    <div class="dlab">Details</div>
+    <div class="kv" id="d_kv" style="margin-top:6px"></div>
+    <a class="dmore" id="d_addmore" href="javascript:void(0)" onclick="toggleDetails()" style="display:none"></a>
+    <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
+    <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:12px 0 4px" onclick="openManageFields()">Manage fields &#9998;</a>
+    <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
+  </div>
+
+  <div class="field" id="d_followwrap" style="margin-top:16px">
+    <div class="drow" onclick="toggleFollow()"><span class="dl">Follow-up</span><span class="dsum" id="d_followsum"></span><span class="dchg" id="d_followchg">Change</span></div>
+    <div id="d_followbody" style="display:none;margin-top:10px">
+      <div class="grid2">
+        <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
+        <input type="time" id="d_followtime" onblur="onFollowupChange()">
+      </div>
+      <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
+      <div class="bumps">
+        <button class="bump" onclick="bump(1)">+1 day</button>
+        <button class="bump" onclick="bump(3)">+3 days</button>
+        <button class="bump" onclick="bump(7)">+1 week</button>
+        <button class="bump" onclick="bump(14)">+2 weeks</button>
+      </div>
     </div>
     <p id="d_followdone_hint" class="note" style="text-align:left;margin:10px 0 0;display:none"></p>
     <button id="d_followdonebtn" class="save" style="display:none;margin-top:6px;background:var(--gold);color:var(--ink)" onclick="markStageDone(CURRENT._row)"></button>
     <div id="fu_noteprompt" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin:0 0 6px">Follow-up updated \u2014 what's the plan?</p>
+      <p class="note" style="text-align:left;margin:0 0 6px">Follow-up updated &#8212; what's the plan?</p>
       <input id="fu_notetext" placeholder="e.g. left voicemail, wants a quote by Friday&#8230;">
       <div class="grid2" style="margin-top:8px">
         <button class="bump" style="border-radius:8px" onclick="skipFollowupNote()">Skip</button>
@@ -1348,9 +1385,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <option>New</option><option>Pending</option><option>Booked</option><option>Completed</option><option>Lost</option><option>Referral</option><option>Referred</option>
     </select>
   </div>
-  <div class="field"><label>Lead created</label>
-    <p class="note" id="d_created" style="text-align:left;color:var(--cream);font-size:15px">&#8212;</p>
-  </div>
+  <p class="note" style="text-align:left;margin:14px 0 0">Lead created <span id="d_created" style="color:var(--cream)">&#8212;</span></p>
   <div class="field" id="d_refwrap" style="display:none"><label>Referred to</label>
     <select id="d_referral" onchange="onReferralChange()">
       <option value="">Choose a partner&#8230;</option>
@@ -1366,13 +1401,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <input id="d_lostreason_other" placeholder="Describe the reason" style="margin-top:8px;display:none" onchange="queueAutoSave()">
   </div>
   <div class="field"><label>Notes</label><textarea id="d_notes" rows="3" oninput="queueAutoSave()"></textarea></div>
-  <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:10px 0 4px" onclick="openManageFields()">Manage fields &#9998;</a>
-  <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
-  <div class="kv" id="d_kv"></div>
-  <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
   <p class="note" id="d_savestat">Changes save automatically &#10038;</p>
-  <button class="save" id="d_contractbtn" onclick="generateContractUI()">Generate Contract &#10038;</button>
-  <div id="d_contract_result" style="display:none"></div>
+  <div id="d_contractwrap" style="display:none">
+    <div class="dlab">Contract</div>
+    <div id="d_contract_result" style="display:none"></div>
+    <button type="button" class="act" id="d_contractbtn" style="width:100%;margin-top:10px" onclick="generateContractUI()">Generate contract</button>
+  </div>
   <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10038;</a>
   <button class="save" id="d_delbtn" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteLeadUI()">Delete this lead &#10005;</button>
 </div>
@@ -3093,6 +3127,7 @@ function renderDConflict(L){
 }
 function buildFollowupDoneBtn(){
   var el=$('d_followdonebtn'), hintEl=$('d_followdone_hint'); if(!el || !CURRENT) return;
+  renderFollowSummary();
   var idx=followupStageIndex(CURRENT);
   var f=pd(CURRENT[C.followup]);
   var due = idx>-1 && f && f<=today0();
@@ -3304,30 +3339,39 @@ function matches(L, f){
   return result;
 }
 function renderChips(){
-  var opts=['Follow up','Upcoming Shows','Tasks','Partners','Past Shows','Lost','Referred','All'];
+  var act=['Follow up','Upcoming Shows','Tasks','Partners'], arc=['Past Shows','Lost','Referred','All'];
   // Only surface the References filter once there's at least one, to avoid clutter.
-  if(LEADS.some(function(L){ return String(L['Reference OK']||'').trim()==='Yes'; })) opts.splice(opts.indexOf('All'), 0, 'References');
-  $('statusChips').innerHTML = opts.map(function(o){
+  if(LEADS.some(function(L){ return String(L['Reference OK']||'').trim()==='Yes'; })) arc.splice(arc.indexOf('All'), 0, 'References');
+  function chipHtml(o){
     var n = o==='Tasks' ? TASKS.filter(function(T){ return !T.done; }).length
       : o==='Partners' ? PARTNERS.length
       : LEADS.filter(function(L){ return matches(L,o); }).length;
     var isOn = FILTER===o;
     var cls = 'chip' + (isOn?' on':(n===0?' zero':''));
-    var html = '<button class="'+cls+'" onclick="setFilter(\''+o+'\')">'+o+' <span class="n'+(n===0?' zero':'')+'">'+n+'</span></button>';
-    if(o==='Partners') html += archiveScopeRowHtml();
-    return html;
-  }).join('');
-}
-function archiveScopeRowHtml(){
-  var opts = insightsScopeOptions();
-  return '<div style="grid-column:1/-1;margin-top:2px">'
-    +'<select onchange="setMainArchiveScope(this.value)">'
-    +opts.map(function(o){ return '<option value="'+o.v+'"'+(o.v===MAIN_ARCHIVE_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
-    +'</select>'
-    +'</div>';
+    return '<button class="'+cls+'" onclick="setFilter(\''+o+'\')">'+o+' <span class="n'+(n===0?' zero':'')+'">'+n+'</span></button>';
+  }
+  // The year only filters the archive chips (Past Shows, Lost, Referred, All), so its picker lives
+  // on the Archive label instead of floating between the two groups.
+  var pill='<select class="yearpill" aria-label="Archive year" onchange="setMainArchiveScope(this.value)">'
+    +insightsScopeOptions().map(function(o){ return '<option value="'+o.v+'"'+(o.v===MAIN_ARCHIVE_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
+    +'</select>';
+  $('statusChips').innerHTML =
+      '<div class="glab">Active</div>' + act.map(chipHtml).join('')
+    + '<div class="glab grow"><span>Archive</span>'+pill+'</div>' + arc.map(chipHtml).join('');
 }
 function setMainArchiveScope(v){ MAIN_ARCHIVE_SCOPE=v; renderChips(); renderLeads(); }
-function setFilter(f){ IFILTER=null; FILTER=f; renderChips(); renderLeads(); }
+function setFilter(f){
+  // Search looks through every lead and ignores the filters, so tapping a filter while a search is
+  // showing used to do nothing visible — now it ends the search and applies the filter.
+  if(Q && String(Q).trim()){ Q=''; var qi=$('q'); if(qi) qi.value=''; }
+  IFILTER=null; FILTER=f; renderChips(); renderLeads();
+}
+// While a search is showing the filter chips dim and a line says so (search covers all leads).
+function syncSearchState_(){
+  var on=!!(Q && String(Q).trim());
+  var ch=$('statusChips'); if(ch) ch.classList.toggle('paused', on);
+  var pn=$('searchPausedNote'); if(pn) pn.style.display = on ? 'block' : 'none';
+}
 
 function visible(){
   return LEADS.filter(function(L){ return matches(L, FILTER); });
@@ -3512,6 +3556,7 @@ function dismissReferralUI(id){
 function renderLeads(){
   if(CURRENT) renderNextStep();
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
+  syncSearchState_();
   renderTodayShow();
   renderOracleNudge();
   renderFollowupDue();
@@ -3995,6 +4040,94 @@ function buildActions(){
   if(L[C.email]) acts+='<a class="act" href="javascript:void(0)" onclick="openEmailPicker()">Email</a>';
   $('d_actions').innerHTML=acts;
 }
+/* ---------- Lead page top: summary line + Signed → Deposit → Balance tracker ----------
+   The facts first (date, type, how far away, price, status), then where the booking stands —
+   the same three steps the client sees on their event portal. Re-drawn from renderNextStep,
+   which already runs whenever the lead changes. */
+function leadDaysText_(ed){
+  var n=Math.round((ed-today0())/86400000);
+  if(n===0) return 'today';
+  if(n===1) return 'tomorrow';
+  if(n===-1) return 'yesterday';
+  return n>0 ? 'in '+n+' days' : Math.abs(n)+' days ago';
+}
+function leadSummaryHtml_(L){
+  var ed=pd(L[C.eventDate]);
+  var l1;
+  if(ed){
+    var edd=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
+    var bits=[esc(edd.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}))];
+    if(L[C.eventType]) bits.push(esc(String(L[C.eventType])));
+    l1='<div class="l1">'+bits.join(' <span class="mut">\u00b7</span> ')+' <span class="mut">\u00b7 '+leadDaysText_(edd)+'</span></div>';
+  } else {
+    l1='<div class="l1"><span class="mut">'+(L[C.eventType]?esc(String(L[C.eventType]))+' \u00b7 ':'')+'No event date yet</span></div>';
+  }
+  var tot=money(L[C.price])+money(L[C.travelFee]);
+  var st=esc(String(L[C.status]||'New'));
+  var l2='<div class="l2">'+(hasPrice(L) ? '<b>'+fmtMoney(tot)+'</b> '+(money(L[C.travelFee])>0?'total':'quoted') : 'No price yet')+' \u00b7 '+st+'</div>';
+  return l1+l2;
+}
+function leadTrackerHtml_(L){
+  var st=String(L[C.status]||'New');
+  if(st==='Lost' || st==='Referral' || st==='Referred') return '';
+  var signed=String(L[C.contractSigned]||'')==='Yes';
+  var depIn=String(L[C.depositReceived]||'')==='Yes', balIn=String(L[C.balancePaid]||'')==='Yes';
+  if(!hasPrice(L) && !signed && !depIn && !balIn) return '';
+  function box(cls, top, sub){ return '<div class="tk'+(cls?' '+cls:'')+'">'+top+'<small>'+sub+'</small></div>'; }
+  var out=[];
+  // a show that has already happened with no contract shows a dash, not a to-do
+  var ed0=pd(L[C.eventDate]), showOver=!!ed0 && new Date(ed0.getFullYear(), ed0.getMonth(), ed0.getDate())<today0();
+  out.push(signed ? box('done','Signed','\u2713') : (L[C.contractSignUrl] ? box('now','Signed','Awaiting') : box('','Signed', showOver ? '\u2014' : 'Not sent')));
+  if(depositBase(L)>0){
+    var depRep=String(L[C.depositReported]||'')==='Yes';
+    out.push(depIn ? box('done','Deposit',fmtMoney(depositFinal(L))+' \u2713')
+      : depRep ? box('now','Deposit','Reported')
+      : box(signed?'now':'','Deposit',fmtMoney(depositFinal(L))+' due'));
+  }
+  if(balanceBase(L)>0){
+    var balRep=String(L[C.balanceReported]||'')==='Yes';
+    var sub=fmtMoney(balanceFinal(L))+' due';
+    var ed=pd(L[C.eventDate]);
+    if(ed){
+      var dueDays=Number(L[C.balanceDueDays])>0 ? Number(L[C.balanceDueDays]) : 0;
+      var due=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate()); due.setDate(due.getDate()-dueDays);
+      sub = due<today0() ? 'overdue' : 'due '+due.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    }
+    out.push(balIn ? box('done','Balance',fmtMoney(balanceFinal(L))+' \u2713')
+      : balRep ? box('now','Balance','Reported')
+      : box('','Balance',sub));
+  }
+  return out.join('');
+}
+function renderLeadTop_(){
+  var sum=$('d_sub'), trk=$('d_track'); if(!sum || !CURRENT) return;
+  var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
+  sum.innerHTML=leadSummaryHtml_(L);
+  if(trk){ var h=leadTrackerHtml_(L); trk.innerHTML=h; trk.style.display=h?'flex':'none'; }
+}
+// The follow-up collapses to one row ("Follow-up  Oct 4, 9 AM  Change"); the date/time controls
+// and quick-bump buttons open on tap. Reads the inputs, which always hold the latest value.
+function renderFollowSummary(){
+  var sumEl=$('d_followsum'), btn=$('d_followchg'); if(!sumEl) return;
+  var v=$('d_followup').value, tm=$('d_followtime').value;
+  var open=$('d_followbody') && $('d_followbody').style.display!=='none';
+  if(!v){ sumEl.innerHTML='<span style="color:var(--muted)">None set</span>'; }
+  else {
+    var d=pd(v), late=d ? Math.round((today0()-d)/86400000) : 0;
+    var txt=esc(fmtFU(tm ? v+' '+tm : v));
+    if(late>0) txt+=' <span style="color:#E9927B">\u00b7 '+late+' day'+(late===1?'':'s')+' late</span>';
+    else if(late===0) txt+=' <span style="color:var(--muted)">\u00b7 today</span>';
+    sumEl.innerHTML=txt;
+  }
+  if(btn) btn.textContent = open ? 'Close' : (v ? 'Change' : 'Add');
+}
+function toggleFollow(force){
+  var b=$('d_followbody'); if(!b) return;
+  var open = (force===undefined) ? b.style.display==='none' : !!force;
+  b.style.display = open ? '' : 'none';
+  renderFollowSummary();
+}
+
 /* ---------- Lead "next step" ----------
    One button under the client's name for the single thing to do next on this booking,
    worked out from where it stands. Nothing pending (or Lost/Referred) -> no panel. */
@@ -4046,8 +4179,10 @@ function nextStepFor_(L){
 }
 function renderNextStep(){
   var box=$('d_nextstep'); if(!box) return;
+  renderLeadTop_();
   var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT);
   var step=L ? nextStepFor_(L) : null;
+  renderContractSection_(L, step);
   if(!step){ box.style.display='none'; box.innerHTML=''; NS_ARM=null; return; }
   var armed=NS_ARM===step.kind;
   box.innerHTML='<div class="ns-lbl">Next step</div>'
@@ -4062,7 +4197,11 @@ function doNextStep(kind){
   var step=nextStepFor_(L);
   if(!step || step.kind!==kind){ renderNextStep(); return; } // the lead changed underneath — show the current step
   if(kind==='set-price'){ openPriceField_(); return; }
-  if(kind==='contract'){ var genBtn=$('d_contractbtn'); if(genBtn) genBtn.scrollIntoView({behavior:'smooth', block:'center'}); generateContractUI(); return; }
+  if(kind==='contract'){
+    CONTRACT_SHOW=true; renderContractSection_(L, step);
+    var genWrap=$('d_contractwrap'); if(genWrap) genWrap.scrollIntoView({behavior:'smooth', block:'center'});
+    generateContractUI(); return;
+  }
   if(kind==='link'){ copyToClipboard(L[C.contractSignUrl]); toast('Event portal link copied'); return; }
   if(kind==='review'){ if(L[C.email]) openEmailPicker(); else openTextPicker(); return; }
   // Money steps: arm-then-confirm, auto-revert after 3.5s (same safety pattern as delete/regenerate).
@@ -4140,11 +4279,11 @@ function openSheet(row){
       cr.style.display='none'; cr.innerHTML='';
     }
   }
-  var cb=$('d_contractbtn'); if(cb){ cb.disabled=false; cb.textContent = (L[C.contractSignUrl]?'Regenerate Contract \u2726':'Generate Contract \u2726'); }
-  CONTRACT_ARM=false;
+  var cb=$('d_contractbtn'); if(cb){ cb.disabled=false; cb.textContent = contractBtnLabel_(!!L[C.contractSignUrl]); }
+  CONTRACT_ARM=false; CONTRACT_SHOW=false;
   $('d_backlink').innerHTML='&#8592; '+esc(currentBackLabel());
   $('d_name').textContent = L[C.name]||'Lead';
-  $('d_sub').textContent = [(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType]].filter(Boolean).join(' \u00b7 ');
+  renderLeadTop_();
   buildActions();
   NS_ARM=null;
   renderNextStep();
@@ -4166,6 +4305,8 @@ function openSheet(row){
   else { $('d_lostreason').value=''; $('d_lostreason_other').style.display='none'; $('d_lostreason_other').value=''; }
   refToggle();
   $('d_notes').value = L[C.notes]||'';
+  KV_ALL=false;
+  toggleFollow(false);
   buildKV();
   $('h_note').value='';
   $('h_wrap').style.display='none'; $('h_chev').innerHTML='&#9662;';
@@ -4300,14 +4441,38 @@ function toggleFieldHiddenUI(col){
 function persistFieldSettings(){
   GS.withSuccessHandler(function(){}).withFailureHandler(function(){ toast('Could not save field settings \u2014 try again'); }).saveFieldSettings(JSON.stringify(KVF_ORDER), JSON.stringify(KVF_HIDDEN));
 }
+// The details list shows only what has a value; the empty fields sit behind "+ Add details
+// (N empty)" so a booking reads as facts, not a wall of dashes. KV_ALL = that link is open.
+var KV_ALL=false;
+function kvIsEmpty_(F){ return kvDisplay(F)==='\u2014'; }
 function buildKV(){
-  $('d_kv').innerHTML = orderedVisibleKVIndices().map(function(i){
+  var idxs=orderedVisibleKVIndices();
+  var empty=idxs.filter(function(i){ return kvIsEmpty_(KVF[i]); });
+  var show=KV_ALL ? idxs : idxs.filter(function(i){ return empty.indexOf(i)<0; });
+  $('d_kv').innerHTML = show.map(function(i){
     var F=KVF[i];
     return '<div class="k">'+F.label+'</div>'
       +'<div class="v" id="kv_'+i+'" onclick="editKV('+i+')">'+kvDisplay(F)+'</div>';
   }).join('');
+  var more=$('d_addmore');
+  if(more){
+    if(KV_ALL){ more.style.display='block'; more.textContent='Show fewer'; }
+    else if(empty.length){ more.style.display='block'; more.textContent='+ Add details ('+empty.length+' empty)'; }
+    else more.style.display='none';
+  }
   renderCardFeeNote();
   renderHiddenFieldsNote();
+}
+function toggleDetails(){ KV_ALL=!KV_ALL; buildKV(); }
+// Make sure field KVF[i]'s row is on screen before something edits it (the next-step buttons and
+// the auto-opened "received date" do): it may have been filled since the list was drawn, or be an
+// empty field that is still tucked behind "+ Add details".
+function ensureKVShown_(i){
+  if($('kv_'+i)) return true;
+  buildKV();
+  if($('kv_'+i)) return true;
+  KV_ALL=true; buildKV();
+  return !!$('kv_'+i);
 }
 function renderCardFeeNote(){
   var el=$('d_cardfee_note'); if(!el || !CURRENT) return;
@@ -4325,6 +4490,7 @@ function renderCardFeeNote(){
 function editKV(i){
   if(!CURRENT) return;
   var F=KVF[i], cell=$('kv_'+i);
+  if(!cell){ if(!ensureKVShown_(i)) return; cell=$('kv_'+i); }
   if(cell.querySelector('input,select')) return;
   var v=CURRENT[F.col], iv='';
   if(F.type==='select'){
@@ -4451,7 +4617,7 @@ function commitKV_(i, nv){
     var ddi=KVF.findIndex(function(x){ return x.col===C.depositReceivedDate; });
     if(ddi>-1){
       toast('Marked received today \u2014 adjust the date below if that\u2019s not right');
-      setTimeout(function(){ if($('kv_'+ddi)) editKV(ddi); }, 300);
+      setTimeout(function(){ if(ensureKVShown_(ddi)) editKV(ddi); }, 300);
     }
   }
   if(F.col===C.balancePaid && nv==='Yes' && !CURRENT[C.balancePaidDate]){
@@ -4460,13 +4626,12 @@ function commitKV_(i, nv){
     var bdi=KVF.findIndex(function(x){ return x.col===C.balancePaidDate; });
     if(bdi>-1){
       toast('Marked received today \u2014 adjust the date below if that\u2019s not right');
-      setTimeout(function(){ if($('kv_'+bdi)) editKV(bdi); }, 300);
+      setTimeout(function(){ if(ensureKVShown_(bdi)) editKV(bdi); }, 300);
     }
   }
   var kvEl=$('kv_'+i); if(kvEl) kvEl.innerHTML=kvDisplay(F);
   if(F.col===C.phone || F.col===C.email) buildActions();
-  if(F.col===C.service || F.col===C.eventType)
-    $('d_sub').textContent = [(CURRENT[C.service]?svcLabel(CURRENT[C.service]):''), CURRENT[C.eventType]].filter(Boolean).join(' \u00b7 ');
+  renderLeadTop_();
   if(F.col===C.price || F.col===C.deposit || F.col===C.paymentMethod) renderCardFeeNote();
   $('d_savestat').innerHTML='Saving\u2026';
   renderChips(); renderLeads(); renderInsights();
@@ -4602,6 +4767,7 @@ function onFollowupChange(presetNote){
   // implausible years until the date is complete, and never steal focus
   // from the field mid-typing (only the quick-bump buttons pass a note).
   if(v){ var yr=parseInt(v.slice(0,4),10); if(!(yr>=2000 && yr<=2100)) return; }
+  renderFollowSummary();
   queueAutoSave();
   if(v){
     $('fu_noteprompt').style.display='';
@@ -5342,6 +5508,24 @@ function dismissPortalPreviewTip(){
   var t=$('portalPreviewTip'); if(t) t.style.display='none';
 }
 var CONTRACT_ARM = false;
+var CONTRACT_SHOW = false; // this lead's contract block was opened on purpose (generating, or an error to show)
+function contractBtnLabel_(hasContract){ return hasContract ? 'Regenerate contract' : 'Generate contract'; }
+// The bottom of the lead page is a quiet "Contract" block, not a second big Generate button:
+// one "Generate" at a time — while the Next step card is offering it, this block stays out of the
+// way; once a contract exists it holds its links (event portal link, PDF, Google Doc) and a
+// small tap-twice "Regenerate"; and if Next step is busy with something else (or the lead is
+// Lost), a quiet "Generate contract" is still here so nobody is ever stuck.
+function renderContractSection_(L, step){
+  var wrap=$('d_contractwrap'), btn=$('d_contractbtn'), out=$('d_contract_result');
+  if(!wrap || !btn || !L) return;
+  var has=!!L[C.contractSignUrl];
+  var nextStepGenerates=!!(step && step.kind==='contract');
+  var showBtn = has || !nextStepGenerates || CONTRACT_SHOW;
+  var panel = !!(out && out.style.display!=='none' && out.innerHTML!=='');
+  wrap.style.display = (showBtn || panel) ? 'block' : 'none';
+  btn.style.display = showBtn ? 'block' : 'none';
+  if(!btn.disabled && !CONTRACT_ARM) btn.textContent=contractBtnLabel_(has);
+}
 // Only regenerating an EXISTING contract gets this protection — the very
 // first generation for a lead has nothing yet to accidentally lose, so
 // that one stays a single tap.
@@ -5351,6 +5535,7 @@ var CONTRACT_ARM = false;
 function openPriceField_(){
   var pi=KVF.findIndex(function(F){ return F.col===C.price; });
   if(pi<0) return;
+  if(!ensureKVShown_(pi)) return;
   var el=$('kv_'+pi); if(!el) return;
   el.scrollIntoView({behavior:'smooth', block:'center'});
   setTimeout(function(){ editKV(pi); }, 350);
@@ -5376,17 +5561,19 @@ function generateContractUI(){
 }
 function doGenerateContract(){
   var btn=$('d_contractbtn'), out=$('d_contract_result');
+  CONTRACT_SHOW=true; renderContractSection_(CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT), null);
   btn.disabled=true; btn.textContent='Generating\u2026';
   GS.withSuccessHandler(function(json){
     btn.disabled=false;
     var r=JSON.parse(json);
     out.style.display='';
     if(r.ok){
-      btn.textContent='Regenerate Contract \u2726';
+      btn.textContent=contractBtnLabel_(true);
       renderContractResultPanel(r.signUrl, r.pdfUrl, r.docUrl);
-      if(CURRENT){ CURRENT[C.contractSignUrl]=r.signUrl; renderNextStep(); }
+      // keep all three links on the lead so the Contract block still shows them if this lead is reopened before a refresh
+      if(CURRENT){ CURRENT[C.contractSignUrl]=r.signUrl; CURRENT[C.contractPdfUrl]=r.pdfUrl; CURRENT[C.contractDocUrl]=r.docUrl; renderNextStep(); }
     } else {
-      btn.textContent='Generate Contract \u2726';
+      btn.textContent=contractBtnLabel_(false);
       out.innerHTML =
         '<div style="border:1px solid var(--crimson);border-radius:10px;padding:12px;margin-top:10px">'
         +'<p class="note" style="text-align:left;margin:0;color:#E9927B">'+esc(r.error||'Could not generate contract.')+'</p>'
@@ -5394,7 +5581,7 @@ function doGenerateContract(){
       toast('Could not generate contract \u2014 see details below');
     }
   }).withFailureHandler(function(err){
-    btn.disabled=false; btn.textContent='Generate Contract \u2726';
+    btn.disabled=false; btn.textContent=contractBtnLabel_(false);
     out.style.display='';
     out.innerHTML =
       '<div style="border:1px solid var(--crimson);border-radius:10px;padding:12px;margin-top:10px">'
@@ -9328,6 +9515,12 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.55', d:'Sep 2026', notes:[
+    'A clearer lead page: the top now shows the essentials \u2014 event date, type, how far away it is, the price and status \u2014 followed by a Signed \u2192 Deposit \u2192 Balance tracker (the same three steps your client sees on their event portal), then the Next step card and Call / Text / Email.',
+    'Lead details show only the fields that have a value; the empty ones sit behind \u201c+ Add details\u201d. The follow-up is a single tidy row that opens when you tap it.',
+    'The big \u201cGenerate Contract\u201d button at the bottom of a lead is now a quiet Contract section: it holds the event portal link, PDF and Google Doc links plus a small Regenerate, and steps aside while the Next step card is already offering to generate the contract.',
+    'The Leads list filters are grouped into Active and Archive, with the year picker as a small pill on the Archive row (it only filters the archive chips). While you search, the filters dim to show search covers every lead \u2014 and tapping a filter ends the search.'
+  ]},
   { v:'1.5.54', d:'Sep 2026', notes:[
     'Your signature on contracts and receipts: in Settings \u2192 Your business \u2192 Your signature, pick a signature style (Dancing Script, Mr De Haviland, Mr Dafoe or Qwigley) with a live preview, or upload a picture of your own signature. An uploaded signature is kept private in your Google Drive and is used instead of the style.',
     'Tip: if your logo is on a see-through background and you\u2019d rather not have the black square behind it on contracts and receipts, turn off Settings \u2192 Advanced \u2192 Logo backing.'
