@@ -85,6 +85,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .card.task .tcheck{margin-top:1px}
 .tpills{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .tdel{flex:0 0 auto;color:#E9927B;font-size:15px;padding:4px 8px;opacity:.9;margin-left:auto}
+.tmain{min-width:0;flex:1}
+.tdraft{display:block;margin:9px 0 0;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--gold-bright);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px}
 .treorder{flex:0 0 auto;display:flex;flex-direction:column;gap:1px}
 .tord{color:var(--gold);font-size:12px;padding:3px 7px;background:none;border:none;opacity:.85}
 .tord:disabled{opacity:.2}
@@ -356,6 +358,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 #expensePeriodRow .pillsel{padding:5px 22px 5px 10px}
 .chips.paused .chip,.chips.paused .glab{opacity:.4}
 .pausednote{display:none;font-size:12px;color:var(--gold-bright);font-weight:600;margin:8px 2px 0}
+.filternote{display:none;font-size:12px;color:var(--muted);margin:8px 2px 0}
 
 /* ---------- Insights ---------- */
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
@@ -615,6 +618,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
     <div class="chips" id="statusChips"></div>
     <div class="pausednote" id="searchPausedNote">Searching all leads &middot; tap a filter to switch back</div>
+    <div class="filternote" id="upcomingYearNote"></div>
     <div id="leadTapHintCard" style="display:none"></div>
     <div id="loader"><span class="spin">&#10038;</span>&nbsp; Raising the curtain&hellip;</div>
     <div id="leadList"></div>
@@ -931,6 +935,15 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
         <span class="t">Referral link</span><span class="chev">&#8250;</span>
       </button>
+      <button type="button" class="more-row" id="testmail_toggle" onclick="toggleTestEmail()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/><path d="M15.5 17.5l1.8 1.8 3.4-3.6"/></svg></span>
+        <span class="t">Send me a test email</span><span class="chev">&#8250;</span>
+      </button>
+      <div id="testmail_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Sends a short email to your contact email, so you know the alerts for a signed contract or a reported payment will reach you.</p>
+        <button class="save" id="testMailBtn" style="width:100%" onclick="sendTestEmail()">Send test email</button>
+        <p class="note" id="testMailStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+      </div>
 
     </div>
 
@@ -1287,7 +1300,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeEmailPicker()">&#8592; Back</a>
   <h2>Email</h2>
-  <p class="note" style="text-align:left;margin-top:-6px">Pick a template &mdash; the name fills in and your email app opens ready to send.</p>
+  <p class="note" style="text-align:left;margin-top:-6px">Pick a template &mdash; the name fills in and your email app opens ready to send.<span id="epicker_draftnote" style="display:none"> Or tap <b>Branded Gmail draft</b> for a polished version saved to Gmail.</span></p>
   <div id="epicker_hint" style="display:none"></div>
   <div class="field" id="epicker_refwrap" style="display:none"><label>Attach a referred lead's info</label>
     <select id="epicker_refsel" onchange="onRefLeadChange()"></select>
@@ -1460,6 +1473,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
 <script>
 var CFG = <?!= JSON.stringify(cfg) ?>;
+// Branded Gmail drafts are opt-in: they need the Gmail service from appsscript.json, which a four-file update
+// doesn't bring. True only when the server can use it; until then the button and its line stay hidden.
+var DRAFTS_READY = <?!= JSON.stringify(typeof draftsReady === 'undefined' ? false : !!draftsReady) ?>;
 /* ---------- Server calls ----------
    Every owner-only server function is reached through the single api(key, name, args) gate
    on the server, which checks this page's private access key. GS mimics GS
@@ -3409,6 +3425,24 @@ function syncSearchState_(){
   var ch=$('statusChips'); if(ch) ch.classList.toggle('paused', on);
   var pn=$('searchPausedNote'); if(pn) pn.style.display = on ? 'block' : 'none';
 }
+// Upcoming Shows isn't limited to one year (it's "what's on my calendar"), while Insights counts the
+// selected year — so when some upcoming shows fall in another year, say so under the chips
+// ("5 this year \u00b7 1 in 2027"). Only while Upcoming Shows is open; hidden if they're all this year.
+function syncUpcomingNote_(){
+  var n=$('upcomingYearNote'); if(!n) return;
+  var txt='';
+  if(FILTER==='Upcoming Shows' && !IFILTER && !(Q && String(Q).trim())){
+    var now=new Date().getFullYear(), thisYear=0, other={};
+    LEADS.forEach(function(L){
+      if(!matches(L,'Upcoming Shows')) return;
+      var y=leadYear(L);
+      if(y===null || y===now) thisYear++; else other[y]=(other[y]||0)+1;
+    });
+    var ys=Object.keys(other).sort();
+    if(ys.length) txt = thisYear+' this year'+ys.map(function(y){ return ' \u00b7 '+other[y]+' in '+y; }).join('');
+  }
+  n.textContent=txt; n.style.display = txt ? 'block' : 'none';
+}
 
 function visible(){
   return LEADS.filter(function(L){ return matches(L, FILTER); });
@@ -3594,6 +3628,7 @@ function renderLeads(){
   if(CURRENT) renderNextStep();
   var qClear=$('qClear'); if(qClear) qClear.classList.toggle('show', !!(Q && Q.length));
   syncSearchState_();
+  syncUpcomingNote_();
   renderTodayShow();
   renderOracleNudge();
   renderFollowupDue();
@@ -5100,7 +5135,7 @@ function buildReferralUrl_(appLink, L){
 }
 function referralLinkBlock_(appLink, L){
   var url=buildReferralUrl_(appLink, L);
-  return url ? '\n\nMagic Manager user? Tap to add this lead to your app:\n'+url : '';
+  return url ? '\n\nMagic Manager user? Tap to add this lead:\n'+url : '';
 }
 // Body for a partner email: the normal template, plus the one-tap link when this partner has
 // one saved and a lead is attached (unless the template already placed it with {referral_link}).
@@ -5424,10 +5459,11 @@ function renderEmailPicker(){
   $('epicker_list').innerHTML = list.length
     ? list.map(function(t,i){
         var url=mailUrl(to, fillTpl(t.subject,pseudoLead,refLead), partnerEmailBody_(t,pseudoLead,refLead));
-        return '<div class="card task" style="cursor:pointer">'
-        +'<a class="tbody" href="'+esc(url)+'" target="_top" onclick="onEmailSent()" style="text-decoration:none;color:inherit">'
+        return '<div class="card task" style="cursor:pointer"><div class="tmain">'
+        +'<a class="tbody" href="'+esc(url)+'" target="_top" onclick="onEmailSent()" style="display:block;text-decoration:none;color:inherit">'
         +'<div class="tname">'+esc(t.name)+'</div>'
         +'<div class="tpills"><span class="pill gold">'+esc(t.subject||'No subject')+'</span></div></a>'
+        +(DRAFTS_READY ? '<button class="tdraft" title="Save as a branded Gmail draft" aria-label="Save as a branded Gmail draft" onclick="event.stopPropagation();saveEmailDraft('+i+')">Branded Gmail draft</button>' : '')+'</div>'
         +(reorderable ? '<span class="treorder">'
           +'<button class="tord" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'up\')">&#9650;</button>'
           +'<button class="tord" '+(i===list.length-1?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'down\')">&#9660;</button>'
@@ -5437,6 +5473,7 @@ function renderEmailPicker(){
     : '<div class="empty"><span class="star">&#10038;</span>No '+(EPICKER_MODE==='partner'?'partner ':'')+'templates yet &mdash; add one below.</div>';
   var pl=$('epicker_plain'); pl.href=mailUrl(to,'',''); pl.target='_top';
   tplHintUpdate_('epicker_hint');
+  var dn=$('epicker_draftnote'); if(dn) dn.style.display = DRAFTS_READY ? 'inline' : 'none';
   $('overlay').classList.add('open'); $('epicker').classList.add('open');
 }
 function moveTemplateUI(id, direction){
@@ -5451,6 +5488,27 @@ function moveTemplateUI(id, direction){
   }).withFailureHandler(function(){ toast('Could not reorder \u2014 try again'); refreshQuiet(); }).moveTemplate(id, direction);
 }
 function closeEmailPicker(){ $('epicker').classList.remove('open'); syncOverlay(); }
+// Saves the picked template as a branded HTML draft in the owner's Gmail (the event portal link
+// becomes a button, the signature comes from Settings). Nothing is sent, so nothing is logged as contact.
+var DRAFTING_=false;
+function saveEmailDraft(i){
+  if(DRAFTING_) return;
+  var list = EPICKER_MODE==='partner' ? PARTNERTPL : TPL, t=list[i]; if(!t) return;
+  var subject=fillTpl(t.subject,EPICKER_CTX,EPICKER_REFLEAD), body=partnerEmailBody_(t,EPICKER_CTX,EPICKER_REFLEAD);
+  // The long link in the message becomes a button: the event portal for a client email, or "Add to
+  // Magic Manager" (the partner's one-tap referral link) when a referral lead is attached to a partner email.
+  var portal='', label='Event portal';
+  if(EPICKER_MODE==='lead') portal=String((EPICKER_CTX&&EPICKER_CTX[C.contractSignUrl])||'').trim();
+  else if(EPICKER_MODE==='partner' && EPICKER_CTX && EPICKER_CTX._appLink && EPICKER_REFLEAD){ portal=buildReferralUrl_(EPICKER_CTX._appLink, EPICKER_REFLEAD); label='Add to Magic Manager'; }
+  DRAFTING_=true; toast('Saving draft\u2026');
+  GS.withSuccessHandler(function(json){
+    DRAFTING_=false;
+    var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
+    if(r.ok){ toast('Draft saved in Gmail \u2713'); markSeen('tplHint'); closeEmailPicker(); }
+    else toast(r.error || 'Could not save the draft \u2014 try again');
+  }).withFailureHandler(function(){ DRAFTING_=false; toast('Could not save the draft \u2014 try again'); })
+    .createProposalDraft(EPICKER_TO, subject, body, portal, label);
+}
 function mailUrl(to, subject, body){
   return 'mailto:'+String(to||'').trim()+'?subject='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'');
 }
@@ -7242,6 +7300,22 @@ function insightEvent(evt){ showInsightInPlace('Event type \u00b7 '+evt, functio
 // key (case/space-insensitive, same rule as everywhere else) and opens the
 // in-Insights overlay like the rest.
 function insightSource(src){ showInsightInPlace('Lead source \u00b7 '+src, function(L){ return sourceKey_(L[C.source])===sourceKey_(src); }); }
+function toggleTestEmail(){
+  var w=$('testmail_wrap'), btn=$('testmail_toggle'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'':'none';
+  if(btn) btn.classList.toggle('open', open);
+}
+function sendTestEmail(){
+  var btn=$('testMailBtn'), stat=$('testMailStat');
+  btn.disabled=true; btn.textContent='Sending\u2026'; stat.style.display='none';
+  function done(msg){ btn.disabled=false; btn.textContent='Send test email'; stat.textContent=msg; stat.style.display='block'; }
+  GS.withSuccessHandler(function(json){
+    var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
+    if(r.ok) done('Sent to '+r.to+' \u2726 check your inbox (and spam, just this once).'+(r.signOn?'':' Note: \u201cEmail me when a client signs\u201d is turned off in your settings.'));
+    else done(r.error||'Could not send the test email \u2014 try again.');
+  }).withFailureHandler(function(){ done('Could not send the test email \u2014 try again.'); }).sendTestEmail();
+}
 function syncContacts(){
   var btn=$('syncBtn'), stat=$('syncStat');
   if(stat) stat.style.display='block';
@@ -9585,6 +9659,13 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.57', d:'Sep 2026', notes:[
+    'New (optional): \u201cBranded Gmail draft\u201d. On a lead, open Email and tap it under a template \u2014 a polished email lands in your Gmail drafts with the event portal link as a button and your signature (logo, name, business, phone, website, email). For a partner email with a referral lead attached, the one-tap link becomes an \u201cAdd to Magic Manager\u201d button. It needs one extra update step (replace appsscript.json and approve Gmail once) \u2014 see the update page. Until then the button stays hidden and nothing else changes.',
+    'Settings \u2192 \u201cEvent portal & email look\u201d: your accent color and background now style those emails too. Emails use the closest font every mail app has, since mail apps can\u2019t load web fonts.',
+    'Settings \u2192 Tools \u2192 \u201cSend me a test email\u201d checks that your alerts (a client signs, a payment is reported) can reach you, and tells you plainly if something is blocking them.',
+    'Leads: when some upcoming shows fall in another year, a quiet line under Upcoming Shows says so (for example \u201c5 this year \u00b7 1 in 2027\u201d).',
+    'Fixed: an unexpected font value in the event portal look could stop the portal from loading.'
+  ]},
   { v:'1.5.56', d:'Sep 2026', notes:[
     'The lead page now follows the life of the booking: while someone is still a prospect, the Follow-up and Status tiles and the History bar sit right at the top; once they\u2019re a client, the Signed \u2192 Deposit \u2192 Balance tracker leads. The Follow-up and Status tiles are more compact, and \u201cMark as reference\u201d waits until after the event.',
     'One small, quiet dropdown for periods: Leads (beside Archive), Insights and Expenses now share the same subtle pill picker, with a \u201cPeriod\u201d label on Insights. The redundant \u201cShowing\u2026\u201d line on Insights is gone, and on Expenses the Period and Month pickers now sit side by side.',

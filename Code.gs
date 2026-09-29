@@ -159,7 +159,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
-  { key: 'PORTAL_THEME', label: 'Event portal look', help: 'Optional. Match your brand on your event portal — accent color, background, and fonts. Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
+  { key: 'PORTAL_THEME', label: 'Event portal & email look', help: 'Optional. Match your brand on your event portal and your branded Gmail drafts — accent color, background, and fonts. (Emails use the closest font every mail app has, since mail apps can\u2019t load web fonts.) Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
@@ -289,7 +289,7 @@ function portalTheme_(themeStr) {
   var bg = (t.bg === 'light' || t.bg === 'custom') ? t.bg : 'dark';
   var bgColor = bg === 'light' ? '#F7F4EE' : (bg === 'custom' && hexOk_(t.bgColor) ? t.bgColor : '');
   if (bg === 'custom' && !bgColor) bg = 'dark';
-  var font = PORTAL_FONTS_[t.font] ? t.font : '';
+  var font = Object.prototype.hasOwnProperty.call(PORTAL_FONTS_, t.font) ? t.font : '';
   if (!accent && bg === 'dark' && !font) return null;
 
   var vars = {}, extra = '', warn = '';
@@ -516,7 +516,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.56';
+var APP_VERSION = '1.5.57';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1053,11 +1053,12 @@ function doGet(e) {
     return HtmlService.createHtmlOutput(
       '<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:60px 20px;text-align:center;color:#ddd;background:#0B0B10;min-height:100vh">' +
       '<h2 style="color:#C9A050">Update not finished</h2>' +
-      '<p>The new <b>Code.gs</b> is in place, but <b>Index.html</b> is still the old version. In the Apps Script editor, replace <b>Index.html</b> with the new file (and Sign.html, Store.html and appsscript.json if you haven\u2019t), save, then choose Deploy \u2192 Manage deployments \u2192 New version.</p>' +
+      '<p>The new <b>Code.gs</b> is in place, but <b>Index.html</b> is still the old version. In the Apps Script editor, replace <b>Index.html</b> with the new file (and Sign.html and Store.html if you haven\u2019t), save, then choose Deploy \u2192 Manage deployments \u2192 New version.</p>' +
       '<p style="color:#888;font-size:13px">Your data is safe and untouched.</p></div>'
     ).setTitle('Update not finished').addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
   indexTpl.cfg = getConfig_();
+  indexTpl.draftsReady = typeof Gmail !== 'undefined';   // Gmail service present (appsscript.json updated) -> show Branded Gmail draft
   indexTpl.appKey = providedKey;
   indexTpl.serverApi = PAGE_API_;
   indexTpl.uiSeen = uiSeen_();
@@ -1106,6 +1107,7 @@ function bankDetails_() {
 var API_ = {
   getSettings: getSettings_, saveSettings: saveSettings_, previewPortalTheme: previewPortalTheme_,
   uploadBusinessDoc: uploadBusinessDoc_, removeBusinessDoc: removeBusinessDoc_,
+  createProposalDraft: createProposalDraft_, sendTestEmail: sendTestEmail_,
   uploadSignature: uploadSignature_, removeSignature: removeSignature_, getSignaturePreview: getSignaturePreview_, activateLicense: activateLicense_,
   startTrial: startTrial_, getTrialInfo: getTrialInfo_, markTrialWarned: markTrialWarned_, getUpdateInfo: getUpdateInfo_,
   snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_,
@@ -1240,6 +1242,183 @@ function getLogoBlob_() {
     }
   } catch (e) {}
   return null;
+}
+
+// Mail apps can't load web fonts, so each event-portal font pair maps to the closest font every mail app has.
+var EMAIL_FONTS_ = {
+  elegant:  "'Palatino Linotype',Palatino,Georgia,serif",
+  classic:  "Georgia,'Times New Roman',serif",
+  modern:   "Arial,Helvetica,sans-serif",
+  opensans: "'Segoe UI',Tahoma,Geneva,sans-serif",
+  bold:     "Verdana,Geneva,sans-serif",
+  playful:  "'Trebuchet MS','Lucida Grande',Tahoma,sans-serif"
+};
+function emailFontStack_(themeStr) {
+  var t = {};
+  try { t = themeStr ? (JSON.parse(themeStr) || {}) : {}; } catch (e) { t = {}; }
+  return Object.prototype.hasOwnProperty.call(EMAIL_FONTS_, t.font) ? EMAIL_FONTS_[t.font] : '';
+}
+
+/* ---------- Branded proposal email (HTML) ----------
+ * Turns the plain text a Magic Manager email template produces into the dark-and-gold email of the
+ * new-buyer message: the event portal link becomes a gold "Event portal" button (other links stay
+ * links) and a signature built from Settings — logo, name, business, phone, website, email, each a
+ * tappable link — closes it. buttonLabel defaults to "Event portal"; a partner referral email passes
+ * "Add to Magic Manager" with the one-tap referral link. Pure function: returns HTML only; drafting/sending happens elsewhere.
+ * hasLogo=true means the caller will attach the logo as the inline image "logo" (cid:logo). */
+function proposalEmailHtml_(bodyText, portalUrl, cfg, hasLogo, buttonLabel) {
+  cfg = cfg || {};
+  buttonLabel = String(buttonLabel || 'Event portal').replace(/[\r\n]+/g, ' ').trim().slice(0, 40) || 'Event portal';
+  // Follows the owner's "Event portal & email look" (Settings -> PORTAL_THEME): the same function that
+  // colours the portal supplies the accent / background / text colours, so the two always match. No theme
+  // chosen = the classic dark-and-gold email.
+  var TV = (portalTheme_(cfg.PORTAL_THEME) || {}).vars || {};
+  var INK = TV['--ink'] || '#0B0B10', GOLD = TV['--gold'] || '#C9A050', GOLDB = TV['--gold-bright'] || '#E4C179',
+      CREAM = TV['--cream'] || '#F4EBD3', MUTED = TV['--muted'] || '#928A75';
+  var STACK = emailFontStack_(cfg.PORTAL_THEME);
+  var FONT = STACK || "Georgia,'Times New Roman',serif", SANS = STACK || 'Arial,Helvetica,sans-serif';
+  var NAMEC = lumHex_(INK) > 0.4 ? CREAM : '#FFFFFF';   // your name: white on dark, the dark text colour on light
+  var RULE = (TV['--ink'] || TV['--cream']) ? mixHex_(INK, CREAM, 0.18) : '#2A2A35';   // thin divider above the signature (classic look keeps its exact colour)
+  var urlOk = function (u) { return /^https?:\/\/[^\s<>"']+$/i.test(u); };
+  var portal = String(portalUrl || '').trim();
+  if (!urlOk(portal)) portal = '';
+  var linkStyle = 'color:' + GOLDB + ';text-decoration:underline';
+
+  // Escape first, then turn any remaining web addresses into links (trailing punctuation stays outside).
+  function textHtml(raw) {
+    return escHtml_(raw).replace(/https?:\/\/[^\s<]+/g, function (m) {
+      var tail = (m.match(/[.,;:!?)]+$/) || [''])[0];
+      var u = m.slice(0, m.length - tail.length);
+      return '<a href="' + u + '" style="' + linkStyle + '">' + u + '</a>' + tail;
+    }).replace(/\n/g, '<br>');
+  }
+  function para(raw) {
+    raw = raw.replace(/^\s+|\s+$/g, '');
+    return raw ? '<p style="margin:0 0 16px;font-family:' + FONT + ';font-size:15px;line-height:1.65;color:' + CREAM + '">' + textHtml(raw) + '</p>' : '';
+  }
+  function button(url) {
+    return '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:10px auto 24px"><tr>'
+      + '<td bgcolor="' + INK + '" style="border:1px solid ' + GOLD + ';border-radius:4px">'
+      + '<a href="' + escHtml_(url) + '" style="display:inline-block;padding:14px 38px;font-family:' + FONT + ';font-size:13px;font-weight:bold;letter-spacing:.18em;text-transform:uppercase;color:' + GOLDB + ';text-decoration:none">' + escHtml_(buttonLabel) + '</a>'
+      + '</td></tr></table>';
+  }
+
+  var body = '';
+  String(bodyText == null ? '' : bodyText).replace(/\r\n?/g, '\n').split(/\n{2,}/).forEach(function (block) {
+    if (portal && block.indexOf(portal) > -1) {
+      var parts = block.split(portal);
+      parts.forEach(function (p, i) { body += para(p); if (i < parts.length - 1) body += button(portal); });
+    } else {
+      body += para(block);
+    }
+  });
+
+  // Signature, from Settings. A blank field leaves its line out.
+  var name = String(cfg.OWNER_NAME || '').trim(), biz = String(cfg.BUSINESS_NAME || '').trim();
+  var phone = String(cfg.PHONE || '').trim(), site = String(cfg.WEBSITE || '').trim(), mail = String(cfg.EMAIL || '').trim();
+  var small = 'font-family:' + SANS + ';font-size:13px;line-height:1.6;color:' + CREAM;
+  var lines = '';
+  if (name) lines += '<div style="font-family:' + SANS + ';font-size:17px;font-weight:bold;color:' + NAMEC + ';line-height:1.3">' + escHtml_(name) + '</div>';
+  if (biz && biz !== name) lines += '<div style="font-family:' + SANS + ';font-size:13px;color:' + MUTED + ';margin:1px 0 8px">' + escHtml_(biz) + '</div>';
+  if (phone) {
+    var digits = phone.replace(/[^0-9+]/g, '');
+    lines += '<div style="' + small + '">' + (digits ? '<a href="tel:' + escHtml_(digits) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(phone) + '</a>' : escHtml_(phone)) + '</div>';
+  }
+  if (site) {
+    var siteUrl = /^https?:\/\//i.test(site) ? site : 'https://' + site;
+    var siteLabel = site.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    lines += '<div style="' + small + '">' + (urlOk(siteUrl) ? '<a href="' + escHtml_(siteUrl) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(siteLabel) + '</a>' : escHtml_(siteLabel)) + '</div>';
+  }
+  if (mail) {
+    lines += '<div style="' + small + '">' + (/^[^\s<>"'@]+@[^\s<>"'@]+$/.test(mail) ? '<a href="mailto:' + escHtml_(mail) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(mail) + '</a>' : escHtml_(mail)) + '</div>';
+  }
+  var logoCell = hasLogo ? '<td valign="top" style="padding:0 16px 0 0;border-right:2px solid ' + GOLD + '"><img src="cid:logo" width="72" alt="" style="display:block;width:72px;height:auto;border:0;border-radius:4px"></td>' : '';
+  var sig = lines ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px"><tr>' + logoCell
+    + '<td valign="top" style="padding:0 0 0 ' + (hasLogo ? '16' : '0') + 'px">' + lines + '</td></tr></table>' : '';
+
+  return '<div style="background:' + INK + ';margin:0;padding:0">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + INK + '" style="background:' + INK + '"><tr><td align="center" style="padding:28px 16px">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px"><tr><td align="left" style="font-family:' + FONT + '">'
+    + body
+    + (sig ? '<div style="border-top:1px solid ' + RULE + ';margin:22px 0 16px"></div>' + sig : '')
+    + '</td></tr></table></td></tr></table></div>';
+}
+
+/* ---------- Saving the branded email as a Gmail draft ----------
+ * Uses the Gmail advanced service with ONLY the gmail.compose scope (create/edit drafts) — never
+ * GmailApp, which would need full read/delete access to the whole mailbox. The manifest lists every
+ * scope explicitly (appsscript.json); tests/check-scopes.js keeps that list in step with the code. */
+function mimeHeaderEncode_(s) {
+  s = String(s == null ? '' : s).replace(/[\r\n]+/g, ' ');
+  return /^[\x20-\x7E]*$/.test(s) ? s : '=?UTF-8?B?' + Utilities.base64Encode(Utilities.newBlob(s).getBytes()) + '?=';
+}
+function mimeBase64_(bytes) { return Utilities.base64Encode(bytes).replace(/(.{76})/g, '$1\r\n'); }
+// A complete RFC 822 message: text + HTML alternatives, with the logo inline (cid:logo) when given.
+function buildDraftMime_(to, subject, plain, html, logo) {
+  var id = Utilities.getUuid().replace(/-/g, '');
+  var alt = 'mm_alt_' + id, rel = 'mm_rel_' + id, N = '\r\n';
+  var altBody = '--' + alt + N + 'Content-Type: text/plain; charset=UTF-8' + N + 'Content-Transfer-Encoding: base64' + N + N
+    + mimeBase64_(Utilities.newBlob(String(plain == null ? '' : plain)).getBytes()) + N
+    + '--' + alt + N + 'Content-Type: text/html; charset=UTF-8' + N + 'Content-Transfer-Encoding: base64' + N + N
+    + mimeBase64_(Utilities.newBlob(String(html == null ? '' : html)).getBytes()) + N
+    + '--' + alt + '--' + N;
+  var head = (to ? 'To: ' + to + N : '') + 'Subject: ' + mimeHeaderEncode_(subject) + N + 'MIME-Version: 1.0' + N;
+  if (!logo) return head + 'Content-Type: multipart/alternative; boundary="' + alt + '"' + N + N + altBody;
+  var ext = /png/i.test(logo.getContentType()) ? 'png' : /gif/i.test(logo.getContentType()) ? 'gif' : 'jpg';
+  return head + 'Content-Type: multipart/related; boundary="' + rel + '"' + N + N
+    + '--' + rel + N + 'Content-Type: multipart/alternative; boundary="' + alt + '"' + N + N + altBody
+    + '--' + rel + N + 'Content-Type: ' + logo.getContentType() + '; name="logo.' + ext + '"' + N
+    + 'Content-Transfer-Encoding: base64' + N + 'Content-ID: <logo>' + N + 'Content-Disposition: inline; filename="logo.' + ext + '"' + N + N
+    + mimeBase64_(logo.getBytes()) + N + '--' + rel + '--' + N;
+}
+// Owner-only (reached through api() -> API_). Saves the message as a draft in the owner's Gmail.
+function createProposalDraft_(to, subject, body, portalUrl, buttonLabel) {
+  try {
+    // The Gmail service comes from appsscript.json. An app updated by pasting only the four code files
+    // (Code.gs, Index.html, Sign.html, Store.html) has the new code but not the manifest, so say exactly that
+    // instead of sending them to approve a Gmail request they will never be shown.
+    if (typeof Gmail === 'undefined') {
+      return JSON.stringify({ ok: false, needsManifest: true, error: 'Branded Gmail drafts need one extra update step: also replace the appsscript.json file, then approve the Gmail request. The update page explains how.' });
+    }
+    to = String(to == null ? '' : to).replace(/[\r\n]/g, '').trim();
+    if (!/^[^\s<>"',;@]+@[^\s<>"',;@]+$/.test(to)) to = '';
+    subject = String(subject == null ? '' : subject).replace(/[\r\n]+/g, ' ').trim();
+    body = String(body == null ? '' : body).slice(0, 50000);
+    var logo = getLogoBlob_();
+    if (logo && !/^image\/(png|jpe?g|gif)$/i.test(String(logo.getContentType() || ''))) logo = null;
+    var html = proposalEmailHtml_(body, portalUrl, getConfig_(), !!logo, buttonLabel);
+    var draft = Gmail.Users.Drafts.create({ message: { raw: Utilities.base64EncodeWebSafe(buildDraftMime_(to, subject, body, html, logo)) } }, 'me');
+    return JSON.stringify({ ok: true, id: draft && draft.id ? String(draft.id) : '' });
+  } catch (e) {
+    var msg = String(e && e.message ? e.message : e);
+    if (/not defined|permission|authoriz|scope|insufficient|not configured|has not been used|access denied/i.test(msg)) {
+      return JSON.stringify({ ok: false, needsAuth: true, error: 'Magic Manager needs your OK to save Gmail drafts. Open your Google Sheet, choose Extensions → Apps Script, run the function showGrantedScopes once and approve the Gmail request, then try again.' });
+    }
+    return JSON.stringify({ ok: false, error: 'Could not save the draft: ' + msg });
+  }
+}
+
+// Owner-only (Settings -> Tools -> Send me a test email). The app's email alerts (client signed, payment
+// reported, signed PDF failed) are best-effort and fail silently by design, so this is the one place a
+// missing permission or a blank contact email is SHOWN. Sends only to the owner's own contact email.
+function sendTestEmail_() {
+  try {
+    var cfg = getConfig_();
+    var to = String(cfg.EMAIL || '').trim();
+    if (!/^[^\s<>"',;@]+@[^\s<>"',;@]+$/.test(to)) {
+      return JSON.stringify({ ok: false, error: 'Add your contact email in Settings first \u2014 that\u2019s where these emails are sent.' });
+    }
+    var biz = String(cfg.BUSINESS_NAME || 'Magic Manager');
+    MailApp.sendEmail(to, 'Test email from ' + biz,
+      'This is a test from ' + biz + '.\n\nIf you can read this, Magic Manager can email you when a client signs their contract, reports a payment, or a signed PDF needs your attention.\n\nNothing else to do \u2014 you can delete this message.');
+    return JSON.stringify({ ok: true, to: to, signOn: String(cfg.SIGN_NOTIFY_EMAIL || '').trim().toLowerCase() !== 'no' });
+  } catch (e) {
+    var msg = String(e && e.message ? e.message : e);
+    if (/permission|authoriz|scope/i.test(msg)) {
+      return JSON.stringify({ ok: false, needsAuth: true, error: 'Magic Manager isn\u2019t allowed to send email yet. Open your Google Sheet, choose Extensions \u2192 Apps Script, run the function showGrantedScopes once and approve the email request, then try again.' });
+    }
+    return JSON.stringify({ ok: false, error: 'Could not send the test email: ' + msg });
+  }
 }
 
 /* ---------- Black backing for transparent logos ----------
@@ -6096,3 +6275,19 @@ function setup() {
   syncFollowUps();
 }
 
+
+/**
+ * Run from the editor (owner only). Lists the Google permissions this app holds right now.
+ * Read-only — changes nothing. Used once to build the manifest's explicit scope list exactly
+ * (the narrow Gmail "create drafts" permission means naming every scope, so none can be missed).
+ * The result appears in the execution log and is returned.
+ */
+function showGrantedScopes() {
+  ownerOnly_();
+  var res = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', {
+    method: 'post', payload: { access_token: ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  var scopes = String((JSON.parse(res.getContentText()) || {}).scope || '').split(' ').filter(Boolean).sort();
+  Logger.log(scopes.join('\n'));
+  return scopes;
+}

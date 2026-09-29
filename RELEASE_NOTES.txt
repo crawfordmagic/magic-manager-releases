@@ -1,9 +1,15 @@
 What's new in this update:
 
-• The lead page now follows the life of the booking: while someone is still a prospect, the Follow-up and Status tiles and the History bar sit right at the top; once they're a client, the Signed → Deposit → Balance tracker leads. The Follow-up and Status tiles are more compact, and "Mark as reference" waits until after the event.
+• NEW (optional) — Branded Gmail draft. On a lead, open Email and tap "Branded Gmail draft" under a template: a polished email lands in your Gmail drafts, with your event portal link as a button and your signature (logo, name, business, phone, website, email) at the bottom. For a partner email with a referral lead attached, the one-tap link becomes an "Add to Magic Manager" button. This needs one extra update step — see the OPTIONAL note below. Until you do it, the button stays hidden and nothing else changes.
 
-• One small, quiet dropdown for periods: Leads (beside Archive), Insights and Expenses now share the same subtle pill picker, with a "Period" label on Insights. The redundant "Showing…" line on Insights is gone, and on Expenses the Period and Month pickers now sit side by side.
+• Settings → "Event portal & email look": your accent color and background now style those emails too. Emails use the closest font every mail app has, because mail apps can't load web fonts.
 
-• Dropdown lists are now dark with light text everywhere (the Status list used to open white and was hard to read).
+• Settings → Tools → "Send me a test email" checks that your alerts (a client signs, a payment is reported) can reach you, and tells you plainly if something is blocking them.
 
-• IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
+• Leads: when some upcoming shows fall in another year, a quiet line under Upcoming Shows says so (for example "5 this year · 1 in 2027").
+
+• Fixed: an unexpected font value in the event portal look could stop the portal from loading.
+
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. (Your data is never affected.)
+
+• OPTIONAL, only for Branded Gmail drafts: ALSO replace appsscript.json (in Apps Script, click the gear "Project Settings" and turn on "Show appsscript.json manifest file in editor"), save, then — BEFORE you deploy — pick the function named showGrantedScopes at the top and click Run, and approve what Google shows. The screen will be longer than before and includes Gmail ("Manage drafts and send emails"); Magic Manager only ever saves drafts to your Gmail — it never reads your mail and never sends anything to your clients on its own. Then deploy the new version. Skip all of this and everything else works exactly as before.
