@@ -29,6 +29,8 @@ input[type="date"],input[type="time"]{
 }
 select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%);
   background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+/* The drop-down LIST is drawn by the browser; selects with a transparent background (the Status tile, the pill pickers) fall back to white behind cream text. Every list is near-black with cream text. */
+select option,select optgroup{background-color:var(--ink);color:var(--cream)}
 ::placeholder{color:#6b644f}
 .search-wrap{position:relative}
 .search-wrap input{padding-right:38px}
@@ -341,8 +343,17 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .chip.zero{opacity:.55;animation:none}
 /* Active / Archive groups + the year pill that belongs to the archive chips */
 .chips .glab{grid-column:1/-1;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:4px 2px 0}
-.chips .glab.grow{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
-.yearpill{width:auto;font-size:12px;font-weight:600;padding:5px 26px 5px 12px;border-radius:999px;color:var(--gold-bright);background-color:transparent;border:1px solid var(--line)}
+.chips .glab.grow{display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-top:8px}
+/* The subtle pill dropdown (Rich's favorite): sits right after the label / text that names it. */
+.pillsel{width:auto;max-width:100%;font-size:12px;font-weight:600;padding:5px 26px 5px 12px;border-radius:999px;color:var(--gold-bright);background-color:transparent;border:1px solid var(--line)}
+.pillrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+.pillrow .pgroup{display:flex;align-items:center;gap:8px;min-width:0}
+.pillrow label{margin:0;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700;white-space:nowrap}
+/* Period and Month sit side by side on one line on any normal phone (tighter gaps/labels/pills); only a very narrow screen wraps them, rather than clipping the text */
+#expensePeriodRow{gap:8px 8px}
+#expensePeriodRow .pgroup{flex:0 0 auto;gap:5px}
+#expensePeriodRow label{letter-spacing:.1em}
+#expensePeriodRow .pillsel{padding:5px 22px 5px 10px}
 .chips.paused .chip,.chips.paused .glab{opacity:.4}
 .pausednote{display:none;font-size:12px;color:var(--gold-bright);font-weight:600;margin:8px 2px 0}
 
@@ -484,10 +495,27 @@ a.help-fix{display:block;text-decoration:none}
 .trk .tk.now{border-color:var(--gold);color:var(--gold-bright)}
 .dlab{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:20px 0 0}
 .dmore{display:block;margin-top:8px;font-size:13px;font-weight:700;color:var(--gold-bright);cursor:pointer;text-decoration:none}
+.dquiet{margin-left:auto;padding:6px 0 6px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;text-decoration:none}
 .drow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
 .drow .dl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600}
 .drow .dsum{flex:1;font-size:13.5px;color:var(--cream)}
 .drow .dchg{font-size:12px;font-weight:700;color:var(--gold-bright)}
+/* lead page controls: Follow-up + Status tiles, and the History bar */
+.ctrlgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ctrlgrid.solo{grid-template-columns:1fr}
+.ctile{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:8px 12px 9px;cursor:pointer}
+.ctile .cl,.hbar .cl{display:block;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600}
+.ctile .cv{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:22px;margin-top:2px;font-size:13.5px;font-weight:700;color:var(--cream)}
+.ctile .cvt{min-width:0}
+.ctile .ccar{flex:0 0 auto;color:var(--gold);font-size:13px;font-weight:400;line-height:1}
+/* the Status picker fills the whole value area (wide, easy to hit) without adding height */
+.ctile select{width:calc(100% + 24px);height:30px;min-height:0;margin:-3px -12px -5px;padding:0 28px 0 12px;border:none;background-color:transparent;font-size:13.5px;font-weight:700;color:var(--cream);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%}
+.hbar{display:block;width:100%;margin-top:8px;text-align:left;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--cream)}
+.hbar .hb1{display:flex;align-items:center;gap:10px}
+.hbar .hsum{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.hbar .hsum b{color:var(--cream);font-weight:700}
+.hbar .hlast{font-size:13px;color:var(--cream);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar .hlast .mut{color:var(--muted)}
 .nextstep{margin:12px 0 4px;padding:12px;border:1px solid var(--gold);border-radius:12px;background:rgba(201,160,80,.07)}
 .nextstep .ns-lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-bright)}
 .nextstep .ns-why{font-size:13px;color:var(--muted);margin:3px 0 10px}
@@ -595,10 +623,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- INSIGHTS VIEW -->
   <div id="view-insights" style="display:none">
-    <div class="field" style="margin-top:0"><label>Period</label>
-      <select id="insightsScope" onchange="setInsightsScope(this.value)" style="margin-bottom:6px"></select>
+
+    <div class="pillrow" style="margin:0 0 12px">
+      <span class="pgroup"><label for="insightsScope">Period</label><select id="insightsScope" class="pillsel" onchange="setInsightsScope(this.value)"></select></span>
     </div>
-    <div id="insightsScopeNote" style="margin:0 0 12px;font-size:12px;color:var(--gold-bright);font-weight:600;letter-spacing:.02em"></div>
     <div id="insightsEmptyNote" style="display:none;margin:0 0 14px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">Your numbers fill in here as you add leads and log expenses &mdash; nothing to set up.</div>
     <div class="stats" id="statGrid"></div>
 
@@ -762,11 +790,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
     <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
-    <div id="expensePeriodRow" style="display:grid;grid-template-columns:1fr;gap:10px">
-    <div class="field" style="margin-top:0;min-width:0"><label>Period</label>
-      <select id="exportYearSel" onchange="setExpenseViewYear(this.value)"></select>
-    </div>
-    <div class="field" id="expenseMonthField" style="display:none;margin-top:0;min-width:0"><label>Month</label><select id="expenseMonthFilterSel" onchange="setExpenseViewMonth(this.value)"></select></div>
+    <div id="expensePeriodRow" class="pillrow">
+      <span class="pgroup"><label for="exportYearSel">Period</label><select id="exportYearSel" class="pillsel" onchange="setExpenseViewYear(this.value)"></select></span>
+      <span class="pgroup" id="expenseMonthField" style="display:none"><label for="expenseMonthFilterSel">Month</label><select id="expenseMonthFilterSel" class="pillsel" onchange="setExpenseViewMonth(this.value)"></select></span>
     </div>
     <div id="expenseSummary" style="margin-top:12px"></div>
     <button class="save" onclick="openAddExpense()">+ Add Expense</button>
@@ -1330,62 +1356,44 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
   </div>
 
-  <div id="d_details">
-    <div class="dlab">Details</div>
-    <div class="kv" id="d_kv" style="margin-top:6px"></div>
-    <a class="dmore" id="d_addmore" href="javascript:void(0)" onclick="toggleDetails()" style="display:none"></a>
-    <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
-    <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:12px 0 4px" onclick="openManageFields()">Manage fields &#9998;</a>
-    <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
-  </div>
-
-  <div class="field" id="d_followwrap" style="margin-top:16px">
-    <div class="drow" onclick="toggleFollow()"><span class="dl">Follow-up</span><span class="dsum" id="d_followsum"></span><span class="dchg" id="d_followchg">Change</span></div>
-    <div id="d_followbody" style="display:none;margin-top:10px">
-      <div class="grid2">
-        <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
-        <input type="time" id="d_followtime" onblur="onFollowupChange()">
+  <div id="d_ctrl" style="margin-top:16px">
+    <div class="ctrlgrid" id="d_ctrlgrid">
+      <div class="ctile" id="d_followtile" onclick="toggleFollow()">
+        <span class="cl">Follow-up</span>
+        <div class="cv"><span class="cvt" id="d_followsum"></span><span class="ccar" id="d_followchg">&#9662;</span></div>
       </div>
-      <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
-      <div class="bumps">
-        <button class="bump" onclick="bump(1)">+1 day</button>
-        <button class="bump" onclick="bump(3)">+3 days</button>
-        <button class="bump" onclick="bump(7)">+1 week</button>
-        <button class="bump" onclick="bump(14)">+2 weeks</button>
-      </div>
-    </div>
-    <p id="d_followdone_hint" class="note" style="text-align:left;margin:10px 0 0;display:none"></p>
-    <button id="d_followdonebtn" class="save" style="display:none;margin-top:6px;background:var(--gold);color:var(--ink)" onclick="markStageDone(CURRENT._row)"></button>
-    <div id="fu_noteprompt" style="display:none;margin-top:10px">
-      <p class="note" style="text-align:left;margin:0 0 6px">Follow-up updated &#8212; what's the plan?</p>
-      <input id="fu_notetext" placeholder="e.g. left voicemail, wants a quote by Friday&#8230;">
-      <div class="grid2" style="margin-top:8px">
-        <button class="bump" style="border-radius:8px" onclick="skipFollowupNote()">Skip</button>
-        <button class="bump" style="border-radius:8px" onclick="saveFollowupNote()">Log it &#10038;</button>
-      </div>
-    </div>
-  </div>
-
-  <button class="htoggle" style="margin-top:22px" onclick="toggleHistory()">
-    <span id="h_count">Contact history &#183; 0</span><span id="h_chev">&#9662;</span>
-  </button>
-  <div id="h_wrap" style="display:none">
-    <div id="h_list"></div>
-    <div class="hlog">
-      <div class="grid2">
-        <select id="h_type"><option>Follow-up</option><option>Call</option><option>Text</option><option>Email</option><option>Note</option></select>
-        <button class="bump" style="border-radius:8px" onclick="manualLog()">Log it &#10038;</button>
-      </div>
-      <input id="h_note" placeholder="Optional note &#8212; left voicemail&#8230;" style="margin-top:8px">
-    </div>
-  </div>
-
-  <div class="field"><label>Status</label>
-    <select id="d_status" onchange="refToggle(true);queueAutoSave()">
+      <div class="ctile" id="d_statustile">
+        <label class="cl" for="d_status">Status</label>
+        <select id="d_status" onchange="refToggle(true);queueAutoSave()">
       <option>New</option><option>Pending</option><option>Booked</option><option>Completed</option><option>Lost</option><option>Referral</option><option>Referred</option>
     </select>
-  </div>
-  <p class="note" style="text-align:left;margin:14px 0 0">Lead created <span id="d_created" style="color:var(--cream)">&#8212;</span></p>
+      </div>
+    </div>
+    <div id="d_followwrap">
+      <div id="d_followbody" style="display:none;margin-top:10px">
+        <div class="grid2">
+          <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
+          <input type="time" id="d_followtime" onblur="onFollowupChange()">
+        </div>
+        <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
+        <div class="bumps">
+          <button class="bump" onclick="bump(1)">+1 day</button>
+          <button class="bump" onclick="bump(3)">+3 days</button>
+          <button class="bump" onclick="bump(7)">+1 week</button>
+          <button class="bump" onclick="bump(14)">+2 weeks</button>
+        </div>
+      </div>
+      <p id="d_followdone_hint" class="note" style="text-align:left;margin:10px 0 0;display:none"></p>
+      <button id="d_followdonebtn" class="save" style="display:none;margin-top:6px;background:var(--gold);color:var(--ink)" onclick="markStageDone(CURRENT._row)"></button>
+      <div id="fu_noteprompt" style="display:none;margin-top:10px">
+        <p class="note" style="text-align:left;margin:0 0 6px">Follow-up updated &#8212; what's the plan?</p>
+        <input id="fu_notetext" placeholder="e.g. left voicemail, wants a quote by Friday&#8230;">
+        <div class="grid2" style="margin-top:8px">
+          <button class="bump" style="border-radius:8px" onclick="skipFollowupNote()">Skip</button>
+          <button class="bump" style="border-radius:8px" onclick="saveFollowupNote()">Log it &#10038;</button>
+        </div>
+      </div>
+    </div>
   <div class="field" id="d_refwrap" style="display:none"><label>Referred to</label>
     <select id="d_referral" onchange="onReferralChange()">
       <option value="">Choose a partner&#8230;</option>
@@ -1400,6 +1408,35 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </select>
     <input id="d_lostreason_other" placeholder="Describe the reason" style="margin-top:8px;display:none" onchange="queueAutoSave()">
   </div>
+    <button type="button" class="hbar" onclick="toggleHistory()">
+      <div class="hb1"><span class="cl">History</span><span class="hsum" id="h_count"></span><span id="h_chev" style="color:var(--muted)">&#9662;</span></div>
+      <div class="hlast" id="h_last" style="display:none"></div>
+    </button>
+  <div id="h_wrap" style="display:none">
+    <div id="h_list"></div>
+    <div class="hlog">
+      <div class="grid2">
+        <select id="h_type"><option>Follow-up</option><option>Call</option><option>Text</option><option>Email</option><option>Note</option></select>
+        <button class="bump" style="border-radius:8px" onclick="manualLog()">Log it &#10038;</button>
+      </div>
+      <input id="h_note" placeholder="Optional note &#8212; left voicemail&#8230;" style="margin-top:8px">
+    </div>
+  </div>
+
+  </div>
+
+  <div id="d_details">
+    <div class="dlab">Details</div>
+    <div class="kv" id="d_kv" style="margin-top:6px"></div>
+    <div style="display:flex;align-items:center;margin-top:8px">
+      <a class="dmore" id="d_addmore" href="javascript:void(0)" onclick="toggleDetails()" style="display:none;margin-top:0"></a>
+      <a class="dquiet" href="javascript:void(0)" onclick="openManageFields()">Manage fields &#9998;</a>
+    </div>
+    <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
+    <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
+  </div>
+
+  <p class="note" style="text-align:left;margin:14px 0 0">Lead created <span id="d_created" style="color:var(--cream)">&#8212;</span></p>
   <div class="field"><label>Notes</label><textarea id="d_notes" rows="3" oninput="queueAutoSave()"></textarea></div>
   <p class="note" id="d_savestat">Changes save automatically &#10038;</p>
   <div id="d_contractwrap" style="display:none">
@@ -3352,7 +3389,7 @@ function renderChips(){
   }
   // The year only filters the archive chips (Past Shows, Lost, Referred, All), so its picker lives
   // on the Archive label instead of floating between the two groups.
-  var pill='<select class="yearpill" aria-label="Archive year" onchange="setMainArchiveScope(this.value)">'
+  var pill='<select class="pillsel" aria-label="Archive year" onchange="setMainArchiveScope(this.value)">'
     +insightsScopeOptions().map(function(o){ return '<option value="'+o.v+'"'+(o.v===MAIN_ARCHIVE_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
     +'</select>';
   $('statusChips').innerHTML =
@@ -4040,6 +4077,28 @@ function buildActions(){
   if(L[C.email]) acts+='<a class="act" href="javascript:void(0)" onclick="openEmailPicker()">Email</a>';
   $('d_actions').innerHTML=acts;
 }
+/* ---------- Lead page layout by stage ----------
+   What matters first depends on where the lead is. A prospect (New / Pending / No response — the
+   same group as the "Follow up" filter) is about reaching them: Call / Text / Email, then
+   Follow-up + Status + History, then Next step. A client (Booked / Completed / anything else)
+   is about the booking: tracker + Next step first, then the actions, then the controls. A closed
+   lead (Lost / Referred) leads with its Status. Set when the lead opens, not live, so changing the
+   status doesn't shuffle the page under your finger. */
+function leadStage_(L){
+  var s=String(L[C.status]||'New');
+  if(s==='New' || s==='Pending' || s==='No response') return 'prospect';
+  if(s==='Lost' || s==='Referral' || s==='Referred') return 'closed';
+  return 'client';
+}
+function arrangeLeadPage_(L){
+  var det=$('d_details'); if(!det || !det.parentNode) return;
+  var st=leadStage_(L);
+  var seq = st==='prospect' ? ['d_actions','ct_noteprompt','d_ctrl','d_track','d_nextstep','d_review']
+          : st==='closed'   ? ['d_ctrl','d_actions','ct_noteprompt','d_track','d_nextstep','d_review']
+          :                   ['d_track','d_nextstep','d_review','d_actions','ct_noteprompt','d_ctrl'];
+  seq.forEach(function(id){ var n=$(id); if(n) det.parentNode.insertBefore(n, det); });
+}
+
 /* ---------- Lead page top: summary line + Signed → Deposit → Balance tracker ----------
    The facts first (date, type, how far away, price, status), then where the booking stands —
    the same three steps the client sees on their event portal. Re-drawn from renderNextStep,
@@ -4119,7 +4178,7 @@ function renderFollowSummary(){
     else if(late===0) txt+=' <span style="color:var(--muted)">\u00b7 today</span>';
     sumEl.innerHTML=txt;
   }
-  if(btn) btn.textContent = open ? 'Close' : (v ? 'Change' : 'Add');
+  if(btn) btn.textContent = open ? '\u25B4' : '\u25BE'; // ▴ open / ▾ closed
 }
 function toggleFollow(force){
   var b=$('d_followbody'); if(!b) return;
@@ -4230,8 +4289,12 @@ function currentBackLabel(){
 function renderLeadReview(L){
   var box=$('d_review'); if(!box) return;
   var rating=Number(L['Event Rating'])||0;
-  var isCandidate = rating>0 || isBookedLike(L);
-  if(!isCandidate){ box.style.display='none'; box.innerHTML=''; return; }
+  // The reference button waits until the show is over (a client can't be a reference for a show that
+  // hasn't happened); one already marked, or one that left feedback, always keeps it so it can be undone.
+  var isRef=String(L['Reference OK']||'').trim()==='Yes';
+  var eventOver = String(L[C.status]||'')==='Completed' || isPastEvent(L);
+  var canRef = isRef || rating>0 || (isBookedLike(L) && eventOver);
+  if(!rating && !canRef){ box.style.display='none'; box.innerHTML=''; return; }
   var html='';
   if(rating){
     var stars=''; for(var i=1;i<=5;i++) stars+=(i<=rating?'★':'☆');
@@ -4246,8 +4309,7 @@ function renderLeadReview(L){
       +(review?'<div style="color:var(--cream);font-size:14px;margin-top:8px;white-space:pre-wrap;word-break:break-word">'+esc(review)+'</div>':'<div style="color:var(--muted);font-size:13px;margin-top:6px">No comment left.</div>')
     +'</div>';
   }
-  var isRef=String(L['Reference OK']||'').trim()==='Yes';
-  html+='<button type="button" onclick="toggleLeadReference('+L._row+')" style="width:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;margin:'+(rating?'0':'10px')+' 0 4px;background:'+(isRef?'rgba(201,160,80,.16)':'transparent')+';border:1px solid '+(isRef?'var(--gold)':'var(--line)')+';color:'+(isRef?'var(--gold-bright)':'var(--muted)')+'">'+(isRef?'★ Reference':'☆ Mark as reference')+'</button>';
+  if(canRef) html+='<button type="button" onclick="toggleLeadReference('+L._row+')" style="width:auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;cursor:pointer;margin:'+(rating?'0':'10px')+' 0 4px;background:'+(isRef?'rgba(201,160,80,.16)':'transparent')+';border:1px solid '+(isRef?'var(--gold)':'var(--line)')+';color:'+(isRef?'var(--gold-bright)':'var(--muted)')+'">'+(isRef?'★ Reference':'☆ Mark as reference')+'</button>';
   box.style.display='';
   box.innerHTML=html;
 }
@@ -4284,6 +4346,7 @@ function openSheet(row){
   $('d_backlink').innerHTML='&#8592; '+esc(currentBackLabel());
   $('d_name').textContent = L[C.name]||'Lead';
   renderLeadTop_();
+  arrangeLeadPage_(L);
   buildActions();
   NS_ARM=null;
   renderNextStep();
@@ -4658,7 +4721,16 @@ function refreshHistory(){
   var key=String(CURRENT._tsKey||'');
   var list=LOGS.filter(function(l){ return l.key===key; })
     .sort(function(a,b){ return (pd(b.when)||0)-(pd(a.when)||0); });
-  $('h_count').innerHTML='Contact history &#183; '+list.length;
+  var last=list[0], lastDay=last && pd(last.when) ? pd(last.when).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : '';
+  var prospect = leadStage_(CURRENT)==='prospect';
+  $('h_count').innerHTML = !list.length ? 'No contact logged yet'
+    : prospect ? '<b>'+list.length+'</b> contact'+(list.length===1?'':'s')
+    : '<b>'+list.length+'</b> &#183; last: '+esc(last.type)+(lastDay?', '+esc(lastDay):'');
+  var hl=$('h_last');
+  if(hl){
+    if(prospect && last){ hl.style.display='block'; hl.innerHTML='<b>'+esc(last.type)+'</b>'+(lastDay?' &#183; '+esc(lastDay):'')+(last.note?' <span class="mut">&mdash; '+esc(last.note)+'</span>':''); }
+    else { hl.style.display='none'; hl.innerHTML=''; }
+  }
   $('h_list').innerHTML = list.length
     ? list.map(function(l){ var pend=!!l._pending; // still saving: no id yet, so not tappable/deletable
         return '<div class="hitem"'+(pend?' style="opacity:.7"':' onclick="openHistoryDetail(\''+esc(l.id)+'\')"')+'><div class="hrow">'
@@ -4919,6 +4991,8 @@ function refToggle(userInitiated){
   $('d_lostwrap').style.display = lostVisible ? '' : 'none';
   // A lost lead has no follow-up, so hide the reminder field entirely while Lost.
   $('d_followwrap').style.display = lostVisible ? 'none' : '';
+  var ftile=$('d_followtile'); if(ftile) ftile.style.display = lostVisible ? 'none' : '';
+  var cgrid=$('d_ctrlgrid'); if(cgrid) cgrid.classList.toggle('solo', lostVisible);
   if(lostVisible && userInitiated && !wasLostVisible){
     setTimeout(function(){
       $('d_lostwrap').scrollIntoView({behavior:'smooth', block:'center'});
@@ -6164,8 +6238,6 @@ function showExpensesBreakdown(){
 }
 function renderInsights(){
   fillInsightsScope();
-  var _sy=insightsScopeYear();
-  var _note=$('insightsScopeNote'); if(_note) _note.textContent='Showing: '+(_sy===null?'All Time':_sy)+' · all sections below';
   var _empty=$('insightsEmptyNote');
   if(_empty){
     var nothingYet=!(LEADS&&LEADS.length) && !(EXPENSES&&EXPENSES.length);
@@ -7352,10 +7424,8 @@ function renderExpenses(){
     if(EXPENSE_VIEW_MONTH!=='all' && usedMonths[EXPENSE_VIEW_MONTH]) monthSel.value = EXPENSE_VIEW_MONTH;
     else { EXPENSE_VIEW_MONTH='all'; monthSel.value='all'; }
     $('expenseMonthField').style.display = '';
-    $('expensePeriodRow').style.gridTemplateColumns = '1fr 1fr'; // side by side when there's a month to pick
   } else {
     $('expenseMonthField').style.display = 'none';
-    $('expensePeriodRow').style.gridTemplateColumns = '1fr';
     EXPENSE_VIEW_MONTH = 'all';
   }
 
@@ -9515,6 +9585,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.56', d:'Sep 2026', notes:[
+    'The lead page now follows the life of the booking: while someone is still a prospect, the Follow-up and Status tiles and the History bar sit right at the top; once they\u2019re a client, the Signed \u2192 Deposit \u2192 Balance tracker leads. The Follow-up and Status tiles are more compact, and \u201cMark as reference\u201d waits until after the event.',
+    'One small, quiet dropdown for periods: Leads (beside Archive), Insights and Expenses now share the same subtle pill picker, with a \u201cPeriod\u201d label on Insights. The redundant \u201cShowing\u2026\u201d line on Insights is gone, and on Expenses the Period and Month pickers now sit side by side.',
+    'Dropdown lists are now dark with light text everywhere (the Status list used to open white and was hard to read).'
+  ]},
   { v:'1.5.55', d:'Sep 2026', notes:[
     'A clearer lead page: the top now shows the essentials \u2014 event date, type, how far away it is, the price and status \u2014 followed by a Signed \u2192 Deposit \u2192 Balance tracker (the same three steps your client sees on their event portal), then the Next step card and Call / Text / Email.',
     'Lead details show only the fields that have a value; the empty ones sit behind \u201c+ Add details\u201d. The follow-up is a single tidy row that opens when you tap it.',

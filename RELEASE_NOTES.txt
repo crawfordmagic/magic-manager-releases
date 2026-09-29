@@ -1,11 +1,9 @@
 What's new in this update:
 
-• A clearer lead page: the top now shows the essentials — event date, type, how far away it is, the price and status — followed by a Signed → Deposit → Balance tracker (the same three steps your client sees on their event portal), then the Next step card and Call / Text / Email.
+• The lead page now follows the life of the booking: while someone is still a prospect, the Follow-up and Status tiles and the History bar sit right at the top; once they're a client, the Signed → Deposit → Balance tracker leads. The Follow-up and Status tiles are more compact, and "Mark as reference" waits until after the event.
 
-• Lead details show only the fields that have a value; the empty ones sit behind "+ Add details". The follow-up is a single tidy row that opens when you tap it.
+• One small, quiet dropdown for periods: Leads (beside Archive), Insights and Expenses now share the same subtle pill picker, with a "Period" label on Insights. The redundant "Showing…" line on Insights is gone, and on Expenses the Period and Month pickers now sit side by side.
 
-• The big "Generate Contract" button at the bottom of a lead is now a quiet Contract section: it holds the event portal link, PDF and Google Doc links plus a small Regenerate, and steps aside while the Next step card is already offering to generate the contract.
-
-• The Leads list filters are grouped into Active and Archive, with the year picker as a small pill on the Archive row (it only filters the archive chips). While you search, the filters dim to show search covers every lead — and tapping a filter ends the search.
+• Dropdown lists are now dark with light text everywhere (the Status list used to open white and was hard to read).
 
 • IMPORTANT when updating: replace ALL FIVE files together — Code.gs, Index.html, Sign.html, Store.html and appsscript.json — then Deploy → Manage deployments → New version. (Your data is never affected.)
