@@ -128,13 +128,13 @@ var CONFIG_FIELDS_ = [
   { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: 'Full legal entity name used on contracts.', section: 'business' },
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the event portal.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
-  { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid.', section: 'business' },
+  { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid. Also used in your branded email signature (it opens your website when tapped).', section: 'business' },
   { key: 'SIGNATURE_FONT', label: 'Your signature', help: 'How your name is signed on contracts and receipts. Upload a picture of your signature (a PNG with a transparent background looks best), or pick a signature style.', editor: 'signature', section: 'business' },
   { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own event portal — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
-  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract.', section: 'contact' },
-  { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional).', section: 'contact' },
-  { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com.', section: 'contact' },
+  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract. Also used in your branded email signature.', section: 'contact' },
+  { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional). Also used in your branded email signature.', section: 'contact' },
+  { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com. Also used in your branded email signature.', section: 'contact' },
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', section: 'contact' },
   // Getting paid
   { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their event portal goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
@@ -516,7 +516,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.58';
+var APP_VERSION = '1.5.59';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1324,15 +1324,17 @@ function proposalEmailHtml_(bodyText, portalUrl, cfg, hasLogo, buttonLabel) {
     var digits = phone.replace(/[^0-9+]/g, '');
     lines += '<div style="' + small + '">' + (digits ? '<a href="tel:' + escHtml_(digits) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(phone) + '</a>' : escHtml_(phone)) + '</div>';
   }
+  var siteUrl = site ? (/^https?:\/\//i.test(site) ? site : 'https://' + site) : '';
   if (site) {
-    var siteUrl = /^https?:\/\//i.test(site) ? site : 'https://' + site;
     var siteLabel = site.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
     lines += '<div style="' + small + '">' + (urlOk(siteUrl) ? '<a href="' + escHtml_(siteUrl) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(siteLabel) + '</a>' : escHtml_(siteLabel)) + '</div>';
   }
   if (mail) {
     lines += '<div style="' + small + '">' + (/^[^\s<>"'@]+@[^\s<>"'@]+$/.test(mail) ? '<a href="mailto:' + escHtml_(mail) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(mail) + '</a>' : escHtml_(mail)) + '</div>';
   }
-  var logoCell = hasLogo ? '<td valign="top" style="padding:0 16px 0 0;border-right:2px solid ' + GOLD + '"><img src="cid:logo" width="72" alt="" style="display:block;width:72px;height:auto;border:0;border-radius:4px"></td>' : '';
+  var logoImg = '<img src="cid:logo" width="72" alt="" style="display:block;width:72px;height:auto;border:0;border-radius:4px">';
+  if (siteUrl && urlOk(siteUrl)) logoImg = '<a href="' + escHtml_(siteUrl) + '" style="text-decoration:none;border:0">' + logoImg + '</a>';   // the logo opens your website when you have one
+  var logoCell = hasLogo ? '<td valign="top" style="padding:0 16px 0 0;border-right:2px solid ' + GOLD + '">' + logoImg + '</td>' : '';
   var sig = lines ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px"><tr>' + logoCell
     + '<td valign="top" style="padding:0 0 0 ' + (hasLogo ? '16' : '0') + 'px">' + lines + '</td></tr></table>' : '';
 

@@ -558,7 +558,7 @@ a.help-fix{display:block;text-decoration:none}
 nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.94);backdrop-filter:blur(10px);
   border-top:1px solid var(--line);display:flex;justify-content:space-around;
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
-.tab{flex:1;text-align:center;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;padding:6px 0}
+.tab{flex:1;white-space:nowrap;text-align:center;color:var(--muted);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:6px 0}
 .tab .g{display:block;font-size:17px;margin-bottom:3px;font-family:'Playfair Display',serif}
 .tab .g svg{width:18px;height:18px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tab.on{color:var(--gold-bright)}
@@ -794,7 +794,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
-    <div class="sec-title"><span class="t">Expenses</span><span class="rule"></span></div>
     <div id="expensePeriodRow" class="pillrow">
       <span class="pgroup"><label for="exportYearSel">Period</label><select id="exportYearSel" class="pillsel" onchange="setExpenseViewYear(this.value)"></select></span>
       <span class="pgroup" id="expenseMonthField" style="display:none"><label for="expenseMonthFilterSel">Month</label><select id="expenseMonthFilterSel" class="pillsel" onchange="setExpenseViewMonth(this.value)"></select></span>
@@ -841,7 +840,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- ADD VIEW -->
   <div id="view-add" style="display:none">
-    <div class="sec-title"><span class="t">New Lead</span><span class="rule"></span></div>
     <div class="field"><label>Customer name</label>
       <div style="position:relative">
         <input id="a_name" placeholder="Jane Smith" oninput="renderContactSuggestions()" onfocus="renderContactSuggestions()" onblur="hideContactSuggestionsDelayed()">
@@ -895,7 +893,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- SETTINGS VIEW -->
   <div id="view-settings" style="display:none;padding-bottom:40px">
-    <div class="sec-title"><span class="t">Settings</span><span class="rule"></span></div>
     <button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>
     <p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>
 
@@ -1466,7 +1463,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <button class="tab on" data-v="leads" onclick="go('leads',this)"><span class="g">&#10038;</span>Leads</button>
   <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g"><svg viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="10"/></svg></span>Insights</button>
   <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g"><svg viewBox="0 0 24 24"><path d="M6 2h12v19l-2.4-1.4L13.2 21 12 20l-1.2 1-2.4-1.4L6 21V2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="13.5" y2="12"/></svg></span>Expenses</button>
-  <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>Add</button>
+  <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>New Lead</button>
   <button class="tab" data-v="settings" onclick="go('settings',this)"><span class="g"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</button>
 </nav>
 
@@ -8641,7 +8638,6 @@ function go(v, btn){
   ['leads','insights','expenses','add','settings'].forEach(function(x){ var el=$('view-'+x); if(el) el.style.display = x===v?'':'none'; });
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
   if(btn) btn.classList.add('on');
-  $('pageTitle').textContent = v==='leads'?'Magic Manager':(v==='insights'?'Insights':(v==='expenses'?'Expenses':(v==='add'?'New Lead':'Settings')));
   if(v==='expenses') renderExpenses();
   if(v==='add') fillStatusSelect($('a_status'), ($('a_status')&&$('a_status').value)||'New');
   if(v==='settings') renderSettings();
@@ -8844,7 +8840,7 @@ function doSettingsAutosave(){
 // The whole flow in four steps. Shown once on the setup wizard's welcome screen and kept for
 // good under Help, from this one list so the two never drift apart.
 var HOW_IT_WORKS = [
-  { t:'Leads come in', d:'Add one from the <b>Add</b> tab, import a spreadsheet, or connect your website form so inquiries arrive on their own.' },
+  { t:'Leads come in', d:'Add one from the <b>New Lead</b> tab, import a spreadsheet, or connect your website form so inquiries arrive on their own.' },
   { t:'Send the agreement', d:'Open a lead, add the quoted price, and tap <b>Generate contract</b>. You get a private event portal link to send your client.' },
   { t:'Your client signs and pays', d:'They sign and pay the deposit on their event portal. Once both are in, the lead is marked <b>Booked</b> for you.' },
   { t:'The app keeps up for you', d:'Follow-up reminders (a week before the show, and a review request after), your Google Calendar, and payment receipts are all handled automatically.' }
@@ -9660,6 +9656,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.59', d:'Sep 2026', notes:[
+    'Fixed: the event portal no longer shows the credit-card processing fee on its first screen when you don\u2019t offer card payments. Before, a client could see a deposit about 3% too high until they changed the payment menu. If you accept cards, nothing changes.',
+    'A cleaner look: the bottom \u201cAdd\u201d tab is now \u201cNew Lead\u201d, and the repeated page titles are gone \u2014 the bottom tabs already show where you are. The tab bar fits small phones better too.',
+    'Branded email signature: your logo now opens your website when tapped, and Settings says which of your details appear in the signature.'
+  ]},
   { v:'1.5.58', d:'Sep 2026', notes:[
     'Saving a “Branded Gmail draft” now logs it the same way as sending an email — it shows up in that lead’s contact history, a partner referral gets logged and the lead marked as referred, and rebooking emails are logged too.'
   ]},

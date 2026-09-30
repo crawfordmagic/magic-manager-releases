@@ -1,6 +1,10 @@
 What's new in this update:
 
-• Saving a "Branded Gmail draft" now logs it the same way sending an email does — it shows up in that lead's contact history (with the usual "what happened?" prompt), a partner referral email gets logged and the lead marked as referred, and rebooking emails are logged too.
+• Fixed: the event portal no longer shows the credit-card processing fee on its first screen when you don't offer card payments. Before, a client opening their event portal could see a deposit about 3% too high (for example $774.38 instead of $750.00) until they changed the payment menu. If you accept cards, nothing changes.
+
+• A cleaner, more consistent look: the bottom tab that said "Add" now reads "New Lead", and the repeated page titles at the top are gone — the bottom tabs already show where you are, so every screen opens with your business name and gets straight to the content. The tab bar also fits small phones better.
+
+• Branded email signature: your logo now opens your website when tapped (if you've entered a website in Settings), and Settings now says which details — logo, contact email, phone and website — appear in your branded email signature.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. (Your data is never affected.)
 

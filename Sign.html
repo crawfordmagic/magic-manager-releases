@@ -371,6 +371,14 @@ var PAYPAL_USERNAME=CFG.PAYPAL_USERNAME||'';
 function fmtMoney(n){
   return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+// The method the payment dropdown STARTS on: the booking's saved choice if it is still offered, else Credit Card
+// only when the owner actually offers it, else the first method offered. It has to be the method the <select>
+// really shows, or the amounts (which include the card fee only for Credit Card) disagree with what the client sees.
+function startingMethod(d){
+  if(d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) return d.paymentMethod;
+  if(PAYMENT_METHODS.indexOf('Credit Card')>-1) return 'Credit Card';
+  return PAYMENT_METHODS[0] || 'Credit Card';
+}
 function computeAmounts(depositBase, balanceBase, method){
   var isCard = method==='Credit Card';
   return {
@@ -541,7 +549,7 @@ function renderForm(d){
   document.getElementById('loading').style.display='none';
   var c=document.getElementById('content');
   c.style.display='';
-  var initialMethod = (d.paymentMethod && PAYMENT_METHODS.indexOf(d.paymentMethod)>-1) ? d.paymentMethod : 'Credit Card';
+  var initialMethod = startingMethod(d);
   var amt=computeAmounts(d.depositBase, d.balanceBase, initialMethod);
   var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — client just pays the full balance
   var depositLabel = d.depositPaid ? 'Deposit' : 'Deposit due today';
