@@ -516,7 +516,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.59';
+var APP_VERSION = '1.5.60';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1259,6 +1259,30 @@ function emailFontStack_(themeStr) {
   return Object.prototype.hasOwnProperty.call(EMAIL_FONTS_, t.font) ? EMAIL_FONTS_[t.font] : '';
 }
 
+// Width/height in pixels of a PNG, JPEG or GIF from its header bytes (Apps Script's getBytes() are signed, hence & 255).
+// Returns null when it can't tell — the email then just leaves the height off.
+function imageSize_(bytes) {
+  try {
+    var b = function (i) { return bytes[i] & 255; };
+    if (!bytes || bytes.length < 24) return null;
+    if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4E && b(3) === 0x47)                       // PNG: IHDR width/height, big-endian
+      return { w: b(16) * 16777216 + b(17) * 65536 + b(18) * 256 + b(19), h: b(20) * 16777216 + b(21) * 65536 + b(22) * 256 + b(23) };
+    if (b(0) === 0x47 && b(1) === 0x49 && b(2) === 0x46)                                        // GIF: little-endian at 6 and 8
+      return { w: b(6) + b(7) * 256, h: b(8) + b(9) * 256 };
+    if (b(0) === 0xFF && b(1) === 0xD8) {                                                       // JPEG: walk to a start-of-frame marker
+      var i = 2;
+      while (i + 9 < bytes.length) {
+        if (b(i) !== 0xFF) { i++; continue; }
+        var m = b(i + 1);
+        if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return { w: b(i + 7) * 256 + b(i + 8), h: b(i + 5) * 256 + b(i + 6) };
+        if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { i += 2; continue; }
+        i += 2 + b(i + 2) * 256 + b(i + 3);
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
 /* ---------- Branded proposal email (HTML) ----------
  * Turns the plain text a Magic Manager email template produces into the dark-and-gold email of the
  * new-buyer message: the event portal link becomes a gold "Event portal" button (other links stay
@@ -1266,7 +1290,7 @@ function emailFontStack_(themeStr) {
  * tappable link — closes it. buttonLabel defaults to "Event portal"; a partner referral email passes
  * "Add to Magic Manager" with the one-tap referral link. Pure function: returns HTML only; drafting/sending happens elsewhere.
  * hasLogo=true means the caller will attach the logo as the inline image "logo" (cid:logo). */
-function proposalEmailHtml_(bodyText, portalUrl, cfg, hasLogo, buttonLabel) {
+function proposalEmailHtml_(bodyText, portalUrl, cfg, hasLogo, buttonLabel, logoDims) {
   cfg = cfg || {};
   buttonLabel = String(buttonLabel || 'Event portal').replace(/[\r\n]+/g, ' ').trim().slice(0, 40) || 'Event portal';
   // Follows the owner's "Event portal & email look" (Settings -> PORTAL_THEME): the same function that
@@ -1332,9 +1356,19 @@ function proposalEmailHtml_(bodyText, portalUrl, cfg, hasLogo, buttonLabel) {
   if (mail) {
     lines += '<div style="' + small + '">' + (/^[^\s<>"'@]+@[^\s<>"'@]+$/.test(mail) ? '<a href="mailto:' + escHtml_(mail) + '" style="color:' + CREAM + ';text-decoration:none">' + escHtml_(mail) + '</a>' : escHtml_(mail)) + '</div>';
   }
-  var logoImg = '<img src="cid:logo" width="72" alt="" style="display:block;width:72px;height:auto;border:0;border-radius:4px">';
+  // The logo is sized to the height of the text beside it (the gold divider line spans that height), from how many
+  // lines the signature has: name ~22px, business ~25px, each contact line ~21px. Wide logos stop at 170px wide.
+  // Width AND height go in as attributes and CSS (from the image's real proportions), inside a fixed-width cell:
+  // Gmail's compose window and some mail apps ignore a lone width and show a big logo at its natural size.
+  var textH = (name ? 22 : 0) + ((biz && biz !== name) ? 25 : 0) + ((phone ? 1 : 0) + (site ? 1 : 0) + (mail ? 1 : 0)) * 21;
+  var target = Math.max(72, Math.min(140, textH || 72));
+  var ratio = (logoDims && logoDims.w > 0 && logoDims.h > 0) ? logoDims.h / logoDims.w : 0;
+  var LW, LH;
+  if (ratio) { LH = target; LW = Math.round(LH / ratio); if (LW > 170) { LW = 170; LH = Math.round(LW * ratio); } LH = Math.max(1, LH); }
+  else { LW = Math.min(target, 120); LH = 0; }
+  var logoImg = '<img src="cid:logo" width="' + LW + '"' + (LH ? ' height="' + LH + '"' : '') + ' alt="" style="display:block;width:' + LW + 'px;max-width:' + LW + 'px;height:' + (LH ? LH + 'px' : 'auto') + ';border:0;border-radius:4px">';
   if (siteUrl && urlOk(siteUrl)) logoImg = '<a href="' + escHtml_(siteUrl) + '" style="text-decoration:none;border:0">' + logoImg + '</a>';   // the logo opens your website when you have one
-  var logoCell = hasLogo ? '<td valign="top" style="padding:0 16px 0 0;border-right:2px solid ' + GOLD + '">' + logoImg + '</td>' : '';
+  var logoCell = hasLogo ? '<td valign="top" width="' + LW + '" style="width:' + LW + 'px;padding:0 16px 0 0;border-right:2px solid ' + GOLD + '">' + logoImg + '</td>' : '';
   var sig = lines ? '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px"><tr>' + logoCell
     + '<td valign="top" style="padding:0 0 0 ' + (hasLogo ? '16' : '0') + 'px">' + lines + '</td></tr></table>' : '';
 
@@ -1388,7 +1422,7 @@ function createProposalDraft_(to, subject, body, portalUrl, buttonLabel) {
     body = String(body == null ? '' : body).slice(0, 50000);
     var logo = getLogoBlob_();
     if (logo && !/^image\/(png|jpe?g|gif)$/i.test(String(logo.getContentType() || ''))) logo = null;
-    var html = proposalEmailHtml_(body, portalUrl, getConfig_(), !!logo, buttonLabel);
+    var html = proposalEmailHtml_(body, portalUrl, getConfig_(), !!logo, buttonLabel, logo ? imageSize_(logo.getBytes()) : null);
     var draft = Gmail.Users.Drafts.create({ message: { raw: Utilities.base64EncodeWebSafe(buildDraftMime_(to, subject, body, html, logo)) } }, 'me');
     return JSON.stringify({ ok: true, id: draft && draft.id ? String(draft.id) : '' });
   } catch (e) {
