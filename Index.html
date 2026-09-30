@@ -86,7 +86,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .tpills{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .tdel{flex:0 0 auto;color:#E9927B;font-size:15px;padding:4px 8px;opacity:.9;margin-left:auto}
 .tmain{min-width:0;flex:1}
-.tdraft{display:block;margin:9px 0 0;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--gold-bright);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.tdraft{display:inline-flex;align-items:center;gap:7px;margin:12px 0 0;font-size:12.5px;font-weight:700;letter-spacing:.03em;color:#1a1206;background:linear-gradient(180deg,#C9A050,#A98640);border:1px solid rgba(201,160,80,.55);border-radius:999px;padding:8px 16px}
+.tdraft svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 .treorder{flex:0 0 auto;display:flex;flex-direction:column;gap:1px}
 .tord{color:var(--gold);font-size:12px;padding:3px 7px;background:none;border:none;opacity:.85}
 .tord:disabled{opacity:.2}
@@ -5463,7 +5464,7 @@ function renderEmailPicker(){
         +'<a class="tbody" href="'+esc(url)+'" target="_top" onclick="onEmailSent()" style="display:block;text-decoration:none;color:inherit">'
         +'<div class="tname">'+esc(t.name)+'</div>'
         +'<div class="tpills"><span class="pill gold">'+esc(t.subject||'No subject')+'</span></div></a>'
-        +(DRAFTS_READY ? '<button class="tdraft" title="Save as a branded Gmail draft" aria-label="Save as a branded Gmail draft" onclick="event.stopPropagation();saveEmailDraft('+i+')">Branded Gmail draft</button>' : '')+'</div>'
+        +(DRAFTS_READY ? '<button class="tdraft" title="Save as a branded Gmail draft" aria-label="Save as a branded Gmail draft" onclick="event.stopPropagation();saveEmailDraft('+i+')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Branded Gmail draft</button>' : '')+'</div>'
         +(reorderable ? '<span class="treorder">'
           +'<button class="tord" '+(i===0?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'up\')">&#9650;</button>'
           +'<button class="tord" '+(i===list.length-1?'disabled':'')+' onclick="event.stopPropagation();moveTemplateUI(\''+esc(t.id)+'\',\'down\')">&#9660;</button>'
@@ -5489,7 +5490,7 @@ function moveTemplateUI(id, direction){
 }
 function closeEmailPicker(){ $('epicker').classList.remove('open'); syncOverlay(); }
 // Saves the picked template as a branded HTML draft in the owner's Gmail (the event portal link
-// becomes a button, the signature comes from Settings). Nothing is sent, so nothing is logged as contact.
+// becomes a button, the signature comes from Settings). Logged as an email contact, same as the regular email.
 var DRAFTING_=false;
 function saveEmailDraft(i){
   if(DRAFTING_) return;
@@ -5504,7 +5505,7 @@ function saveEmailDraft(i){
   GS.withSuccessHandler(function(json){
     DRAFTING_=false;
     var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
-    if(r.ok){ toast('Draft saved in Gmail \u2713'); markSeen('tplHint'); closeEmailPicker(); }
+    if(r.ok){ toast('Draft saved in Gmail \u2713'); onEmailSent(); closeEmailPicker(); }
     else toast(r.error || 'Could not save the draft \u2014 try again');
   }).withFailureHandler(function(){ DRAFTING_=false; toast('Could not save the draft \u2014 try again'); })
     .createProposalDraft(EPICKER_TO, subject, body, portal, label);
@@ -9659,6 +9660,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.58', d:'Sep 2026', notes:[
+    'Saving a “Branded Gmail draft” now logs it the same way as sending an email — it shows up in that lead’s contact history, a partner referral gets logged and the lead marked as referred, and rebooking emails are logged too.'
+  ]},
   { v:'1.5.57', d:'Sep 2026', notes:[
     'New (optional): \u201cBranded Gmail draft\u201d. On a lead, open Email and tap it under a template \u2014 a polished email lands in your Gmail drafts with the event portal link as a button and your signature (logo, name, business, phone, website, email). For a partner email with a referral lead attached, the one-tap link becomes an \u201cAdd to Magic Manager\u201d button. It needs one extra update step (replace appsscript.json and approve Gmail once) \u2014 see the update page. Until then the button stays hidden and nothing else changes.',
     'Settings \u2192 \u201cEvent portal & email look\u201d: your accent color and background now style those emails too. Emails use the closest font every mail app has, since mail apps can\u2019t load web fonts.',
