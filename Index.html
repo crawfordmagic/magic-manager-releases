@@ -835,6 +835,10 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
         <span class="t">Export to a spreadsheet</span><span class="chev">&#8250;</span>
       </button>
+      <button type="button" class="more-row" onclick="openTaxPrep()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg></span>
+        <span class="t">Tax prep</span><span class="chev">&#8250;</span>
+      </button>
     </div>
   </div>
 
@@ -1013,7 +1017,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 </div>
 
 <!-- DETAIL SHEET -->
-<div class="overlay" id="overlay" onclick="closeSheet();closeTaskSheet();closeEmailPicker();closeTemplateEditor();closeHistoryDetail();closePartnerSheet();closeTextPicker();closeTextTemplateEditor();closeReferModal();closeExpenseSheet();closeManageCategories();closeImportExpenses()"></div>
+<div class="overlay" id="overlay" onclick="closeSheet();closeTaskSheet();closeEmailPicker();closeTemplateEditor();closeHistoryDetail();closePartnerSheet();closeTextPicker();closeTextTemplateEditor();closeReferModal();closeExpenseSheet();closeManageCategories();closeImportExpenses();closeMileage();closeTaxPrep()"></div>
 <div class="sheet" id="histsheet">
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeHistoryDetail()">&#8592; Back to lead</a>
@@ -1168,6 +1172,20 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeInsightResults()">&#8592; Back</a>
   <h2 id="insightResults_title">Results</h2>
   <div id="insightResults_list"></div>
+</div>
+<div class="sheet" id="taxSheet">
+  <div class="grab"></div>
+  <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeTaxPrep()">&#8592; Back</a>
+  <h2 id="tax_title">Tax prep</h2>
+  <p class="sub">A year-end spreadsheet and PDF for your accountant. Cash basis.</p>
+  <div id="tax_body"></div>
+  <div id="taxPkgResult"></div>
+</div>
+<div class="sheet" id="mileageSheet">
+  <div class="grab"></div>
+  <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeMileage()">&#8592; Back</a>
+  <h2 id="mil_title">Mileage log</h2>
+  <div id="mil_body"></div>
 </div>
 <div class="sheet" id="expenseSheet">
   <div class="grab"></div>
@@ -1939,7 +1957,7 @@ function renderTaskDue(){
         // .gfu-card layout) instead: name/date block on top, action button
         // stacked underneath it, left-aligned.
         var late=daysLate_(f);
-        return '<div class="followupdue-row" style="display:block"'+tdItem('task:'+T.id, {name:T.task||'Task', tag:'Task', note:T.repeat?('Repeats '+T.repeat):'', when:lateText_(late), late:late, rank:3})+'>'
+        return '<div class="followupdue-row" style="display:block"'+tdItem('task:'+T.id, {name:T.task||'Task', tag:'Task', note:T.repeat?('Repeats '+T.repeat):'', when:lateText_(late), late:late, rank:3, ts:tdTs_(f)})+'>'
           +'<div class="followupdue-info" onclick="openTask(\''+esc(T.id)+'\')">'
             +'<div style="text-align:right">'
               +'<span id="taskdue_time_'+T._row+'" onclick="event.stopPropagation();editTaskDueTime('+T._row+')" style="color:var(--gold-bright);font-weight:600;font-size:11.5px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(timeLabel)+'</span>'
@@ -2530,7 +2548,7 @@ function renderGenFollowupDue(){
         var conflictHtml = showKids ? '' : conflictBadgeHtml(L);
 
         var gNote=[L[C.eventDate]?('Event '+fmtDateY(L[C.eventDate])):'', L[C.eventType]||''].filter(Boolean).join(' \u00b7 ');
-        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3})+'>'
+        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3, ts:tdTs_(fuTime)})+'>'
           +kidsHtml
           +conflictHtml
           +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
@@ -3123,7 +3141,7 @@ function renderFollowupDue(){
         var idx=followupStageIndex(L), stage=idx>-1?STAGE_LABELS[idx]:'Follow-up', hint=idx>-1?STAGE_HINTS[idx]:'';
         var late=daysLate_(pd(L[C.followup]));
         var emailBtn = (L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
-        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:hint, when:lateText_(late), late:late, rank:2})+'>'
+        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:hint, when:lateText_(late), late:late, rank:2, ts:tdTs_(pd(L[C.followup]))})+'>'
           +'<div class="followupdue-info" onclick="openSheet('+L._row+')">'
             +'<div class="followupdue-name">'+esc(L[C.name]||'Lead')+'</div>'
             +'<div class="followupdue-stage">'+esc(stage)+(hint?' \u2014 '+esc(hint):'')+'</div>'
@@ -3457,7 +3475,15 @@ function tdKey_(k){ return String(k).replace(/[^A-Za-z0-9:_-]/g,'_'); }
 // Attributes for a due item's root element. o = {name, tag, note, when, late (days), rank (0 = most urgent group)}.
 function tdItem(key, o){
   return ' data-td="'+tdKey_(key)+'" data-td-name="'+esc(o.name||'')+'" data-td-tag="'+esc(o.tag||'')+'" data-td-note="'+esc(o.note||'')
-    +'" data-td-when="'+esc(o.when||'')+'" data-td-late="'+(Number(o.late)>0?Math.round(o.late):0)+'" data-td-rank="'+(Number(o.rank)||0)+'"';
+    +'" data-td-when="'+esc(o.when||'')+'" data-td-late="'+(Number(o.late)>0?Math.round(o.late):0)+'" data-td-rank="'+(Number(o.rank)||0)+'"'
+    +' data-td-ts="'+(o.ts?Math.round(o.ts):'')+'"';
+}
+// Sort time for a due item (ms). A date with no time set reads as 9:00 AM, same as the card labels show.
+function tdTs_(d){
+  if(!d) return 0;
+  var x=new Date(d.getTime());
+  if(!x.getHours() && !x.getMinutes()) x.setHours(9,0,0,0);
+  return x.getTime();
 }
 function tdIcon(id){
   var dollar='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
@@ -3488,13 +3514,15 @@ function tdItems_(){
     Array.prototype.forEach.call(el.querySelectorAll('[data-td]'), function(n){
       items.push({card:id, key:n.getAttribute('data-td'), name:n.getAttribute('data-td-name'), tag:n.getAttribute('data-td-tag'),
         note:n.getAttribute('data-td-note'), when:n.getAttribute('data-td-when'), late:Number(n.getAttribute('data-td-late'))||0,
-        rank:Number(n.getAttribute('data-td-rank'))||0});
+        rank:Number(n.getAttribute('data-td-rank'))||0, ts:Number(n.getAttribute('data-td-ts'))||0});
     });
   });
-  // Payments waiting on you first, then whatever is most overdue, then by kind and name.
+  // Payments waiting on you first, then whatever is most overdue. Follow-ups and tasks (ranks 2 and 3) are
+  // one group, so within the same day they run earliest time to latest; then by kind and name.
+  var grp=function(r){ return (r===2||r===3)?2:r; };
   items.sort(function(a,b){
     var pa=a.rank===0?0:1, pb=b.rank===0?0:1;
-    return (pa-pb) || (b.late-a.late) || (a.rank-b.rank) || String(a.name).localeCompare(String(b.name));
+    return (pa-pb) || (b.late-a.late) || (grp(a.rank)-grp(b.rank)) || (a.ts-b.ts) || (a.rank-b.rank) || String(a.name).localeCompare(String(b.name));
   });
   return items;
 }
@@ -3980,7 +4008,7 @@ function openTask(id){
   $('overlay').classList.add('open'); $('tsheet').classList.add('open');
 }
 function anyPanelOpen(){
-  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','expenseSheet','importSheet','categorySheet','msgTplSheet','refLinkSheet'].some(function(id){
+  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','taxSheet','mileageSheet','expenseSheet','importSheet','categorySheet','msgTplSheet','refLinkSheet'].some(function(id){
     var el=$(id); return el && el.classList.contains('open');
   });
 }
@@ -6224,6 +6252,9 @@ function insightsScopedExpenses(){
 // same Received/Paid date fields the rest of the app already tracks.
 // Deliberately scoped by payment date rather than event date, since a
 // booking's event and its payments can land in different years.
+// Both payments count at the AGREED amount (depositBase / balanceBase) — never with the card processing
+// fee a client adds on top. (Until 2026-10-02 a card-paid balance was counted WITH its fee while a
+// card-paid deposit was not; income now means the same thing for both.)
 function leadIncomeEvents_(all){
   var out=[];
   all.forEach(function(L){
@@ -6233,7 +6264,7 @@ function leadIncomeEvents_(all){
     }
     if(String(L[C.balancePaid]||'')==='Yes'){
       var bd=pd(L[C.balancePaidDate]);
-      if(bd) out.push({date:bd, amount:balanceFinal(L), kind:'Balance', name:L[C.name]||'Lead', row:L._row});
+      if(bd) out.push({date:bd, amount:balanceBase(L), kind:'Balance', name:L[C.name]||'Lead', row:L._row});
     }
   });
   return out;
@@ -7704,6 +7735,296 @@ function exportExpensesCsv(){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   toast('Exported '+rows.length+' expense'+(rows.length===1?'':'s'));
 }
+
+/* ---------- Tax prep package (Expenses) ----------
+   Builds the rows for one calendar year from the SAME income logic Insights uses (deposit / balance marked
+   received, dated by the received date) and hands them to the server, which writes a Google Sheet for the
+   accountant. Each payment carries its agreed amount and its card fee separately, so the report never hides
+   the card fee. (The Income tile counts a card-paid BALANCE with its fee but a card-paid deposit without one;
+   the package keeps them apart instead.) */
+var TAX_PKG_BUSY=false, TAX_YEAR=0, TAX_STATE=null, TAX_LAST=null, TAX_CONTRACTORS=[], MIL_SUGG=null, MIL_ARM=null, MIL_ARM_T=null;
+function taxYearSel_(){ var s=$('exportYearSel').value; return s==='all' ? 0 : (Number(s)||0); }
+function taxNum_(v){ return String(v==null?'':v).replace(/[$,\s]/g,''); }
+function openTaxPrep(){
+  var y=taxYearSel_();
+  if(!y){ toast('Pick a year in Period first'); return; }
+  TAX_YEAR=y; TAX_LAST=null; TAX_STATE=null;
+  $('tax_title').textContent='Tax prep \u00b7 '+y;
+  $('tax_body').innerHTML='<p class="note" style="text-align:left">Loading\u2026</p>';
+  $('taxPkgResult').innerHTML='';
+  $('overlay').classList.add('open'); $('taxSheet').classList.add('open');
+  GS.withSuccessHandler(function(j){
+    var s=null; try{ s=JSON.parse(j); }catch(e){}
+    if(!s || !s.ok){ $('tax_body').innerHTML='<p class="note" style="text-align:left">Could not load. Close this and try again.</p>'; return; }
+    TAX_STATE=s; renderTaxPrep_();
+  }).withFailureHandler(function(){ $('tax_body').innerHTML='<p class="note" style="text-align:left">Could not reach the server. Close this and try again.</p>'; }).getTaxPrep(y);
+}
+function closeTaxPrep(){ $('taxSheet').classList.remove('open'); closeMileage(); syncOverlay(); }
+// Contract Labor vendors for the year, grouped the way the server groups them ("ACME Magic" == "acme  magic").
+function taxContractorsUI_(){
+  var by={}, order=[];
+  (EXPENSES||[]).forEach(function(E){
+    var d=pd(E.date); if(!d || d.getFullYear()!==TAX_YEAR) return;
+    if(!/^contract labor$/i.test(String(E.category||'').trim())) return;
+    var k=String(E.vendor||'').toLowerCase().replace(/\s+/g,' ').trim() || '(no vendor)';
+    if(!by[k]){ by[k]={key:k, name:E.vendor||'(no vendor)', total:0}; order.push(k); }
+    by[k].total+=Number(E.amount)||0;
+  });
+  return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.total-a.total; });
+}
+function taxMiles_(){ return Math.round((TAX_STATE.trips||[]).reduce(function(a,t){ return a+t.miles; },0)*10)/10; }
+function renderTaxPrep_(){
+  var s=TAX_STATE, y=TAX_YEAR, nt=(s.trips||[]).length;
+  TAX_CONTRACTORS=taxContractorsUI_();
+  var h='<div class="field"><label>Stripe fees paid in '+y+'</label>'
+    +'<input id="tax_stripe" inputmode="decimal" placeholder="0.00" value="'+(s.stripeFees?s.stripeFees.toFixed(2):'')+'" onchange="saveTaxExtrasUI()">'
+    +'<p class="note" style="text-align:left;margin:6px 0 0">From Stripe\u2019s year-end summary. It shows as one line in the package\u2019s expenses. It is not added to your Expenses list.</p></div>'
+    +'<div class="field"><label>Mileage rate (dollars per mile)</label>'
+    +'<input id="tax_rate" inputmode="decimal" placeholder="0.00" value="'+(s.mileageRate?String(s.mileageRate):'')+'" onchange="saveTaxExtrasUI()">'
+    +'<p class="note" style="text-align:left;margin:6px 0 0">Enter the standard rate for '+y+'. Your accountant can confirm it.</p></div>'
+    +'<div id="tax_saved" class="note" style="text-align:left;min-height:16px;margin-top:6px"></div>'
+    +'<div class="more-list" style="margin-top:8px"><button type="button" class="more-row" onclick="openMileage()">'
+    +'<span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg></span>'
+    +'<span class="t">Mileage log \u00b7 '+nt+' trip'+(nt===1?'':'s')+' \u00b7 '+taxMiles_()+' miles</span><span class="chev">&#8250;</span></button></div>'
+    +'<div class="field"><label>Contractors (paid under Contract Labor)</label>';
+  if(!TAX_CONTRACTORS.length) h+='<p class="note" style="text-align:left;margin:0">No Contract Labor expenses in '+y+'.</p>';
+  TAX_CONTRACTORS.forEach(function(c,i){
+    var on=(s.w9||[]).indexOf(c.key)>-1;
+    h+='<label style="display:flex;align-items:center;gap:10px;margin:0 0 8px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--cream);font-weight:400;cursor:pointer">'
+      +'<input type="checkbox" style="width:18px;height:18px;flex:0 0 auto;accent-color:var(--gold)"'+(on?' checked':'')+' onchange="toggleW9UI('+i+',this.checked)">'
+      +'<span style="flex:1;min-width:0">'+esc(c.name)+'</span><span style="color:var(--muted)">$'+Math.round(c.total).toLocaleString()+'</span></label>';
+  });
+  if(TAX_CONTRACTORS.length) h+='<p class="note" style="text-align:left;margin:2px 0 0">Tick \u201cW-9 on file\u201d for each contractor. Only a yes/no is kept \u2014 never a taxpayer ID number.</p>';
+  h+='</div>'
+    +'<p class="note" style="text-align:left;margin:12px 0 0">'+(s.accountantEmail?'Email drafts are addressed to <b>'+esc(s.accountantName?s.accountantName+' ('+s.accountantEmail+')':s.accountantEmail)+'</b>. Change it in Settings \u2192 Your business.':'To address the email draft automatically, add your accountant\u2019s name and email in Settings \u2192 Your business.')+'</p>'
+    +'<button type="button" class="save" onclick="makeTaxPackageUI()">Build tax prep package</button>';
+  $('tax_body').innerHTML=h;
+}
+function saveTaxExtrasUI(){
+  var fees=taxNum_($('tax_stripe').value), rate=taxNum_($('tax_rate').value), el=$('tax_saved'), prev={f:TAX_STATE.stripeFees, r:TAX_STATE.mileageRate};
+  el.textContent='Saving\u2026';
+  GS.withSuccessHandler(function(j){
+    var r=null; try{ r=JSON.parse(j); }catch(e){}
+    if(!r || !r.ok){ TAX_STATE.stripeFees=prev.f; TAX_STATE.mileageRate=prev.r;
+      el.textContent=(r&&r.error)||'Could not save \u2014 try again.'; return; }
+    TAX_STATE.stripeFees=r.stripeFees; TAX_STATE.mileageRate=r.mileageRate;
+    $('tax_stripe').value=r.stripeFees?r.stripeFees.toFixed(2):''; $('tax_rate').value=r.mileageRate?String(r.mileageRate):'';
+    el.textContent='Saved.';
+  }).withFailureHandler(function(){ el.textContent='Could not reach the server \u2014 try again.'; }).saveTaxExtras(TAX_YEAR, fees, rate);
+}
+function toggleW9UI(i, on){
+  var c=TAX_CONTRACTORS[i]; if(!c) return;
+  var w=(TAX_STATE.w9||[]).filter(function(k){ return k!==c.key; }); if(on) w.push(c.key);
+  var before=TAX_STATE.w9; TAX_STATE.w9=w;
+  GS.withSuccessHandler(function(j){ var r=null; try{ r=JSON.parse(j); }catch(e){} if(!r||!r.ok){ TAX_STATE.w9=before; renderTaxPrep_(); toast('Could not save \u2014 try again'); } })
+    .withFailureHandler(function(){ TAX_STATE.w9=before; renderTaxPrep_(); toast('Could not save \u2014 try again'); }).setTaxW9(c.key, !!on);
+}
+function makeAccountantDraftUI(){
+  if(!TAX_LAST || !TAX_LAST.id || !TAX_LAST.pdfId) return;
+  var el=$('taxPkgDraft'); if(!el) return;
+  el.textContent='Saving the draft\u2026';
+  GS.withSuccessHandler(function(j){
+    var d=null; try{ d=JSON.parse(j); }catch(e){}
+    if(!d || !d.ok){ el.textContent=(d&&d.error)||'Could not save the draft. Try again.'; return; }
+    el.textContent='Draft saved in your Gmail Drafts'+(d.to?' (to '+d.to+')':' \u2014 add your accountant\u2019s email on the To line')+'. The PDF and an Excel copy are attached. Nothing has been sent.';
+  }).withFailureHandler(function(){ el.textContent='Could not reach the server. Try again.'; }).makeAccountantDraft(TAX_LAST.id, TAX_LAST.pdfId);
+}
+
+/* ---------- Mileage log ---------- */
+function openMileage(){
+  if(!TAX_STATE) return;
+  MIL_SUGG=null;
+  $('mil_title').textContent='Mileage log \u00b7 '+TAX_YEAR;
+  renderMileage_();
+  $('overlay').classList.add('open'); $('mileageSheet').classList.add('open');
+}
+function closeMileage(){
+  var sh=$('mileageSheet'); if(sh) sh.classList.remove('open');
+  syncOverlay();
+}
+function milToday_(){ var d=new Date(); return d.getFullYear()===TAX_YEAR ? ymd(d) : (TAX_YEAR+'-12-31'); }
+function renderMileage_(){
+  var trips=(TAX_STATE.trips||[]).slice().sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
+  var h='<div class="field"><label>Date</label><input id="mil_date" type="date" min="'+TAX_YEAR+'-01-01" max="'+TAX_YEAR+'-12-31" value="'+milToday_()+'"></div>'
+    +'<div class="grid2"><div class="field"><label>Miles</label><input id="mil_miles" inputmode="decimal" placeholder="0.0"></div>'
+    +'<div class="field"><label>Purpose</label><input id="mil_purpose" placeholder="Client or venue"></div></div>'
+    +'<div id="mil_err" class="note" style="text-align:left;min-height:16px;color:var(--crimson)"></div>'
+    +'<button type="button" class="save" style="margin-top:6px" onclick="addMileageUI()">Add trip</button>'
+    +'<div class="field" style="margin-top:20px"><label>Suggested from your booked shows</label><div id="mil_sugg">';
+  if(MIL_SUGG===null) h+='<button type="button" class="act" onclick="loadMileageSugg()">Look up my past shows</button>'
+    +'<p class="note" style="text-align:left;margin:6px 0 0">Uses the drive from your starting address to each venue, round trip. Nothing is added until you tap Add.</p>';
+  else h+=milSuggHtml_();
+  h+='</div></div><div class="field" style="margin-top:20px"><label>Trips \u00b7 '+trips.length+' \u00b7 '+taxMiles_()+' miles</label>';
+  if(!trips.length) h+='<p class="note" style="text-align:left;margin:0">No trips logged for '+TAX_YEAR+' yet.</p>';
+  trips.forEach(function(t){
+    h+='<div class="upcomingfu-row" style="margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;color:var(--cream)">'+esc(t.purpose)+'</div>'
+      +'<div style="font-size:12px;color:var(--muted)">'+esc(fmtDateY(t.date))+' \u00b7 '+t.miles+' miles'+(t.source==='From show'?' \u00b7 from a show':'')+'</div></div>'
+      +'<button class="tdel" id="mil_del_'+esc(t.id)+'" onclick="delMileageUI(\''+esc(t.id)+'\')" aria-label="Delete trip">\u2715</button></div>';
+  });
+  h+='</div>';
+  $('mil_body').innerHTML=h;
+}
+function milSuggHtml_(){
+  if(!MIL_SUGG.homeSet) return '<p class="note" style="text-align:left;margin:0">Add your starting address in Settings \u2192 Your business, then look up your shows here.</p>';
+  if(!MIL_SUGG.list.length) return '<p class="note" style="text-align:left;margin:0">No past booked shows to suggest \u2014 every one with a location is already in the log.</p>';
+  return MIL_SUGG.list.map(function(s,i){
+    return '<div class="upcomingfu-row" style="margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px;color:var(--cream)">'+esc(s.purpose)+'</div>'
+      +'<div style="font-size:12px;color:var(--muted)">'+esc(fmtDateY(s.date))+' \u00b7 '+s.miles+' miles round trip</div></div>'
+      +'<button class="followupdue-btn" onclick="addSuggestedTrip('+i+')">Add</button></div>';
+  }).join('');
+}
+function loadMileageSugg(){
+  var box=$('mil_sugg'); if(box) box.innerHTML='<p class="note" style="text-align:left;margin:0">Looking up your shows\u2026</p>';
+  GS.withSuccessHandler(function(j){
+    var r=null; try{ r=JSON.parse(j); }catch(e){}
+    if(!r || !r.ok){ MIL_SUGG=null; var b=$('mil_sugg'); if(b) b.innerHTML='<p class="note" style="text-align:left;margin:0">'+esc((r&&r.error)||'Could not look up your shows.')+'</p>'; return; }
+    MIL_SUGG={homeSet:r.homeSet, list:r.suggestions||[]}; renderMileage_();
+  }).withFailureHandler(function(){ var b=$('mil_sugg'); if(b) b.innerHTML='<p class="note" style="text-align:left;margin:0">Could not reach the server. Try again.</p>'; }).getMileageSuggestions(TAX_YEAR);
+}
+// Optimistic: the trip shows at once; a failed save removes it again and says why.
+function addTripNow_(date, purpose, miles, source, showKey, done){
+  var temp={id:'tmp'+Date.now(), date:date, purpose:purpose, miles:Math.round(miles*10)/10, notes:'', source:source, showKey:showKey||''};
+  TAX_STATE.trips.push(temp); renderMileage_(); renderTaxPrepCounts_();
+  GS.withSuccessHandler(function(j){
+    var r=null; try{ r=JSON.parse(j); }catch(e){}
+    if(!r || !r.ok){ TAX_STATE.trips=TAX_STATE.trips.filter(function(t){ return t!==temp; }); renderMileage_(); renderTaxPrepCounts_(); done(false, (r&&r.error)||'Could not save the trip.'); return; }
+    temp.id=r.trip.id; temp.date=r.trip.date; temp.purpose=r.trip.purpose; temp.miles=r.trip.miles; done(true);
+  }).withFailureHandler(function(){ TAX_STATE.trips=TAX_STATE.trips.filter(function(t){ return t!==temp; }); renderMileage_(); renderTaxPrepCounts_(); done(false, 'Could not reach the server.'); })
+    .addMileageTrip(date, purpose, miles, '', source, showKey||'');
+}
+function renderTaxPrepCounts_(){ if($('tax_body') && TAX_STATE && $('taxSheet').classList.contains('open') && $('tax_stripe')){ var f=$('tax_stripe').value, r=$('tax_rate').value; renderTaxPrep_(); $('tax_stripe').value=f; $('tax_rate').value=r; } }
+function addMileageUI(){
+  var date=$('mil_date').value, miles=parseFloat(taxNum_($('mil_miles').value)), purpose=$('mil_purpose').value.trim(), err=$('mil_err');
+  err.textContent='';
+  var chk=checkedDateYear_(date, true);
+  if(!date || !chk.ok || chk.v.slice(0,4)!==String(TAX_YEAR)){ err.textContent='Pick a date in '+TAX_YEAR+'.'; return; }
+  if(!(miles>0) || miles>5000){ err.textContent='Enter the miles driven (up to 5,000).'; return; }
+  if(!purpose){ err.textContent='Add a short purpose, such as the client or venue.'; return; }
+  addTripNow_(chk.v, purpose, miles, 'Manual', '', function(okk, msg){ if(!okk){ toast(msg); } });
+}
+function addSuggestedTrip(i){
+  var s=MIL_SUGG && MIL_SUGG.list[i]; if(!s) return;
+  MIL_SUGG.list.splice(i,1);
+  addTripNow_(s.date, s.purpose, s.miles, 'From show', s.showKey, function(okk, msg){
+    if(!okk){ MIL_SUGG.list.splice(i,0,s); renderMileage_(); toast(msg); }
+  });
+}
+// Arm-then-confirm (like the other deletes): tap once to arm, tap again within 3.5 s to delete.
+function delMileageUI(id){
+  var btn=$('mil_del_'+id);
+  if(MIL_ARM!==id){
+    MIL_ARM=id; clearTimeout(MIL_ARM_T);
+    if(btn){ btn.textContent='Delete?'; btn.classList.add('armed'); }
+    MIL_ARM_T=setTimeout(function(){ MIL_ARM=null; var b=$('mil_del_'+id); if(b){ b.textContent='\u2715'; b.classList.remove('armed'); } }, 3500);
+    return;
+  }
+  clearTimeout(MIL_ARM_T); MIL_ARM=null;
+  var idx=-1; TAX_STATE.trips.forEach(function(t,k){ if(t.id===id) idx=k; });
+  if(idx<0) return;
+  var gone=TAX_STATE.trips.splice(idx,1)[0];
+  renderMileage_(); renderTaxPrepCounts_();
+  GS.withSuccessHandler(function(j){ var r=null; try{ r=JSON.parse(j); }catch(e){} if(!r||!r.ok){ TAX_STATE.trips.splice(idx,0,gone); renderMileage_(); renderTaxPrepCounts_(); toast('Could not delete \u2014 put back'); } })
+    .withFailureHandler(function(){ TAX_STATE.trips.splice(idx,0,gone); renderMileage_(); renderTaxPrepCounts_(); toast('Could not delete \u2014 put back'); }).deleteMileageTrip(id);
+}
+function taxPackageData_(year){
+  var income=[], unpaid=[], attention=[];
+  var yEnd=new Date(year,11,31,23,59,59);
+  var cents=function(n){ return Math.round(n*100)/100; };
+  (LEADS||[]).forEach(function(L){
+    var name=L[C.name]||'Lead';
+    if(String(L[C.depositReceived]||'')==='Yes'){
+      var dd=pd(L[C.depositReceivedDate]);
+      if(!dd) attention.push({item:'Deposit marked received, no date', detail:name+' — not counted in any year until a date is set'});
+      else if(dd.getFullYear()===year){
+        var db=depositBase(L);
+        income.push({date:ymd(dd), name:name, kind:'Deposit', method:L[C.paymentMethod]||'', invoice:L['Invoice Number']||'',
+          base:db, cardFee:hasDepositCardFee(L)?cents(db*CARD_FEE_RATE):0});
+      }
+    }
+    var balPaid=String(L[C.balancePaid]||'')==='Yes', bd=null;
+    if(balPaid){
+      bd=pd(L[C.balancePaidDate]);
+      if(!bd) attention.push({item:'Balance marked paid, no date', detail:name+' — not counted in any year until a date is set'});
+      else if(bd.getFullYear()===year){
+        var bb=balanceBase(L), cf=hasBalanceCardFee(L)?cents(bb*CARD_FEE_RATE):0;
+        income.push({date:ymd(bd), name:name, kind:'Balance', method:L[C.balancePaymentMethod]||'', invoice:L['Invoice Number']||'', base:bb, cardFee:cf});
+      }
+    }
+    // Booked/Completed show on or before Dec 31 whose balance had not been received by Dec 31.
+    var ed=pd(L[C.eventDate]);
+    if(isBookedLike(L) && ed && ed<=yEnd){
+      var owed=balanceBase(L);
+      var paidByYearEnd=balPaid && bd && bd<=yEnd;
+      if(owed>0 && !paidByYearEnd) unpaid.push({name:name, eventDate:ymd(ed), owed:owed, status:String(L[C.status])});
+    }
+  });
+  // Received store sales count by their sale date, whether or not the store is currently switched on.
+  (STORE_SALES||[]).forEach(function(s){
+    if(String(s.status||'').trim().toLowerCase()!=='received') return;
+    var d=pd(s.date); if(!d || d.getFullYear()!==year) return;
+    income.push({date:ymd(d), name:s.name||s.product||'Store sale', kind:'Store sale', method:s.method||'', invoice:'', base:money(s.amount), cardFee:0});
+  });
+  var expenses=[];
+  (EXPENSES||[]).forEach(function(E){
+    var d=pd(E.date);
+    if(!d){ attention.push({item:'Expense with no date', detail:(E.vendor||'(no vendor)')+' $'+(Number(E.amount)||0).toFixed(2)+' — not in any year until a date is set'}); return; }
+    if(d.getFullYear()!==year) return;
+    expenses.push({date:ymd(d), vendor:E.vendor||'', amount:Number(E.amount)||0, category:E.category||'', notes:E.notes||'', receiptUrl:E.receiptUrl||'', source:E.source||''});
+  });
+  return {year:year, income:income, expenses:expenses, unpaid:unpaid, attention:attention};
+}
+function makeTaxPackageUI(){
+  if(TAX_PKG_BUSY) return;
+  var year=TAX_YEAR;
+  if(!year){ toast('Pick a year in Period first'); return; }
+  var data=taxPackageData_(year);
+  if(!data.income.length && !data.expenses.length){ toast('Nothing recorded for '+year+' yet'); return; }
+  var box=$('taxPkgResult');
+  var note=function(t){ return '<p class="note" style="text-align:left;margin:10px 0 0">'+t+'</p>'; };
+  TAX_PKG_BUSY=true;
+  box.innerHTML=note('Building your '+year+' tax prep package… this takes a few seconds.');
+  GS.withSuccessHandler(function(json){
+    TAX_PKG_BUSY=false;
+    var r=null; try{ r=JSON.parse(json); }catch(e){}
+    if(!r || !r.ok){ box.innerHTML=note(esc((r&&r.error)||'Could not build the package. Try again.')); return; }
+    box.innerHTML='<div style="margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)">'
+      +'<div style="font-weight:700;color:var(--gold-bright)">Your '+esc(r.year)+' tax prep package is ready</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin:6px 0 10px">'+esc(r.payments)+' payments · '+esc(r.expenses)+' expenses · saved in your Drive folder “'+esc(r.folder)+'”.'
+      +(r.attention?' <b style="color:var(--crimson)">'+esc(r.attention)+' item'+(r.attention===1?'':'s')+' need attention</b> (see that tab).':' Nothing needs attention.')+'</div>'
+      +'<a class="act" href="'+esc(r.url)+'" target="_blank" rel="noopener">Open the spreadsheet<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
+      +'<div id="taxPkgPdf" style="font-size:13px;color:var(--muted);margin-top:10px">Preparing the PDF summary…</div>'
+      +'<div id="taxPkgDraft" style="font-size:13px;color:var(--muted);margin-top:10px"></div>'
+      +'<div id="taxPkgFin" style="font-size:12.5px;color:var(--muted);margin-top:10px">Finishing the formatting… all the numbers are already there.</div>'
+      +'</div>';
+    // The link is already usable; the look (bold, $ formats, column widths) is applied right after, in the
+    // background, so the owner is never kept waiting on it. If it fails the file is still complete.
+    // The PDF is the Summary tab printed, so it is requested only once that formatting has finished.
+    var fin=function(t){ var el=$('taxPkgFin'); if(el) el.textContent=t; };
+    var pdfBox=function(html){ var el=$('taxPkgPdf'); if(el) el.innerHTML=html; };
+    var pdfFail='The PDF summary could not be made — the spreadsheet is complete.';
+    var askPdf=function(){
+      GS.withSuccessHandler(function(j){
+        var p=null; try{ p=JSON.parse(j); }catch(e){}
+        if(!p || !p.ok){ pdfBox(esc(pdfFail)); return; }
+        pdfBox('<a class="act" href="'+esc(p.url)+'" target="_blank" rel="noopener">Open the PDF summary<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>');
+        TAX_LAST={id:r.id, pdfId:p.id};
+        var dr=$('taxPkgDraft');
+        if(dr) dr.innerHTML='<a class="act" href="javascript:void(0)" onclick="makeAccountantDraftUI()">Draft an email to my accountant<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></a>';
+      }).withFailureHandler(function(){ pdfBox(esc(pdfFail)); }).makeTaxPdf(r.id);
+    };
+    GS.withSuccessHandler(function(j){
+      var f=null; try{ f=JSON.parse(j); }catch(e){}
+      if(f&&f.ok){ fin('Formatting finished.'); askPdf(); }
+      else { fin('The formatting did not finish, but all the numbers are in the spreadsheet.'); pdfBox('The PDF summary was skipped because the formatting did not finish — the spreadsheet is complete.'); }
+    }).withFailureHandler(function(){
+      fin('The formatting did not finish, but all the numbers are in the spreadsheet.');
+      pdfBox('The PDF summary was skipped because the formatting did not finish — the spreadsheet is complete.');
+    }).finishTaxPackage(r.id, r.plan);
+  }).withFailureHandler(function(){
+    TAX_PKG_BUSY=false;
+    box.innerHTML=note('Could not reach the server. Check your connection and try again.');
+  }).makeTaxPackage(data);
+}
 function expenseRowHtml(E){
   var d=pd(E.date);
   return '<div class="upcomingfu-row" onclick="openAddExpense('+E._row+')">'
@@ -7892,7 +8213,7 @@ function renderReceiptPreview(){
   var E = EXPENSE_EDIT_ROW ? EXPENSES.find(function(x){ return x._row===EXPENSE_EDIT_ROW; }) : null;
   if(E && E.receiptUrl){
     box.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px">'
-      +'<a class="act" href="'+esc(E.receiptUrl)+'" target="_blank" rel="noopener">View receipt \u2197</a>'
+      +'<a class="act" href="'+esc(E.receiptUrl)+'" target="_blank" rel="noopener">View receipt<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
       +'<a class="act" href="javascript:void(0)" style="color:#E9927B;flex-shrink:0" onclick="removeReceiptUI()">Remove</a>'
       +'</div>';
     return;
@@ -9656,6 +9977,12 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.61', d:'Oct 2026', notes:[
+    'New — Tax prep: in Expenses, tap “Tax prep” to build a year-end spreadsheet and PDF summary for your accountant (income, expenses, unpaid balances, mileage, contractors, and a list of things to fix before you file). Enter your Stripe fees for the year, keep a mileage log (it can suggest trips from your booked shows), mark contractors with a W-9 on file, and save a draft email to your accountant with the PDF and an Excel copy attached. Nothing is sent for you.',
+    'New (optional) — “Leave for…” alerts: add your starting address in Settings → Taxes & travel and every booked show with a location gets a calendar alert at the time to leave (start time, minus an hour early, minus the typical drive time — not live traffic).',
+    'Changed — Income no longer includes the card processing fee on balances paid by card, so deposits and balances count the same way (the amount you agreed). Income may dip slightly if you take card payments.',
+    'Fixed: same-day items in your Today list are in time order, and a booked show’s calendar start time matches the time shown in the app.'
+  ]},
   { v:'1.5.60', d:'Sep 2026', notes:[
     'Fixed: in Branded Gmail drafts your logo now sits at the right size beside your signature \u2014 as tall as your name and contact details \u2014 instead of sometimes showing huge in Gmail.'
   ]},

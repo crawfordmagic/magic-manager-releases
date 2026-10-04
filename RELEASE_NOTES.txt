@@ -1,7 +1,11 @@
 What's new in this update:
 
-• Fixed: in Branded Gmail drafts, your logo now sits at the right size beside your signature — as tall as your name and contact details — instead of sometimes showing up huge in Gmail. (This only matters if you use Branded Gmail drafts.)
+• NEW — Tax prep. In Expenses, tap "Tax prep" to build a year-end spreadsheet and a PDF summary for your accountant: income, expenses, unpaid balances, mileage, contractors, and a list of anything to fix before you file. Enter your Stripe fees for the year, keep a mileage log (it can suggest trips from your booked shows), mark which contractors have a W-9 on file, and save a draft email to your accountant with the PDF and an Excel copy attached. Nothing is ever sent for you.
 
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. (Your data is never affected.)
+• NEW, optional — "Leave for…" alerts. Add your starting address in Settings → Taxes & travel, and every booked show with a location gets a calendar alert at the time to leave: the start time, minus an hour to arrive early, minus the typical drive time (it doesn't use live traffic). It stays off until you add the address.
 
-• OPTIONAL, only for Branded Gmail drafts: if you haven't already, also replace appsscript.json (in Apps Script, click the gear "Project Settings" and turn on "Show appsscript.json manifest file in editor"), save, then — BEFORE you deploy — pick the function named showGrantedScopes at the top and click Run, and approve what Google shows. Magic Manager only ever saves drafts to your Gmail — it never reads your mail and never sends anything to your clients on its own. Skip this and everything else works exactly as before.
+• CHANGED — Income. The Income number in Insights no longer includes the card processing fee on balances paid by card, so deposits and balances are now counted the same way: the amount you agreed. If you take card payments you may see Income dip slightly (3.25% of card-paid balances). Nothing a client owes has changed.
+
+• Fixed: things due on the same day now appear in time order in your Today list, and a booked show's calendar start time now always matches the time shown in the app.
+
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. (Your data is never affected, and there are no new permissions to approve.) The accountant email draft uses the same Gmail permission as Branded Gmail drafts; if you haven't set that up, the button will say so.

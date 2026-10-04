@@ -27,6 +27,9 @@ var CONFIG_DEFAULTS_ = {
   WEBSITE: '',
   TAGLINE: 'Professional Services',
   ADDRESS: '',
+  HOME_ADDRESS: '',
+  ACCOUNTANT_NAME: '',
+  ACCOUNTANT_EMAIL: '',
   SERVICE_MESSAGES: '',
   PORTAL_THEME: '',
   VENMO_USERNAME: '',
@@ -155,6 +158,10 @@ var CONFIG_FIELDS_ = [
   { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', section: 'methods' },
   { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', section: 'methods' },
   { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', section: 'methods' },
+  // Taxes & travel (optional, private — only the owner ever sees these)
+  { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a "Leave for…" alert set for the drive time plus an hour early. Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', section: 'taxes' },
+  { key: 'ACCOUNTANT_NAME', label: 'Accountant\'s name', help: 'Optional. The email draft in Expenses → Tax prep starts with this name (first name only if you give a full name). Only you ever see this — it is not shown to clients.', section: 'taxes' },
+  { key: 'ACCOUNTANT_EMAIL', label: 'Accountant\'s email', help: 'Optional. Used only to address the draft email in Expenses → Tax prep. Only you ever see this — it is not shown to clients.', section: 'taxes' },
   // Services & client page
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
@@ -189,6 +196,7 @@ var SETTINGS_SECTIONS_ = [
   { id: 'contact', title: 'How clients reach you', desc: 'Your contact details, shown on your contract and your event portal.', open: false },
   { id: 'payments', title: 'Getting paid', desc: 'Your deposit, the card processing fee, and the emails you get when a client reports a payment or signs their contract.', open: false },
   { id: 'methods', title: 'Payment methods', desc: 'Switch on the payment methods you accept — leave the rest blank. You can add these anytime.', open: false },
+  { id: 'taxes', title: 'Taxes & travel (optional)', desc: 'Only you see these \u2014 they are never shown to clients. They address the accountant email in Expenses \u2192 Tax prep and work out drive times for your calendar.', open: false },
   { id: 'services', title: 'Services & event portal', desc: 'The dropdown choices inside your app, plus the note clients see after they pay their deposit.', open: false },
   { id: 'contract', title: 'Contract terms', desc: 'Your cancellation policy and any extra clauses — these appear in the Terms section of the agreement your clients sign. Leave blank to use the standard wording.', open: false },
   { id: 'storefront', title: 'Store (optional)', desc: 'Sell products with a simple public checkout page — merch, gift cards, anything that isn\'t an event booking. Off unless you turn it on.', open: false },
@@ -516,7 +524,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.60';
+var APP_VERSION = '1.5.61';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1094,6 +1102,9 @@ function publicCfg_() {
   out.HAS_WIRE = !!(src.WIRE_ACCOUNT && src.WIRE_ROUTING);
   PRIVATE_PAY_KEYS_.forEach(function (k) { delete out[k]; });
   delete out.SIGNATURE_FILE_ID; // the owner's signature image is private to documents
+  delete out.HOME_ADDRESS;      // the owner's starting address for drive times — never shown to clients
+  delete out.ACCOUNTANT_EMAIL;  // the owner's accountant — never shown to clients
+  delete out.ACCOUNTANT_NAME;   // ...nor their name
   out.CARD_ENABLED = !!String(PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '').trim();
   return out;
 }
@@ -1110,7 +1121,9 @@ var API_ = {
   createProposalDraft: createProposalDraft_, sendTestEmail: sendTestEmail_,
   uploadSignature: uploadSignature_, removeSignature: removeSignature_, getSignaturePreview: getSignaturePreview_, activateLicense: activateLicense_,
   startTrial: startTrial_, getTrialInfo: getTrialInfo_, markTrialWarned: markTrialWarned_, getUpdateInfo: getUpdateInfo_,
-  snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_,
+  snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_, makeTaxPackage: makeTaxPackage_, finishTaxPackage: finishTaxPackage_, makeTaxPdf: makeTaxPdf_,
+  getTaxPrep: getTaxPrep_, saveTaxExtras: saveTaxExtras_, setTaxW9: setTaxW9_, addMileageTrip: addMileageTrip_, deleteMileageTrip: deleteMileageTrip_,
+  getMileageSuggestions: getMileageSuggestions_, makeAccountantDraft: makeAccountantDraft_,
   confirmReportedPayment: confirmReportedPayment_, dismissReportedPayment: dismissReportedPayment_,
   recordManualStoreSale: recordManualStoreSale_, setStoreSaleStatus: setStoreSaleStatus_, deleteStoreSale: deleteStoreSale_,
   updateStoreSale: updateStoreSale_, storeListProducts: storeListProducts_, storeSaveProduct: storeSaveProduct_,
@@ -1414,7 +1427,7 @@ function createProposalDraft_(to, subject, body, portalUrl, buttonLabel) {
     // (Code.gs, Index.html, Sign.html, Store.html) has the new code but not the manifest, so say exactly that
     // instead of sending them to approve a Gmail request they will never be shown.
     if (typeof Gmail === 'undefined') {
-      return JSON.stringify({ ok: false, needsManifest: true, error: 'Branded Gmail drafts need one extra update step: also replace the appsscript.json file, then approve the Gmail request. The update page explains how.' });
+      return JSON.stringify({ ok: false, needsManifest: true, error: 'Branded Gmail drafts need one extra update step: also replace the appsscript.json file, then approve the Gmail request. Reply to your purchase receipt and we’ll walk you through it.' });
     }
     to = String(to == null ? '' : to).replace(/[\r\n]/g, '').trim();
     if (!/^[^\s<>"',;@]+@[^\s<>"',;@]+$/.test(to)) to = '';
@@ -4294,6 +4307,12 @@ function removeBookingEventForTrash_(sh, heads, rowValues) {
   const idIdx = heads.indexOf('Booking Calendar Event ID');
   if (statusIdx < 0 || idIdx < 0) return;
   if (String(rowValues[statusIdx] || '') !== 'Booked') return;
+  // The "Leave for…" alert goes with the booking.
+  const leaveIdx = heads.indexOf('Leave Alert Event ID');
+  if (leaveIdx > -1 && rowValues[leaveIdx]) {
+    try { var lv = CalendarApp.getDefaultCalendar().getEventById(rowValues[leaveIdx]); if (lv) lv.deleteEvent(); } catch (e) {}
+    rowValues[leaveIdx] = '';
+  }
   const eventId = rowValues[idIdx];
   if (!eventId) return;
   try {
@@ -5632,15 +5651,29 @@ function ensureBookingEventCol_(sh) {
   return col;
 }
 
+// Clock time ([hour, minute]) of a Start/End Time cell value, or null. A time-only cell is a Date on a
+// placeholder day in 1899, and reading its hours with getHours()/getMinutes() (script timezone) can drift by
+// minutes. Formatting it in the spreadsheet's own timezone is exactly what the app's display does (fmtCell_),
+// so the calendar now always agrees with the time the app shows.
+function clockOf_(timeVal) {
+  const t = new Date(timeVal);
+  if (isNaN(t.getTime())) return null;
+  if (Object.prototype.toString.call(timeVal) === '[object Date]') {
+    const m = /^(\d{2}):(\d{2})$/.exec(Utilities.formatDate(timeVal, tz_(), 'HH:mm'));
+    if (m) return [Number(m[1]), Number(m[2])];
+  }
+  return [t.getHours(), t.getMinutes()];
+}
+
 function combineDateTime_(dateVal, timeVal, fallbackHour) {
   if (!dateVal) return null;
   const d = new Date(dateVal);
   if (isNaN(d.getTime())) return null;
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   if (timeVal) {
-    const t = new Date(timeVal);
-    if (!isNaN(t.getTime())) {
-      out.setHours(t.getHours(), t.getMinutes(), 0, 0);
+    const hm = clockOf_(timeVal);
+    if (hm) {
+      out.setHours(hm[0], hm[1], 0, 0);
       return out;
     }
   }
@@ -5649,13 +5682,134 @@ function combineDateTime_(dateVal, timeVal, fallbackHour) {
   return out;
 }
 
+/* ---------- "Leave for…" alerts ----------
+ * For a Booked show with a location, a second event on the main calendar tells the owner when to leave:
+ * start time − ARRIVE_EARLY_MIN_ − the drive time from the owner's starting address (Settings → Starting
+ * address for drive times). The drive time comes from Google Maps — a typical driving time, NOT live
+ * traffic. The booked event's description says which place Maps actually found, so a wrong match
+ * (a venue name that Maps resolves to a different place) is visible instead of silent. Nothing here
+ * can block a save; every call is wrapped by the caller. */
+var ARRIVE_EARLY_MIN_ = 60;
+
+function driveSeconds_(origin, destination) {
+  var cache = null, key = '';
+  try {
+    cache = CacheService.getScriptCache();
+    key = 'drv_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, origin + '|' + destination));
+    var hit = cache.get(key);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { cache = null; }
+  var out;
+  try {
+    var res = Maps.newDirectionFinder().setOrigin(origin).setDestination(destination)
+      .setMode(Maps.DirectionFinder.Mode.DRIVING).getDirections();
+    var leg = res && res.status === 'OK' && res.routes && res.routes[0] && res.routes[0].legs && res.routes[0].legs[0];
+    if (!leg || !leg.duration) return { error: (res && res.status) || 'no route' };
+    out = { seconds: Number(leg.duration.value), resolved: String(leg.end_address || ''), meters: Number(leg.distance && leg.distance.value) || 0 };
+  } catch (e) { return { error: String(e && e.message || e) }; }
+  try { if (cache) cache.put(key, JSON.stringify(out), 21600); } catch (e) {} // 6 hours, so repeated saves don't re-ask Maps
+  return out;
+}
+
+// Returns null (feature off: no starting address saved), {line} (a note for the booked event only), or
+// {leaveAt, minutes, resolved, line} (the full plan).
+function leavePlan_(start, location) {
+  var origin = String(getConfig_().HOME_ADDRESS || '').trim();
+  if (!origin) return null;
+  var dest = String(location || '').trim();
+  if (!dest) return { line: 'Leave alert: add an event location to get a leave time.' };
+  var d = driveSeconds_(origin, dest);
+  if (d.error || !(d.seconds > 0)) {
+    return { line: 'Leave alert: could not find the drive time to "' + dest + '" — try a street address in Event Location.' };
+  }
+  var mins = Math.round(d.seconds / 60);
+  var leaveAt = new Date(Math.floor((start.getTime() - (ARRIVE_EARLY_MIN_ + mins) * 60000) / 300000) * 300000); // down to 5 min: earlier is safer
+  var fmt = function (dt) { return Utilities.formatDate(dt, tz_(), 'h:mm a'); };
+  return { leaveAt: leaveAt, minutes: mins, resolved: d.resolved,
+    line: 'Leave by ' + fmt(leaveAt) + ': about ' + mins + ' min drive (typical, no live traffic) to ' + (d.resolved || dest)
+      + ', arriving ' + ARRIVE_EARLY_MIN_ + ' min before the ' + fmt(start) + ' start.' };
+}
+
+function ensureLeaveEventCol_(sh) {
+  const heads = headers_(sh);
+  var col = heads.indexOf('Leave Alert Event ID') + 1;
+  if (!col) {
+    col = heads.length + 1;
+    sh.getRange(1, col).setValue('Leave Alert Event ID');
+  }
+  return col;
+}
+
+// Create / move / remove the "Leave for…" event so it matches the plan. No usable plan, or a leave time that
+// has already passed, means no event (and any old one is removed).
+function syncLeaveEvent_(sh, rowNum, plan, who) {
+  const col = ensureLeaveEventCol_(sh);
+  const cal = CalendarApp.getDefaultCalendar();
+  const existingId = sh.getRange(rowNum, col).getValue();
+  var ev = null;
+  if (existingId) { try { ev = cal.getEventById(existingId); } catch (e) { ev = null; } }
+  if (!plan || !plan.leaveAt || plan.leaveAt.getTime() <= Date.now()) {
+    if (ev) { try { ev.deleteEvent(); } catch (e) {} }
+    if (existingId) sh.getRange(rowNum, col).setValue('');
+    return;
+  }
+  const title = 'Leave for ' + (who || 'the show');
+  const end = new Date(plan.leaveAt.getTime() + 10 * 60000);
+  if (ev) {
+    ev.setTitle(title);
+    ev.setTime(plan.leaveAt, end);
+    ev.setDescription(plan.line);
+  } else {
+    ev = cal.createEvent(title, plan.leaveAt, end, { description: plan.line });
+    ev.removeAllReminders();
+    ev.addPopupReminder(0);
+    sh.getRange(rowNum, col).setValue(ev.getId());
+  }
+}
+
+// A booking that is no longer Booked (or was trashed) must not keep buzzing the owner to leave for it.
+function removeLeaveEvent_(sh, rowNum) {
+  const heads = headers_(sh);
+  const col = heads.indexOf('Leave Alert Event ID') + 1;
+  if (!col) return;
+  const id = sh.getRange(rowNum, col).getValue();
+  if (!id) return;
+  try { var ev = CalendarApp.getDefaultCalendar().getEventById(id); if (ev) ev.deleteEvent(); } catch (e) {}
+  sh.getRange(rowNum, col).setValue('');
+}
+
+// Daily: shows in the next few days get their leave time re-checked (a changed address, location or
+// start time is picked up even if the lead wasn't re-saved).
+function refreshLeaveAlerts_() {
+  try {
+    if (!String(getConfig_().HOME_ADDRESS || '').trim()) return;
+    const sh = sheet_();
+    const heads = headers_(sh);
+    const si = heads.indexOf('Status'), di = heads.indexOf('Date of Event'), ei = heads.indexOf('Booking Calendar Event ID');
+    if (si < 0 || di < 0 || ei < 0) return;
+    const last = sh.getLastRow();
+    if (last < 2) return;
+    const rows = sh.getRange(2, 1, last - 1, heads.length).getValues();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const horizon = new Date(today.getTime() + 3 * 86400000);
+    rows.forEach(function (r, i) {
+      if (String(r[si]) !== 'Booked' || !r[ei]) return;
+      const d = new Date(r[di]);
+      if (isNaN(d.getTime())) return;
+      d.setHours(0, 0, 0, 0);
+      if (d < today || d >= horizon) return;
+      try { syncBookedCalendarEvent_(sh, i + 2, true); } catch (e) {}
+    });
+  } catch (e) {}
+}
+
 function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   const heads = headers_(sh);
   const row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
   const get = function (h) { var i = heads.indexOf(h); return i > -1 ? row[i] : ''; };
 
   const status = String(get('Status') || '');
-  if (status !== 'Booked') return;
+  if (status !== 'Booked') { try { removeLeaveEvent_(sh, rowNum); } catch (e) {} return; }
 
   const idCol = ensureBookingEventCol_(sh);
   const existingId = sh.getRange(rowNum, idCol).getValue();
@@ -5685,6 +5839,9 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   if (get('Event Location')) lines.push('Location: ' + get('Event Location'));
   if (get('Phone number')) lines.push('Phone: ' + get('Phone number'));
   if (get('E-mail')) lines.push('Email: ' + get('E-mail'));
+  var plan = null;
+  try { plan = leavePlan_(start, get('Event Location')); } catch (e) { plan = null; }
+  if (plan && plan.line) lines.push(plan.line);
   const description = lines.join('\n');
   const location = String(get('Event Location') || '');
 
@@ -5701,6 +5858,611 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   } else {
     ev = cal.createEvent(title, start, end, { description: description, location: location });
     sh.getRange(rowNum, idCol).setValue(ev.getId());
+  }
+  try { syncLeaveEvent_(sh, rowNum, plan, who); } catch (e) { /* the leave alert never blocks a save */ }
+}
+
+/* ---------- Tax prep package ----------
+ * Expenses → "Tax prep package": a new Google Sheet in the owner's Drive ("<Business> Tax Prep" folder) for
+ * one calendar year, ready to hand to an accountant: Summary, Income, Expenses, Unpaid at year end, and a
+ * Needs attention list. CASH basis (a payment counts in the year it was marked received). The browser
+ * builds the rows with the same income logic Insights uses and sends them here; the SERVER recomputes every
+ * total from those rows so the Summary can never disagree with the detail tabs. Each payment carries its
+ * agreed amount and its card fee separately — Stripe's own fees are not tracked in the app, and the report
+ * says so. A bookkeeping report, not tax advice. Owner-only (API_). */
+var TAX_MAX_ROWS_ = 5000;
+var TAX_MONTHS_ = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function taxMoney_(v) { var n = Number(v); return isFinite(n) ? Math.round(n * 100) / 100 : 0; }
+function taxYmd_(v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? m[0] : ''; }
+// Anything that lands in a cell can start with = + - @ (names arrive from website forms) — defuse it.
+function taxText_(v, max) { return clientText_(v, max || 200); }
+
+function taxCleanIncome_(rows, year) {
+  var out = [];
+  (Array.isArray(rows) ? rows : []).slice(0, TAX_MAX_ROWS_).forEach(function (r) {
+    r = r || {};
+    var date = taxYmd_(r.date);
+    if (!date || Number(date.slice(0, 4)) !== year) return;
+    out.push({ date: date, name: taxText_(r.name, 120), kind: taxText_(r.kind, 40), method: taxText_(r.method, 40),
+      invoice: taxText_(r.invoice, 40), base: taxMoney_(r.base), cardFee: taxMoney_(r.cardFee) });
+  });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+
+function taxCleanExpenses_(rows, year) {
+  var out = [];
+  (Array.isArray(rows) ? rows : []).slice(0, TAX_MAX_ROWS_).forEach(function (r) {
+    r = r || {};
+    var date = taxYmd_(r.date);
+    if (!date || Number(date.slice(0, 4)) !== year) return;
+    var url = String(r.receiptUrl || '').trim();
+    out.push({ date: date, vendor: taxText_(r.vendor, 120), amount: taxMoney_(r.amount), category: taxText_(r.category, 60),
+      notes: taxText_(r.notes, 200), receiptUrl: /^https:\/\//i.test(url) ? url.slice(0, 300) : '', source: taxText_(r.source, 40) });
+  });
+  out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+
+function taxCleanUnpaid_(rows) {
+  var out = [];
+  (Array.isArray(rows) ? rows : []).slice(0, TAX_MAX_ROWS_).forEach(function (r) {
+    r = r || {};
+    out.push({ name: taxText_(r.name, 120), eventDate: taxYmd_(r.eventDate), owed: taxMoney_(r.owed), status: taxText_(r.status, 20) });
+  });
+  return out;
+}
+
+// Every total on the Summary comes from here — computed from the same rows the detail tabs show.
+function taxSummary_(income, expenses, stripeFees) {
+  var s = { serviceIncome: 0, cardFees: 0, payments: income.length, expenseTotal: 0, expenseCount: expenses.length, byCategory: {}, months: [] };
+  for (var m = 0; m < 12; m++) s.months.push({ income: 0, cardFees: 0, expenses: 0 });
+  income.forEach(function (r) {
+    s.serviceIncome += r.base; s.cardFees += r.cardFee;
+    var mi = Number(r.date.slice(5, 7)) - 1;
+    if (mi >= 0 && mi < 12) { s.months[mi].income += r.base; s.months[mi].cardFees += r.cardFee; }
+  });
+  expenses.forEach(function (e) {
+    s.expenseTotal += e.amount;
+    var cat = e.category || 'Uncategorized';
+    s.byCategory[cat] = (s.byCategory[cat] || 0) + e.amount;
+    var mi = Number(e.date.slice(5, 7)) - 1;
+    if (mi >= 0 && mi < 12) s.months[mi].expenses += e.amount;
+  });
+  // The yearly Stripe fee the owner typed in: one labelled line in the totals (not itemized, not in the month table).
+  stripeFees = taxMoney_(stripeFees);
+  s.stripeFees = stripeFees;
+  if (stripeFees > 0) {
+    s.expenseTotal += stripeFees;
+    s.byCategory['Payment processing fees (entered)'] = (s.byCategory['Payment processing fees (entered)'] || 0) + stripeFees;
+  }
+  s.serviceIncome = taxMoney_(s.serviceIncome); s.cardFees = taxMoney_(s.cardFees); s.expenseTotal = taxMoney_(s.expenseTotal);
+  s.totalReceived = taxMoney_(s.serviceIncome + s.cardFees);
+  s.net = taxMoney_(s.serviceIncome - s.expenseTotal);
+  s.months = s.months.map(function (x) { return { income: taxMoney_(x.income), cardFees: taxMoney_(x.cardFees), expenses: taxMoney_(x.expenses) }; });
+  s.categories = Object.keys(s.byCategory).map(function (k) { return { category: k, amount: taxMoney_(s.byCategory[k]) }; })
+    .sort(function (a, b) { return b.amount - a.amount; });
+  return s;
+}
+
+// The "fix before you file" list: things an accountant would stumble on.
+function taxAttention_(expenses, extra, ctx) {
+  var out = [];
+  ctx = ctx || {};
+  var usd = function (n) { return '$' + n.toFixed(2); };
+  var seen = {};
+  expenses.forEach(function (e) {
+    var label = e.date + '  ' + (e.vendor || '(no vendor)') + '  ' + usd(e.amount);
+    if (!e.receiptUrl) out.push({ item: 'Expense with no receipt', detail: label });
+    if (!e.category || e.category === 'Other') out.push({ item: 'Expense not categorized', detail: label });
+    var key = e.date + '|' + String(e.vendor).toLowerCase() + '|' + e.amount;
+    if (seen[key]) out.push({ item: 'Possible duplicate expense', detail: label });
+    seen[key] = true;
+  });
+  if (ctx.cardPayments && !(ctx.stripeFees > 0)) out.push({ item: 'Card payments but no Stripe fees entered', detail: 'Enter this year\'s Stripe fees in Tax prep so the expenses are complete.' });
+  (ctx.contractors || []).forEach(function (k) { if (!k.w9) out.push({ item: 'Contractor with no W-9 marked', detail: k.name + '  ' + usd(k.total) }); });
+  if (ctx.mileageTrips > 0 && !(ctx.mileageRate > 0)) out.push({ item: 'Mileage logged but no rate entered', detail: 'Enter the mileage rate in Tax prep to see the estimated deduction.' });
+  (Array.isArray(extra) ? extra : []).slice(0, 200).forEach(function (x) {
+    if (x) out.push({ item: taxText_(x.item, 80), detail: taxText_(x.detail, 200) });
+  });
+  return out;
+}
+
+function taxFolder_() {
+  var name = getConfig_().BUSINESS_NAME + ' Tax Prep';
+  var it = DriveApp.getFoldersByName(name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(name);
+}
+
+function taxReceiptsUrl_(year) {
+  try {
+    var it = receiptsFolder_().getFoldersByName(String(year));
+    return it.hasNext() ? it.next().getUrl() : '';
+  } catch (e) { return ''; }
+}
+
+// Payments under the "Contract Labor" category, grouped by vendor. W-9 is just a yes/no flag — no taxpayer ID is stored.
+function taxContractors_(expenses, w9Keys) {
+  var by = {}, order = [];
+  expenses.forEach(function (e) {
+    if (!/^contract labor$/i.test(String(e.category).trim())) return;
+    var k = taxVendorKey_(e.vendor) || '(no vendor)';
+    if (!by[k]) { by[k] = { key: k, name: e.vendor || '(no vendor)', total: 0, count: 0 }; order.push(k); }
+    by[k].total += e.amount; by[k].count += 1;
+  });
+  return order.map(function (k) { var x = by[k]; x.total = taxMoney_(x.total); x.w9 = w9Keys.indexOf(k) > -1; return x; })
+    .sort(function (a, b) { return b.total - a.total; });
+}
+
+// The accountant notes, worded ONCE: the spreadsheet Summary and the PDF summary both print exactly these.
+function taxNotes_(year, receiptsUrl, x) {
+  var notes = [
+    '1. How this was counted: cash basis. A deposit or balance counts in the year it was marked received; a store sale counts when it is marked received. Amounts are the agreed amounts, not what a card processor may have deducted.',
+    '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". Stripe\'s actual processing fees are not recorded in this app, so they are NOT in the expenses. Stripe\'s year-end summary shows the gross amount including the added fee, plus its own fees, so please use it alongside this report.',
+    '3. Booked but not yet paid: shows booked in or before ' + year + ' with a balance not received by Dec 31 are on the "Unpaid at year end" tab. They are not counted as income here.',
+    '4. Receipts: the receipt links open only for the Google account that owns them. ' + (receiptsUrl ? 'Share this folder with your accountant: ' + receiptsUrl : 'Ask the owner to share the receipts folder.'),
+    '5. Large purchases (such as equipment) may need to be depreciated rather than deducted in one year, and some expenses (such as meals) may be only partly deductible. They are listed in full here; your accountant decides.',
+    '6. Check the "Needs attention" tab of the spreadsheet before filing.'
+  ];
+  x = x || {};
+  if (x.stripeFees > 0) {
+    notes[1] = '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". The Stripe processing fees entered for the year are included in the expenses as one yearly line. Stripe\'s year-end summary shows the gross amount including the added fee, so please use it alongside this report.';
+  }
+  if (x.mileage && x.mileage.trips > 0) {
+    notes.push('7. Mileage: the trips in the Mileage tab are kept apart from the expenses above. The estimated deduction uses the per-mile rate entered and is NOT included in total expenses or net. If mileage is deducted at a standard rate, actual car costs (such as gas) for the same miles generally cannot also be deducted \u2014 your accountant decides.');
+  }
+  if (x.contractors && x.contractors.length) {
+    notes.push('8. Contractors: the Contractors tab totals what was paid under Contract Labor, by vendor, with a yes/no for whether a W-9 is on file. No taxpayer ID numbers are kept in this app. Whether a 1099 is required is for your accountant to confirm.');
+  }
+  return notes;
+}
+
+function taxSummaryRows_(cfg, year, s, receiptsUrl, x) {
+  x = x || {};
+  var W = 4, rows = [], money = [], bold = [];
+  var add = function (a, b, c, d) { rows.push([a === undefined ? '' : a, b === undefined ? '' : b, c === undefined ? '' : c, d === undefined ? '' : d]); return rows.length; };
+  var head = function (t) { bold.push(add(t)); };
+  var today = Utilities.formatDate(new Date(), tz_(), 'MMM d, yyyy');
+  bold.push(add(cfg.BUSINESS_NAME + ' — ' + year + ' Tax Prep'));
+  add('Prepared ' + today + '. Cash basis: money counts in the year it was marked received. A bookkeeping report, not tax advice.');
+  add();
+  head('INCOME (cash received)');
+  money.push(add('Service income (deposits, balances and store sales, at the agreed amount)', s.serviceIncome));
+  money.push(add('Card fees collected from clients (the processing fee added to card payments)', s.cardFees));
+  money.push(add('Total received from clients', s.totalReceived));
+  add('Number of payments', s.payments);
+  add();
+  head('EXPENSES');
+  money.push(add('Total expenses', s.expenseTotal));
+  add('Number of expenses', s.expenseCount);
+  s.categories.forEach(function (c) { money.push(add('     ' + c.category, c.amount)); });
+  add();
+  head('NET');
+  money.push(add('Service income minus expenses', s.net));
+  if (x.mileage && x.mileage.trips > 0) {
+    add();
+    head('MILEAGE (kept apart from the expenses above)');
+    add('Business trips logged', x.mileage.trips);
+    add('Business miles', x.mileage.miles);
+    if (x.mileage.rate > 0) {
+      money.push(add('Mileage rate entered (per mile)', x.mileage.rate));
+      money.push(add('Estimated mileage deduction at that rate (not in total expenses or net)', x.mileage.deduction));
+    } else add('Mileage rate', 'not entered');
+  }
+  if (x.contractors && x.contractors.length) {
+    add();
+    head('CONTRACTORS (paid under Contract Labor)');
+    money.push(add('Total paid to contractors', taxMoney_(x.contractors.reduce(function (a, k) { return a + k.total; }, 0))));
+    add('Number of contractors', x.contractors.length);
+    add('W-9 marked on file', x.contractors.filter(function (k) { return k.w9; }).length + ' of ' + x.contractors.length);
+  }
+  add();
+  head('BY MONTH');
+  bold.push(add('Month', 'Service income', 'Card fees collected', 'Expenses'));
+  s.months.forEach(function (m, i) { money.push(add(TAX_MONTHS_[i], m.income, m.cardFees, m.expenses)); });
+  if (s.stripeFees > 0) money.push(add('Entered for the year (Stripe fees)', 0, 0, s.stripeFees));
+  add();
+  head('NOTES FOR YOUR ACCOUNTANT');
+  taxNotes_(year, receiptsUrl, { stripeFees: s.stripeFees, mileage: x.mileage, contractors: x.contractors }).forEach(function (n) { add(n); });
+  return { rows: rows, W: W, money: money, bold: bold };
+}
+
+// Phase 1 writes DATA only (one setValues per tab). Every formatting call is a separate, slow round trip to
+// Google, so the look (bold, $ format, widths, frozen header) is applied afterwards by finishTaxPackage_ —
+// the owner gets the link without waiting for it. Returns the tab's shape for that second step.
+function taxWriteTable_(sheet, name, header, rows, totalRow, moneyFrom, moneyTo, widths) {
+  var all = [header].concat(rows);
+  if (totalRow) all.push(totalRow);
+  sheet.getRange(1, 1, all.length, header.length).setValues(all);
+  return { name: name, rows: all.length, cols: header.length, total: !!totalRow, moneyFrom: moneyFrom, moneyTo: moneyTo, widths: widths };
+}
+
+// Collapse equal neighbouring widths so formatting needs as few calls as possible.
+function taxWidthRuns_(widths) {
+  var runs = [];
+  widths.forEach(function (w, i) {
+    var last = runs[runs.length - 1];
+    if (last && last.w === w) last.n++; else runs.push({ c: i + 1, n: 1, w: w });
+  });
+  return runs;
+}
+
+var TAX_TAB_NAMES_ = ['Summary', 'Income', 'Expenses', 'Unpaid at year end', 'Mileage', 'Contractors', 'Needs attention'];
+
+// The only spreadsheets the formatting and PDF steps will touch: one in the owner's "<Business> Tax Prep" folder,
+// named "... Tax Prep", made in the last 2 hours. Returns the Drive file or null.
+function taxFreshFile_(id, nameRe) {
+  id = String(id || '');
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(id)) return null;
+  var file = DriveApp.getFileById(id);
+  var folderName = getConfig_().BUSINESS_NAME + ' Tax Prep';
+  var inFolder = false, parents = file.getParents();
+  while (parents.hasNext()) { if (parents.next().getName() === folderName) { inFolder = true; break; } }
+  if (!inFolder || !(nameRe || / Tax Prep$/).test(file.getName()) || Date.now() - file.getDateCreated().getTime() > 2 * 3600000) return null;
+  return file;
+}
+
+// Phase 2 (called by the app right after the link is shown): bold, $ formats, widths, frozen header rows.
+// Cosmetic only — the data is already complete, so if this never runs the file is still correct. Owner-only
+// (API_); it only touches a spreadsheet that is in the owner's Tax Prep folder and was just made.
+function finishTaxPackage_(id, plan) {
+  try {
+    id = String(id || '');
+    if (!plan || typeof plan !== 'object') return JSON.stringify({ ok: false, error: 'bad request' });
+    if (!taxFreshFile_(id)) return JSON.stringify({ ok: false, error: 'not a fresh tax prep file' });
+    var ss = SpreadsheetApp.openById(id);
+    var int = function (v, lo, hi) { v = Math.floor(Number(v)); return v >= lo && v <= hi ? v : 0; };
+    var FMT = '$#,##0.00';
+
+    var sp = plan.summary || {};
+    var sum = ss.getSheetByName('Summary');
+    var sRows = int(sp.rows, 1, 500);
+    if (sum && sRows) {
+      var bold = (Array.isArray(sp.bold) ? sp.bold : []).map(function (r) { return int(r, 1, sRows); }).filter(Boolean);
+      var money = (Array.isArray(sp.money) ? sp.money : []).map(function (r) { return int(r, 1, sRows); }).filter(Boolean);
+      if (bold.length) sum.getRangeList(bold.map(function (r) { return 'A' + r + ':D' + r; })).setFontWeight('bold');
+      if (money.length) sum.getRangeList(money.map(function (r) { return 'B' + r + ':D' + r; })).setNumberFormat(FMT);
+      sum.setColumnWidth(1, 560); sum.setColumnWidths(2, 3, 140);
+      sum.getRange(1, 1, sRows, 1).setWrap(true);
+    }
+    (Array.isArray(plan.tabs) ? plan.tabs : []).slice(0, 6).forEach(function (t) {
+      if (!t || TAX_TAB_NAMES_.indexOf(t.name) < 1) return;
+      var sh = ss.getSheetByName(t.name);
+      var rows = int(t.rows, 1, 20000), cols = int(t.cols, 1, 12);
+      if (!sh || !rows || !cols) return;
+      var ranges = ['A1:' + String.fromCharCode(64 + cols) + '1'];
+      if (t.total && rows > 1) ranges.push('A' + rows + ':' + String.fromCharCode(64 + cols) + rows);
+      sh.getRangeList(ranges).setFontWeight('bold');
+      sh.getRange(1, 1, 1, cols).setBackground('#EDE3C9');
+      sh.setFrozenRows(1);
+      var mf = int(t.moneyFrom, 1, cols), mt = int(t.moneyTo, 1, cols);
+      if (mf && mt >= mf && rows > 1) sh.getRange(2, mf, rows - 1, mt - mf + 1).setNumberFormat(FMT);
+      var widths = (Array.isArray(t.widths) ? t.widths : []).slice(0, cols).map(function (w) { return Math.max(40, Math.min(800, Math.floor(Number(w)) || 100)); });
+      taxWidthRuns_(widths).forEach(function (r) { sh.setColumnWidths(r.c, r.n, r.w); });
+    });
+    return JSON.stringify({ ok: true });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: String(e && e.message || e) });
+  }
+}
+
+// Clean what the browser sent and compute every total — shared by the spreadsheet and the PDF so the two
+// can never disagree. Returns {error} or {year, income, expenses, unpaid, s, attention}.
+function taxPrepare_(payload) {
+  payload = payload || {};
+  var year = Number(payload.year);
+  if (!(year >= 2000 && year <= 2100)) return { error: 'Pick a year first.' };
+  var income = taxCleanIncome_(payload.income, year);
+  var expenses = taxCleanExpenses_(payload.expenses, year);
+  if (!income.length && !expenses.length) return { error: 'Nothing is recorded for ' + year + ' yet.' };
+  return { year: year, income: income, expenses: expenses, unpaid: taxCleanUnpaid_(payload.unpaid),
+    s: taxSummary_(income, expenses), attention: taxAttention_(expenses, payload.attention) };
+}
+
+function makeTaxPackage_(payload) {
+  try {
+    var P = taxPrepare_(payload);
+    if (P.error) return JSON.stringify({ ok: false, error: P.error });
+    var year = P.year, income = P.income, expenses = P.expenses, unpaid = P.unpaid;
+    // The owner's yearly extras are read HERE (not trusted from the browser): Stripe fees, mileage, W-9 flags.
+    var ex = taxExtras_(year);
+    var trips = []; try { trips = taxMileageTrips_(year); } catch (e) { trips = []; }
+    var mileage = taxMileageSummary_(trips, ex.mileageRate);
+    var contractors = taxContractors_(expenses, taxW9Keys_());
+    var s = taxSummary_(income, expenses, ex.stripeFees);
+    var attention = taxAttention_(expenses, payload.attention, { cardPayments: income.some(function (r) { return r.cardFee > 0; }), stripeFees: ex.stripeFees,
+      contractors: contractors, mileageTrips: trips.length, mileageRate: ex.mileageRate });
+    var cfg = getConfig_();
+    var receiptsUrl = taxReceiptsUrl_(year);
+
+    var ss = SpreadsheetApp.create(cfg.BUSINESS_NAME + ' - ' + year + ' Tax Prep');
+    var folder = taxFolder_();
+    try { DriveApp.getFileById(ss.getId()).moveTo(folder); } catch (e) { /* stays in My Drive; the link still works */ }
+
+    // PHASE 1 — data only (about 15 Google calls). The link goes back as soon as this is written.
+    var sum = ss.getSheets()[0]; sum.setName('Summary');
+    var S = taxSummaryRows_(cfg, year, s, receiptsUrl, { mileage: mileage, contractors: contractors });
+    sum.getRange(1, 1, S.rows.length, S.W).setValues(S.rows);
+
+    var tabs = [];
+    tabs.push(taxWriteTable_(ss.insertSheet('Income'), 'Income',
+      ['Date received', 'Client / source', 'Type', 'Payment method', 'Invoice #', 'Agreed amount', 'Card fee collected', 'Total received'],
+      income.map(function (r) { return [r.date, r.name, r.kind, r.method, r.invoice, r.base, r.cardFee, taxMoney_(r.base + r.cardFee)]; }),
+      ['TOTAL', '', '', '', '', s.serviceIncome, s.cardFees, s.totalReceived], 6, 8, [110, 220, 90, 120, 100, 120, 140, 120]));
+    tabs.push(taxWriteTable_(ss.insertSheet('Expenses'), 'Expenses', ['Date', 'Vendor', 'Category', 'Amount', 'Notes', 'Receipt', 'Source'],
+      expenses.map(function (e) { return [e.date, e.vendor, e.category, e.amount, e.notes, e.receiptUrl, e.source]; })
+        .concat(s.stripeFees > 0 ? [['Year total', 'Stripe', 'Payment processing fees (entered)', s.stripeFees, 'Yearly total entered by the owner; not itemized', '', 'Entered']] : []),
+      ['TOTAL', '', '', s.expenseTotal, '', '', ''], 4, 4, [100, 200, 200, 100, 260, 260, 110]));
+    var upTotal = taxMoney_(unpaid.reduce(function (a, r) { return a + r.owed; }, 0));
+    tabs.push(taxWriteTable_(ss.insertSheet('Unpaid at year end'), 'Unpaid at year end', ['Client', 'Event date', 'Status', 'Still owed (not income)'],
+      unpaid.map(function (r) { return [r.name, r.eventDate, r.status, r.owed]; }),
+      unpaid.length ? ['TOTAL', '', '', upTotal] : null, 4, 4, [240, 110, 110, 170]));
+    var tripRows = trips.map(function (t) { return [t.date, taxText_(t.purpose, 120), t.miles, taxText_(t.notes, 200), t.source]; });
+    tabs.push(taxWriteTable_(ss.insertSheet('Mileage'), 'Mileage', ['Date', 'Purpose', 'Miles', 'Notes', 'Source'],
+      tripRows.length ? tripRows : [['No trips logged for ' + year, '', '', '', '']],
+      trips.length ? ['TOTAL', '', mileage.miles, '', ''] : null, 0, 0, [100, 320, 80, 220, 100]));
+    var conRows = contractors.map(function (k) { return [taxText_(k.name, 120), k.count, k.total, k.w9 ? 'Yes' : 'No']; });
+    tabs.push(taxWriteTable_(ss.insertSheet('Contractors'), 'Contractors', ['Contractor (paid under Contract Labor)', 'Payments', 'Total paid', 'W-9 marked on file'],
+      conRows.length ? conRows : [['No Contract Labor payments in ' + year, '', '', '']],
+      contractors.length ? ['TOTAL', contractors.reduce(function (a, k) { return a + k.count; }, 0), taxMoney_(contractors.reduce(function (a, k) { return a + k.total; }, 0)), ''] : null, 3, 3, [280, 90, 120, 140]));
+    var attRows = attention.map(function (a) { return [a.item, a.detail]; });
+    if (!attRows.length) attRows = [['Nothing to fix', 'No receipts missing, nothing uncategorized, no duplicates found.']];
+    tabs.push(taxWriteTable_(ss.insertSheet('Needs attention'), 'Needs attention', ['What', 'Details'], attRows, null, 0, 0, [260, 560]));
+
+    return JSON.stringify({ ok: true, url: ss.getUrl(), id: ss.getId(), folder: cfg.BUSINESS_NAME + ' Tax Prep', year: year,
+      payments: income.length, expenses: expenses.length, unpaid: unpaid.length, attention: attention.length,
+      trips: trips.length, contractors: contractors.length, stripeFees: s.stripeFees, serviceIncome: s.serviceIncome, expenseTotal: s.expenseTotal,
+      plan: { summary: { rows: S.rows.length, bold: S.bold, money: S.money }, tabs: tabs } });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Could not build the package: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+/* ----- Tax prep extras: yearly Stripe fees, mileage rate, W-9 flags, and the mileage log -----
+ * Stored on the owner's side (Script Properties + a "Mileage" sheet) and read by the package builder
+ * SERVER-side, so the browser can't change what goes in the report. No taxpayer ID numbers are ever stored:
+ * a W-9 is just a yes/no flag per contractor. Everything here is owner-only (API_). */
+var MILEAGE_SHEET = 'Mileage';
+var MILEAGE_HEADERS_ = ['Date', 'Purpose', 'Miles', 'Notes', 'Source', 'Entry ID', 'Show Key'];
+
+// Same idea as sourceKey_: "ACME Magic" and "acme  magic" are the same contractor.
+function taxVendorKey_(v) { return String(v == null ? '' : v).toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+function taxReadJson_(prop, fallback) {
+  try { var raw = PropertiesService.getScriptProperties().getProperty(prop); return raw ? JSON.parse(raw) : fallback; } catch (e) { return fallback; }
+}
+function taxYearOk_(y) { y = Number(y); return y >= 2000 && y <= 2100 ? Math.floor(y) : 0; }
+
+function taxExtras_(year) {
+  var all = taxReadJson_('TAX_EXTRAS', {});
+  var e = (all && all[String(year)]) || {};
+  return { stripeFees: taxMoney_(e.stripeFees), mileageRate: Math.round((Number(e.mileageRate) || 0) * 1000) / 1000 };
+}
+function taxW9Keys_() { var a = taxReadJson_('TAX_W9', []); return Array.isArray(a) ? a.map(String) : []; }
+
+function mileageSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(MILEAGE_SHEET);
+  if (!sh) { sh = ss.insertSheet(MILEAGE_SHEET); sh.appendRow(MILEAGE_HEADERS_); }
+  return sh;
+}
+
+function taxMileageAll_() {
+  var out = [];
+  var sh = null;
+  try { sh = SpreadsheetApp.getActive().getSheetByName(MILEAGE_SHEET); } catch (e) { sh = null; } // read-only: never creates the sheet
+  if (!sh) return out;
+  var last = sh.getLastRow();
+  if (last < 2) return out;
+  var tz = tz_();
+  var rows = sh.getRange(2, 1, last - 1, MILEAGE_HEADERS_.length).getValues();
+  rows.forEach(function (r, i) {
+    var miles = Number(r[2]);
+    if (!(miles > 0)) return;
+    var d = r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : taxYmd_(r[0]);
+    if (!d) return;
+    out.push({ row: i + 2, id: String(r[5] || ''), date: d, purpose: String(r[1] || ''), miles: Math.round(miles * 10) / 10,
+      notes: String(r[3] || ''), source: String(r[4] || ''), showKey: String(r[6] || '') });
+  });
+  return out;
+}
+function taxMileageTrips_(year) {
+  return taxMileageAll_().filter(function (t) { return Number(t.date.slice(0, 4)) === year; })
+    .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+}
+function taxMileageSummary_(trips, rate) {
+  var miles = Math.round(trips.reduce(function (a, t) { return a + t.miles; }, 0) * 10) / 10;
+  return { trips: trips.length, miles: miles, rate: rate, deduction: rate > 0 ? taxMoney_(miles * rate) : 0 };
+}
+
+// Everything the Tax prep screen needs, in one call.
+function getTaxPrep_(year) {
+  year = taxYearOk_(year);
+  if (!year) return JSON.stringify({ ok: false, error: 'Pick a year first.' });
+  var ex = taxExtras_(year);
+  return JSON.stringify({ ok: true, year: year, stripeFees: ex.stripeFees, mileageRate: ex.mileageRate, w9: taxW9Keys_(),
+    accountantEmail: String(getConfig_().ACCOUNTANT_EMAIL || '').trim(), accountantName: String(getConfig_().ACCOUNTANT_NAME || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 60), homeSet: !!String(getConfig_().HOME_ADDRESS || '').trim(),
+    trips: taxMileageTrips_(year) });
+}
+
+function saveTaxExtras_(year, stripeFees, mileageRate) {
+  year = taxYearOk_(year);
+  if (!year) return JSON.stringify({ ok: false, error: 'Pick a year first.' });
+  var fees = stripeFees === '' || stripeFees == null ? 0 : Number(stripeFees);
+  var rate = mileageRate === '' || mileageRate == null ? 0 : Number(mileageRate);
+  if (!isFinite(fees) || fees < 0 || fees > 10000000) return JSON.stringify({ ok: false, error: 'Enter the Stripe fees as a dollar amount.' });
+  if (!isFinite(rate) || rate < 0 || rate > 5) return JSON.stringify({ ok: false, error: 'Enter the mileage rate in dollars per mile, for example 0.70.' });
+  var all = taxReadJson_('TAX_EXTRAS', {});
+  if (!all || typeof all !== 'object') all = {};
+  all[String(year)] = { stripeFees: taxMoney_(fees), mileageRate: Math.round(rate * 1000) / 1000 };
+  PropertiesService.getScriptProperties().setProperty('TAX_EXTRAS', JSON.stringify(all));
+  return JSON.stringify({ ok: true, stripeFees: all[String(year)].stripeFees, mileageRate: all[String(year)].mileageRate });
+}
+
+function setTaxW9_(vendorKey, on) {
+  var key = taxVendorKey_(vendorKey).slice(0, 120);
+  if (!key) return JSON.stringify({ ok: false, error: 'No contractor given.' });
+  var list = taxW9Keys_().filter(function (k) { return k !== key; });
+  if (on === true || on === 'true') list.push(key);
+  PropertiesService.getScriptProperties().setProperty('TAX_W9', JSON.stringify(list.slice(-500)));
+  return JSON.stringify({ ok: true, w9: list });
+}
+
+function addMileageTrip_(date, purpose, miles, notes, source, showKey) {
+  var d = taxYmd_(date);
+  if (!d || !taxYearOk_(d.slice(0, 4))) return JSON.stringify({ ok: false, error: 'Pick the date of the trip.' });
+  var m = Number(miles);
+  if (!isFinite(m) || m <= 0 || m > 5000) return JSON.stringify({ ok: false, error: 'Enter the miles driven, between 0 and 5,000.' });
+  var p = clientText_(purpose, 120);
+  if (!p) return JSON.stringify({ ok: false, error: 'Add a short purpose, such as the client or venue.' });
+  var src = source === 'From show' ? 'From show' : 'Manual';
+  var key = src === 'From show' ? clientText_(showKey, 160) : '';
+  var all = taxMileageAll_();
+  if (key && all.some(function (t) { return t.showKey === key; })) return JSON.stringify({ ok: false, error: 'That show is already in the log.' });
+  var id = Utilities.getUuid();
+  var rounded = Math.round(m * 10) / 10;
+  var sh = mileageSheet_();
+  sh.appendRow([d, p, rounded, clientText_(notes, 200), src, id, key]);
+  return JSON.stringify({ ok: true, trip: { id: id, date: d, purpose: p, miles: rounded, notes: clientText_(notes, 200), source: src, showKey: key } });
+}
+
+function deleteMileageTrip_(id) {
+  id = String(id || '');
+  if (!id) return JSON.stringify({ ok: false, error: 'No trip given.' });
+  var hit = taxMileageAll_().filter(function (t) { return t.id === id; })[0];
+  if (!hit) return JSON.stringify({ ok: true }); // already gone
+  mileageSheet_().deleteRow(hit.row);
+  return JSON.stringify({ ok: true });
+}
+
+// Round-trip miles for past booked shows that are not in the log yet, from the Maps distance home -> venue.
+// Suggestions only: nothing is added until the owner taps Add.
+function getMileageSuggestions_(year) {
+  try {
+    year = taxYearOk_(year);
+    if (!year) return JSON.stringify({ ok: false, error: 'Pick a year first.' });
+    var origin = String(getConfig_().HOME_ADDRESS || '').trim();
+    if (!origin) return JSON.stringify({ ok: true, homeSet: false, suggestions: [] });
+    var sh = sheet_(), heads = headers_(sh), last = sh.getLastRow();
+    var idx = function (h) { return heads.indexOf(h); };
+    var si = idx('Status'), di = idx('Date of Event'), li = idx('Event Location'), ni = idx('Customer Name');
+    if (si < 0 || di < 0 || li < 0 || ni < 0 || last < 2) return JSON.stringify({ ok: true, homeSet: true, suggestions: [] });
+    var logged = {};
+    taxMileageAll_().forEach(function (t) { if (t.showKey) logged[t.showKey] = true; });
+    var tz = tz_(), today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var rows = sh.getRange(2, 1, last - 1, heads.length).getValues(), out = [];
+    for (var i = 0; i < rows.length && out.length < 40; i++) {
+      var r = rows[i], st = String(r[si] || '');
+      if (st !== 'Booked' && st !== 'Completed') continue;
+      var d = r[di] instanceof Date ? Utilities.formatDate(r[di], tz, 'yyyy-MM-dd') : taxYmd_(r[di]);
+      var loc = String(r[li] || '').trim(), name = String(r[ni] || '').trim();
+      if (!d || Number(d.slice(0, 4)) !== year || d > today || !loc) continue;
+      var key = taxVendorKey_(name) + '|' + d;
+      if (logged[key]) continue;
+      var dr = driveSeconds_(origin, loc);
+      if (dr.error || !(dr.meters > 0)) continue;
+      out.push({ showKey: key, date: d, purpose: (name || 'Show') + ' — ' + loc.slice(0, 80), miles: Math.round(dr.meters / 1609.344 * 2 * 10) / 10 });
+    }
+    return JSON.stringify({ ok: true, homeSet: true, suggestions: out });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Could not look up distances: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+
+/* ----- Draft email to the accountant -----
+ * A Gmail DRAFT (never sent) with the summary PDF and an Excel copy of the spreadsheet attached, so the
+ * accountant needs no access to the owner's Drive. Addressed to Settings → Accountant's email if it is set.
+ * Receipts are not attached: the owner can share that folder separately if the accountant asks. Owner-only
+ * (API_); it only attaches files this tax-prep run just made (same fresh-file guard). */
+function taxDraftMime_(to, subject, body, atts) {
+  var N = '\r\n', b = 'mm_tax_' + Utilities.getUuid().replace(/-/g, '');
+  var head = (to ? 'To: ' + to + N : '') + 'Subject: ' + mimeHeaderEncode_(subject) + N + 'MIME-Version: 1.0' + N
+    + 'Content-Type: multipart/mixed; boundary="' + b + '"' + N + N;
+  var out = head + '--' + b + N + 'Content-Type: text/plain; charset=UTF-8' + N + 'Content-Transfer-Encoding: base64' + N + N
+    + mimeBase64_(Utilities.newBlob(String(body)).getBytes()) + N;
+  atts.forEach(function (a) {
+    var nm = String(a.name).replace(/[^A-Za-z0-9 ._()\-]/g, '_');
+    out += '--' + b + N + 'Content-Type: ' + a.type + '; name="' + nm + '"' + N + 'Content-Disposition: attachment; filename="' + nm + '"' + N
+      + 'Content-Transfer-Encoding: base64' + N + N + mimeBase64_(a.bytes) + N;
+  });
+  return out + '--' + b + '--' + N;
+}
+
+// "Sarah" -> "Sarah"; "Sarah Jones" -> "Sarah" (how the app's own templates greet people); "Dr. Jones" stays whole;
+// nothing saved -> "Hi".
+function taxGreeting_(name) {
+  var n = String(name == null ? '' : name).replace(/[\r\n]+/g, ' ').trim().slice(0, 60);
+  if (!n) return 'Hi';
+  var parts = n.split(/\s+/);
+  return parts.length > 1 && !/\.$/.test(parts[0]) ? parts[0] : n;
+}
+
+function makeAccountantDraft_(id, pdfId) {
+  try {
+    if (typeof Gmail === 'undefined') {
+      return JSON.stringify({ ok: false, needsManifest: true, error: 'Gmail drafts need one extra update step: also replace the appsscript.json file, then approve the Gmail request. Reply to your purchase receipt and we\u2019ll walk you through it.' });
+    }
+    var sheetFile = taxFreshFile_(id);
+    var pdfFile = taxFreshFile_(pdfId, / Tax Prep Summary\.pdf$/);
+    if (!sheetFile || !pdfFile) return JSON.stringify({ ok: false, error: 'not a fresh tax prep file' });
+    id = String(id);
+    var cfg = getConfig_();
+    var resp = UrlFetchApp.fetch('https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx',
+      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) return JSON.stringify({ ok: false, error: 'Google could not make the Excel copy (' + resp.getResponseCode() + ')' });
+    var xlsx = resp.getBlob();
+    var base = sheetFile.getName();
+    var year = (/(\d{4}) Tax Prep$/.exec(base) || [])[1] || '';
+    var to = String(cfg.ACCOUNTANT_EMAIL || '').replace(/[\r\n]/g, '').trim();
+    if (!/^[^\s<>"',;@]+@[^\s<>"',;@]+$/.test(to)) to = '';
+    var biz = String(cfg.BUSINESS_NAME || '').replace(/[\r\n]+/g, ' ').trim();
+    var owner = String(cfg.OWNER_NAME || '').replace(/[\r\n]+/g, ' ').trim();
+    // The signature carries the LEGAL business name (the formal one) when it has been set; otherwise the business name.
+    var company = String(legalBusinessName_() || biz).replace(/[\r\n]+/g, ' ').trim();
+    var subject = biz + ' - ' + year + ' tax prep';
+    var body = taxGreeting_(cfg.ACCOUNTANT_NAME) + ',\n\nAttached are my ' + year + ' tax prep files for ' + biz + ':\n\n'
+      + '  - ' + pdfFile.getName() + ' (a short summary)\n'
+      + '  - ' + base + '.xlsx (the full detail: income, expenses, mileage, contractors, and a list of items I still need to fix)\n\n'
+      + 'Everything is on a cash basis, and the notes inside explain how card fees and Stripe fees are handled. I can share my receipts folder if you need it.\n\n'
+      + 'Thanks,\n' + (owner ? owner + '\n' : '') + (company ? company + '\n' : '');
+    var raw = taxDraftMime_(to, subject, body, [
+      { name: pdfFile.getName(), type: 'application/pdf', bytes: pdfFile.getBlob().getBytes() },
+      { name: base + '.xlsx', type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: xlsx.getBytes() }]);
+    var draft = Gmail.Users.Drafts.create({ message: { raw: Utilities.base64EncodeWebSafe(raw) } }, 'me');
+    return JSON.stringify({ ok: true, id: draft && draft.id ? String(draft.id) : '', to: to });
+  } catch (e) {
+    var msg = String(e && e.message ? e.message : e);
+    if (/permission|authoriz|scope|insufficient|not configured|has not been used|access denied/i.test(msg)) {
+      return JSON.stringify({ ok: false, needsAuth: true, error: 'Magic Manager needs your OK to save Gmail drafts. Open your Google Sheet, choose Extensions \u2192 Apps Script, run the function showGrantedScopes once and approve the Gmail request, then try again.' });
+    }
+    return JSON.stringify({ ok: false, error: 'Could not save the draft: ' + msg });
+  }
+}
+
+/* ----- Tax prep PDF summary -----
+ * The Summary tab, printed with Google's own sheet-to-PDF export and saved next to the spreadsheet. It runs AFTER
+ * the formatting step (the app asks for it then), so it is exactly what the Summary tab shows — one layout, one
+ * set of numbers, nothing separate to drift. (An earlier version converted hand-built HTML; Google's HTML
+ * converter laid it out unpredictably on Rich's real file.) Owner-only (API_); same fresh-file guard as the
+ * formatting step. Uses the owner's own token (drive + external_request scopes are already granted). */
+function makeTaxPdf_(id) {
+  try {
+    var file = taxFreshFile_(id);
+    if (!file) return JSON.stringify({ ok: false, error: 'not a fresh tax prep file' });
+    id = String(id);
+    var sum = SpreadsheetApp.openById(id).getSheetByName('Summary');
+    if (!sum) return JSON.stringify({ ok: false, error: 'no Summary tab' });
+    var url = 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=pdf&gid=' + sum.getSheetId()
+      + '&size=letter&portrait=true&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenum=UNDEFINED'
+      + '&top_margin=0.6&bottom_margin=0.6&left_margin=0.6&right_margin=0.6';
+    var resp = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) return JSON.stringify({ ok: false, error: 'Google could not make the PDF (' + resp.getResponseCode() + ')' });
+    var name = file.getName() + ' Summary.pdf';
+    var pdf = taxFolder_().createFile(resp.getBlob().setName(name));
+    return JSON.stringify({ ok: true, url: pdf.getUrl(), name: name, id: pdf.getId() });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Could not make the PDF: ' + (e && e.message ? e.message : String(e)) });
   }
 }
 
@@ -6195,6 +6957,7 @@ function syncFollowUps(e) {
     cleanupImportedJunk_();
     autoCompleteBookedShows_();
     autoManageBookedFollowups_();
+    refreshLeaveAlerts_();
     syncFollowUps_();
   } finally {
     lock.releaseLock();
