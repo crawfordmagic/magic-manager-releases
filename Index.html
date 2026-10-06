@@ -353,10 +353,10 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .pillrow .pgroup{display:flex;align-items:center;gap:8px;min-width:0}
 .pillrow label{margin:0;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700;white-space:nowrap}
 /* Period and Month sit side by side on one line on any normal phone (tighter gaps/labels/pills); only a very narrow screen wraps them, rather than clipping the text */
-#expensePeriodRow{gap:8px 8px}
-#expensePeriodRow .pgroup{flex:0 0 auto;gap:5px}
-#expensePeriodRow label{letter-spacing:.1em}
-#expensePeriodRow .pillsel{padding:5px 22px 5px 10px}
+#expensePeriodRow, #insightsPeriodRow{gap:8px 8px}
+#expensePeriodRow .pgroup, #insightsPeriodRow .pgroup{flex:0 0 auto;gap:5px}
+#expensePeriodRow label, #insightsPeriodRow label{letter-spacing:.1em}
+#expensePeriodRow .pillsel, #insightsPeriodRow .pillsel{padding:5px 22px 5px 10px}
 .chips.paused .chip,.chips.paused .glab{opacity:.4}
 .pausednote{display:none;font-size:12px;color:var(--gold-bright);font-weight:600;margin:8px 2px 0}
 .filternote{display:none;font-size:12px;color:var(--muted);margin:8px 2px 0}
@@ -416,9 +416,6 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 /* Help & Guides screen — reuses the .fbscreen/.fbbar chrome above. */
 .help-scroll{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px calc(28px + env(safe-area-inset-bottom))}
 .help-sec{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700;margin:6px 0 8px}
-.help-link{display:block;border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;text-decoration:none;background:rgba(201,160,80,.05)}
-.help-link .t{font-weight:700;color:var(--gold-bright);font-size:14px}
-.help-link .d{font-size:12.5px;color:var(--muted);margin-top:2px}
 .help-fix{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
 .help-fix .q{width:100%;text-align:left;background:transparent;border:none;color:var(--cream);font-family:inherit;font-size:14px;font-weight:600;padding:13px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .help-fix .q .chev{flex:0 0 auto;color:var(--muted);font-size:16px;transition:transform .2s ease}
@@ -500,10 +497,6 @@ a.help-fix{display:block;text-decoration:none}
 .dlab{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:20px 0 0}
 .dmore{display:block;margin-top:8px;font-size:13px;font-weight:700;color:var(--gold-bright);cursor:pointer;text-decoration:none}
 .dquiet{margin-left:auto;padding:6px 0 6px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;text-decoration:none}
-.drow{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer}
-.drow .dl{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600}
-.drow .dsum{flex:1;font-size:13.5px;color:var(--cream)}
-.drow .dchg{font-size:12px;font-weight:700;color:var(--gold-bright)}
 /* lead page controls: Follow-up + Status tiles, and the History bar */
 .ctrlgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ctrlgrid.solo{grid-template-columns:1fr}
@@ -629,8 +622,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- INSIGHTS VIEW -->
   <div id="view-insights" style="display:none">
 
-    <div class="pillrow" style="margin:0 0 12px">
+    <div id="insightsPeriodRow" class="pillrow" style="margin:0 0 12px">
       <span class="pgroup"><label for="insightsScope">Period</label><select id="insightsScope" class="pillsel" onchange="setInsightsScope(this.value)"></select></span>
+      <span class="pgroup" id="insightsMonthField" style="display:none"><label for="insightsMonth">Month</label><select id="insightsMonth" class="pillsel" onchange="setInsightsMonth(this.value)"></select></span>
     </div>
     <div id="insightsEmptyNote" style="display:none;margin:0 0 14px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">Your numbers fill in here as you add leads and log expenses &mdash; nothing to set up.</div>
     <div class="stats" id="statGrid"></div>
@@ -1651,7 +1645,7 @@ var RBIN_EMPTY_ARM = {};
 var ORACLE_GATE_DUE=false, ORACLE_TIP_ACTIVE=null;
 var SHARING_BLOCKED=false, SHARING_WARN_DISMISSED=false;
 var REFERRAL_INBOX=[];
-var REBOOK_CTX=null, REBOOK_LOGKEY=null, REBOOK_NAME=null;
+var REBOOK_LOGKEY=null, REBOOK_NAME=null;
 function ingest(json){
   var o=JSON.parse(json);
   if('leads' in o) LEADS=o.leads||[];
@@ -1680,10 +1674,10 @@ function ingest(json){
   if('trash' in o){ TRASH=o.trash||[]; renderRecycleBin(); }
   if('templates' in o || 'textTemplates' in o || 'partnerTemplates' in o || 'partnerTextTemplates' in o) renderMsgTemplatesIfOpen_();
 }
-function setQ(v){ IFILTER=null; Q=v; renderLeads(); }
+function setQ(v){ Q=v; renderLeads(); }
 function clearSearch(){
   var inp=$('q'); if(inp) inp.value='';
-  Q=''; IFILTER=null; renderLeads();
+  Q=''; renderLeads();
   if(inp) inp.focus();
 }
 function leadMatchesQ(L, q){
@@ -3433,7 +3427,7 @@ function setFilter(f){
   // Search looks through every lead and ignores the filters, so tapping a filter while a search is
   // showing used to do nothing visible — now it ends the search and applies the filter.
   if(Q && String(Q).trim()){ Q=''; var qi=$('q'); if(qi) qi.value=''; }
-  IFILTER=null; FILTER=f; renderChips(); renderLeads();
+  FILTER=f; renderChips(); renderLeads();
 }
 // While a search is showing the filter chips dim and a line says so (search covers all leads).
 function syncSearchState_(){
@@ -3447,7 +3441,7 @@ function syncSearchState_(){
 function syncUpcomingNote_(){
   var n=$('upcomingYearNote'); if(!n) return;
   var txt='';
-  if(FILTER==='Upcoming Shows' && !IFILTER && !(Q && String(Q).trim())){
+  if(FILTER==='Upcoming Shows' && !(Q && String(Q).trim())){
     var now=new Date().getFullYear(), thisYear=0, other={};
     LEADS.forEach(function(L){
       if(!matches(L,'Upcoming Shows')) return;
@@ -3579,7 +3573,7 @@ function firstLeadEmptyHtml_(){
 }
 function renderEmptyImportPrompt(){
   var box=$('emptyImportCard'); if(!box) return;
-  if(IFILTER || (Q && Q.length) || !LEADS || LEADS.length>2){ box.style.display='none'; box.innerHTML=''; return; }
+  if((Q && Q.length) || !LEADS || LEADS.length>2){ box.style.display='none'; box.innerHTML=''; return; }
   box.innerHTML='<div class="card" style="border-color:var(--gold)">'
     +'<div style="font-weight:700;color:var(--gold-bright);margin-bottom:3px">Bring in your existing clients</div>'
     +'<div style="font-size:13px;color:var(--muted);margin-bottom:11px">Switching from a spreadsheet or another tool? Import your whole client list as leads in one step — optional, and you can do it anytime.</div>'
@@ -3669,18 +3663,6 @@ function renderLeads(){
   renderReferralInbox();
   renderLeadTapHint();
   var t=today0(), h='';
-
-  if(IFILTER){
-    var found=LEADS.filter(IFILTER.pred);
-    found.sort(function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); });
-    h = '<a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="clearInsight()">&#8592; Insights</a>'
-      + '<div class="sec-title"><span class="t">'+esc(IFILTER.label)+' \u00b7 '+found.length+'</span><span class="rule"></span></div>';
-    if(IFILTER.badges) h += '<div class="tpills" style="margin-bottom:14px">'+IFILTER.badges(found)+'</div>';
-    h += section('Results', found, false);
-    if(!found.length) h+='<div class="empty"><span class="star">&#10038;</span>Nothing matches this yet.</div>';
-    $('leadList').innerHTML=h;
-    return;
-  }
 
   var q=Q.trim().toLowerCase();
   if(q){
@@ -4339,7 +4321,6 @@ function doNextStep(kind){
   renderNextStep();
 }
 function currentBackLabel(){
-  if(IFILTER) return IFILTER.label;
   if(Q && Q.trim()) return 'Search';
   return FILTER;
 }
@@ -6189,6 +6170,23 @@ function bars(el, data, red, onTap, fmtFn){
 // year." Event Date stays historically accurate no matter when the row
 // was actually entered into the sheet.
 var INSIGHTS_SCOPE='thisyear';
+// Optional month inside the selected year: 'all' or 0-11. Only applies while a specific year is selected
+// (the Month pill is hidden for All Time), and narrows every Insights module by the same date it already
+// uses for the year — so the numbers can never disagree about which month something belongs to.
+var INSIGHTS_MONTH='all';
+function insightsMonthName_(m){ return ['January','February','March','April','May','June','July','August','September','October','November','December'][m]; }
+function insightsScopeMonth(){
+  if(INSIGHTS_SCOPE==='alltime' || INSIGHTS_MONTH==='all') return null;
+  return Number(INSIGHTS_MONTH);
+}
+// One test for "is this date inside the selected period" (year, and month when one is chosen).
+function inInsightsPeriod_(d){
+  var y=insightsScopeYear(); if(y===null) return true;
+  if(d.getFullYear()!==y) return false;
+  var m=insightsScopeMonth(); return m===null || d.getMonth()===m;
+}
+// Event date, else the date the row was added — the same fallback leadYear uses.
+function leadDate_(L){ return pd(L[C.eventDate]) || pd(L[C.timestamp]); }
 function leadYear(L){
   var ed=pd(L[C.eventDate]); if(ed) return ed.getFullYear();
   var ts=pd(L[C.timestamp]); return ts ? ts.getFullYear() : null;
@@ -6217,15 +6215,37 @@ function monthStart(){
 }
 function insightsScopedLeads(){
   if(INSIGHTS_SCOPE==='alltime') return LEADS;
-  var now=new Date().getFullYear();
-  var target = INSIGHTS_SCOPE==='thisyear' ? now : INSIGHTS_SCOPE==='lastyear' ? now-1 : parseInt(INSIGHTS_SCOPE,10);
-  return LEADS.filter(function(L){ return leadYear(L)===target; });
+  return LEADS.filter(inInsightsScope);
 }
 function fillInsightsScope(){
   var sel=$('insightsScope'); if(!sel) return;
   sel.innerHTML=insightsScopeOptions().map(function(o){ return '<option value="'+o.v+'"'+(o.v===INSIGHTS_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('');
+  fillInsightsMonth();
+}
+// Month pill: only while a specific year is in view, and only the months that actually have something
+// that year (a lead, a payment, an expense or a store sale), so no choice lands on an empty screen.
+function insightsUsedMonths_(y){
+  var used={};
+  var add=function(d){ if(d && d.getFullYear()===y) used[d.getMonth()]=1; };
+  LEADS.forEach(function(L){ add(leadDate_(L)); });
+  EXPENSES.forEach(function(E){ add(pd(E.date)); });
+  leadIncomeEvents_(LEADS).concat(storeIncomeEvents_()).forEach(function(e){ add(e.date); });
+  (STORE_SALES||[]).forEach(function(s){ add(pd(s.date)); });
+  return Object.keys(used).map(Number).sort(function(a,b){ return a-b; });
+}
+function fillInsightsMonth(){
+  var field=$('insightsMonthField'), msel=$('insightsMonth'); if(!field||!msel) return;
+  var y=insightsScopeYear();
+  if(y===null){ INSIGHTS_MONTH='all'; field.style.display='none'; return; }
+  var names=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var months=insightsUsedMonths_(y);
+  if(INSIGHTS_MONTH!=='all' && months.indexOf(Number(INSIGHTS_MONTH))<0) INSIGHTS_MONTH='all';
+  msel.innerHTML='<option value="all">All of '+y+'</option>'+months.map(function(m){ return '<option value="'+m+'"'+(String(INSIGHTS_MONTH)===String(m)?' selected':'')+'>'+names[m]+'</option>'; }).join('');
+  msel.value=String(INSIGHTS_MONTH);
+  field.style.display='flex';
 }
 function setInsightsScope(v){ INSIGHTS_SCOPE=v; renderInsights(); }
+function setInsightsMonth(v){ INSIGHTS_MONTH = v==='all' ? 'all' : Number(v); renderInsights(); }
 // Shared by the Money section below — resolves the same year-scope
 // selector used for leads into an actual year number (or null for "All
 // Time"), so expenses/income filter consistently with the rest of the page.
@@ -6237,14 +6257,16 @@ function insightsScopeYear(){
 // True if a date falls in the currently selected Insights year (always true for
 // "All Time"). One shared test so every module filters the same way — used by
 // Best Performing Sources, Advertising ROI, Store Sales and the referrals log.
+// (Despite the name it also honors the Month pill when one is chosen.)
 function inInsightsYear_(dateVal){
   var y=insightsScopeYear(); if(y===null) return true;
-  var d=pd(dateVal); return !!d && d.getFullYear()===y;
+  var d=pd(dateVal); return !!d && inInsightsPeriod_(d);
 }
-function insightsScopedExpenses(){
+// yearOnly = ignore the Month pill (the monthly trend always charts the whole year).
+function insightsScopedExpenses(yearOnly){
   var y = insightsScopeYear();
   if(y===null) return EXPENSES;
-  return EXPENSES.filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y; });
+  return EXPENSES.filter(function(E){ var d=pd(E.date); return d && (yearOnly ? d.getFullYear()===y : inInsightsPeriod_(d)); });
 }
 // Income is tracked as real cash received, not booked value — deposit and
 // balance are separate events since they're often received months apart,
@@ -6284,11 +6306,11 @@ function storeIncomeEvents_(){
   });
   return out;
 }
-function insightsScopedIncomeEvents(){
+function insightsScopedIncomeEvents(yearOnly){
   var y = insightsScopeYear();
   var events = leadIncomeEvents_(LEADS).concat(storeIncomeEvents_());
   if(y===null) return events;
-  return events.filter(function(e){ return e.date.getFullYear()===y; });
+  return events.filter(function(e){ return yearOnly ? e.date.getFullYear()===y : inInsightsPeriod_(e.date); });
 }
 // Reuses the exact same scoped event set that produces the displayed
 // Income total, rather than re-deriving it independently — so the
@@ -6357,8 +6379,7 @@ function renderInsights(){
    +'<div class="stat" onclick="insightInPlay()"><div class="v">'+pending.length+'</div><div class="l">In play</div></div>'
    +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div></div>'
    +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div></div>'
-   +'<div class="stat" onclick="insightNewWeek()"><div class="v">'+newWeek.length+'</div><div class="l">New this week</div></div>'
-   +'<div class="stat" onclick="insightNewMonth()"><div class="v">'+newMonth.length+'</div><div class="l">New this month</div></div>';
+   +insightsNewTiles_(newWeek.length, newMonth.length);
 
   renderOracle(all, $m);
 
@@ -6811,9 +6832,10 @@ function renderSourcePerf(all, $m){
 
 /* ---------- Advertising ROI by year ---------- */
 function computeAdRoi(all){
-  var stats={};
+  var stats={}, mo=insightsScopeMonth();
   all.forEach(function(L){
     var d=pd(L[C.timestamp]); if(!d) return;
+    if(mo!==null && d.getMonth()!==mo) return;
     var srcKey=sourceKey_(L[C.source]);
     var k=d.getFullYear()+'|'+srcKey;
     if(!stats[k]) stats[k]={bookedVal:0, bookedCount:0, totalLeads:0, label:sourceLabel_(L[C.source])};
@@ -6823,6 +6845,7 @@ function computeAdRoi(all){
   var spend={}, spendLabel={};
   marketingSpendRows_().forEach(function(E){
     var d=pd(E.date); if(!d) return;
+    if(mo!==null && d.getMonth()!==mo) return;
     var srcKey=sourceKey_(E.adSource);
     var k=d.getFullYear()+'|'+srcKey;
     spend[k]=(spend[k]||0)+(Number(E.amount)||0);
@@ -6881,7 +6904,7 @@ function renderAdRoi(all, $m){
     ? '<p class="note" style="text-align:left;margin:10px 0 0;cursor:pointer;text-decoration:underline" onclick="showUnattributedMarketingSpend()">'+$m(unattributed)+' in Marketing &amp; Advertising expenses isn\u2019t tagged to a lead source, so it\u2019s not reflected above. Tap to see and fix them.</p>'
     : '';
   if(!rows.length){
-    $('adRoi').innerHTML='<div class="empty"><span class="star">&#10038;</span>'+(scopeY!=null?'No ad spend or booked leads tagged to a source for '+scopeY+'.':'Log a Marketing &amp; Advertising expense with an Ad Source to see year-over-year return.')+'</div>'+unattribNote;
+    $('adRoi').innerHTML='<div class="empty"><span class="star">&#10038;</span>'+(scopeY!=null?'No ad spend or booked leads tagged to a source for '+(insightsScopeMonth()!==null?insightsMonthName_(insightsScopeMonth())+' ':'')+scopeY+'.':'Log a Marketing &amp; Advertising expense with an Ad Source to see year-over-year return.')+'</div>'+unattribNote;
     $('lroi_badge').innerHTML='<span class="pill gold">No ad spend logged yet</span>';
     $('lroi_donut').innerHTML='';
     return;
@@ -7069,8 +7092,8 @@ function renderProfitSummary($m){
     +'<div class="stat" style="cursor:pointer" onclick="showIncomeBreakdown()"><div class="v">'+$m(income)+'</div><div class="l">Income</div></div>'
     +'<div class="stat" style="cursor:pointer" onclick="showExpensesBreakdown()"><div class="v">'+$m(expenseTotal)+'</div><div class="l">Expenses</div></div>'
     +'</div>'
-    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(storeEnabledClient_()?' and received store sales':'')+' on the day they were actually marked received, not the event date. Tap either tile to see exactly what makes up that total.</p>';
-  renderMonthlyTrend(incomeEvents, exp, $m);
+    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(storeEnabledClient_()?' and received store sales':'')+' on the day they were actually marked received, not the event date. Each payment counts at the amount you agreed to; the card processing fee a client adds on top is not counted. Tap either tile to see exactly what makes up that total.</p>';
+  renderMonthlyTrend(insightsScopedIncomeEvents(true), insightsScopedExpenses(true), $m);
 }
 function renderMonthlyTrend(incomeEvents, exp, $m){
   var y = insightsScopeYear() || new Date().getFullYear();
@@ -7084,7 +7107,7 @@ function renderMonthlyTrend(incomeEvents, exp, $m){
     $('profit_monthly').innerHTML='<div class="empty"><span class="star">&#10038;</span>Nothing to chart for '+y+' yet.</div>';
     return;
   }
-  var h = (INSIGHTS_SCOPE==='alltime' ? '<p class="note" style="text-align:left;margin:0 0 10px">Showing '+y+' \u2014 monthly trend only ever covers one year at a time.</p>' : '')
+  var h = (INSIGHTS_SCOPE==='alltime' ? '<p class="note" style="text-align:left;margin:0 0 10px">Showing '+y+' \u2014 monthly trend only ever covers one year at a time.</p>' : (insightsScopeMonth()!==null ? '<p class="note" style="text-align:left;margin:0 0 10px">The trend always shows all of '+y+'.</p>' : ''))
     + '<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:12px;color:var(--muted)">'
     +'<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--gold)"></span>Income</span>'
     +'<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:var(--crimson)"></span>Expenses</span>'
@@ -7106,8 +7129,8 @@ function showMonthMoney(mo){
   var y = insightsScopeYear() || new Date().getFullYear();
   var names=['January','February','March','April','May','June','July','August','September','October','November','December'];
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
-  var inc = insightsScopedIncomeEvents().filter(function(e){ return e.date.getFullYear()===y && e.date.getMonth()===mo; }).sort(function(a,b){ return b.date-a.date; });
-  var exp = insightsScopedExpenses().filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y && d.getMonth()===mo; }).sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var inc = insightsScopedIncomeEvents(true).filter(function(e){ return e.date.getFullYear()===y && e.date.getMonth()===mo; }).sort(function(a,b){ return b.date-a.date; });
+  var exp = insightsScopedExpenses(true).filter(function(E){ var d=pd(E.date); return d && d.getFullYear()===y && d.getMonth()===mo; }).sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
   var incTotal=inc.reduce(function(s,e){ return s+e.amount; },0);
   var expTotal=exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
   $('insightResults_title').textContent = names[mo]+' '+y+' · +'+$m(incTotal)+' / −'+$m(expTotal);
@@ -7238,9 +7261,22 @@ function updateAdSourceVisibility(){
 }
 
 /* ---------- Insight drill-down ---------- */
-var IFILTER=null;
-function showInsightInPlace(label, pred, ignoreScope){
+// Insights lists by event: upcoming shows soonest first, then past ones (most recent first), then leads with no date.
+function byEventSoonest_(a,b){
+  var t0=new Date(); t0.setHours(0,0,0,0); var now=t0.getTime(), x=pd(a[C.eventDate]), y=pd(b[C.eventDate]);
+  var rank=function(d){ return d?(d.getTime()>=now?0:1):2; };
+  var ra=rank(x), rb=rank(y);
+  if(ra!==rb) return ra-rb;
+  if(ra===0) return x-y;
+  if(ra===1) return y-x;
+  return 0;
+}
+// Newest inquiry first (leads with no inquiry date last); biggest quoted value first.
+function byNewestInquiry_(a,b){ return (pd(b[C.timestamp])||0)-(pd(a[C.timestamp])||0); }
+function byValueDesc_(a,b){ return money(b[C.price])-money(a[C.price]); }
+function showInsightInPlace(label, pred, ignoreScope, sortFn){
   var results = LEADS.filter(function(L){ return (ignoreScope || inInsightsScope(L)) && pred(L); });
+  if(sortFn) results.sort(sortFn);
   $('insightResults_title').textContent = label + ' \u00b7 ' + results.length;
   $('insightResults_list').innerHTML = results.length
     ? results.map(function(L){
@@ -7254,20 +7290,45 @@ function showInsightInPlace(label, pred, ignoreScope){
 function closeInsightResults(){
   $('insightResultsSheet').classList.remove('open'); syncOverlay();
 }
-function insightAll(){ showInsightInPlace('All leads', function(){ return true; }); }
-function insightNewWeek(){ var wkStart=weekStart(); showInsightInPlace('New this week', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=wkStart; }, true); }
-function insightNewMonth(){ var moStart=monthStart(); showInsightInPlace('New this month', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=moStart; }, true); }
-function insightBooked(){ showInsightInPlace('Booked', isBookedLike); }
-function insightInPlay(){ showInsightInPlace('In play', function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; }); }
-function sourceBadges(rows){
-  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
-  var booked=rows.filter(isBookedLike);
-  var pending=rows.filter(function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; });
-  var bookedVal=booked.reduce(function(s,L){ return s+money(L[C.price]); },0);
-  var pendingVal=pending.reduce(function(s,L){ return s+money(L[C.price]); },0);
-  return '<span class="pill gold">Booked \u00b7 '+booked.length+' \u00b7 '+$m(bookedVal)+'</span>'
-       + '<span class="pill gold">Pending \u00b7 '+pending.length+' \u00b7 '+$m(pendingVal)+'</span>';
+function insightAll(){ showInsightInPlace('All leads', function(){ return true; }, false, byNewestInquiry_); }
+// The last two stat tiles. Looking at the present (this year, or All Time) they stay "New this week / month",
+// measured from today. Once the pills put you in a past month or year those would read as zero, so they become
+// inquiries for the period you picked: a chosen month -> "New in March (inquired)" + "Booked from them";
+// a past year (all months) -> "New in 2025" + the monthly average. Counted by the day the inquiry came in
+// (Timestamp) -- not the event date the rest of the page uses -- and labelled so the two aren't confused.
+// Returns the pieces so tests can check the numbers; insightsNewTiles_ draws them.
+function insightsNewTilesData_(weekN, monthN){
+  var y=insightsScopeYear(), m=insightsScopeMonth(), nowY=new Date().getFullYear();
+  var inq=function(L){ var d=pd(L[C.timestamp]); return !!d && inInsightsPeriod_(d); };
+  if(y!==null && m!==null){
+    var got=LEADS.filter(inq), won=got.filter(isBookedLike), nm=insightsMonthName_(m);
+    return {mode:'month', a:{v:got.length, l:'New in '+nm+' (inquired)', click:'insightInquired()'}, b:{v:won.length, l:'Booked from them', click:'insightInquiredBooked()'}};
+  }
+  if(y!==null && y!==nowY){
+    var yr=LEADS.filter(inq).length;
+    return {mode:'year', a:{v:yr, l:'New in '+y+' (inquired)', click:'insightInquired()'}, b:{v:Math.round(yr/12*10)/10, l:'Per month', click:''}};
+  }
+  return {mode:'today', a:{v:weekN, l:'New this week', click:'insightNewWeek()'}, b:{v:monthN, l:'New this month', click:'insightNewMonth()'}};
 }
+function insightsNewTiles_(weekN, monthN){
+  var d=insightsNewTilesData_(weekN, monthN);
+  return [d.a, d.b].map(function(t){
+    return '<div class="stat"'+(t.click?' onclick="'+t.click+'"':'')+'><div class="v">'+t.v+'</div><div class="l">'+esc(t.l)+'</div></div>';
+  }).join('');
+}
+function insightInquired(){
+  var y=insightsScopeYear(), m=insightsScopeMonth();
+  var label = m!==null ? 'New in '+insightsMonthName_(m)+' '+y+' (inquired)' : 'New in '+y+' (inquired)';
+  showInsightInPlace(label, function(L){ var d=pd(L[C.timestamp]); return !!d && inInsightsPeriod_(d); }, true, byNewestInquiry_);
+}
+function insightInquiredBooked(){
+  var y=insightsScopeYear(), m=insightsScopeMonth();
+  showInsightInPlace('Booked from '+insightsMonthName_(m)+' '+y+' inquiries', function(L){ var d=pd(L[C.timestamp]); return !!d && inInsightsPeriod_(d) && isBookedLike(L); }, true, byNewestInquiry_);
+}
+function insightNewWeek(){ var wkStart=weekStart(); showInsightInPlace('New this week', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=wkStart; }, true, byNewestInquiry_); }
+function insightNewMonth(){ var moStart=monthStart(); showInsightInPlace('New this month', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=moStart; }, true, byNewestInquiry_); }
+function insightBooked(){ showInsightInPlace('Booked', isBookedLike, false, byEventSoonest_); }
+function insightInPlay(){ showInsightInPlace('In play', function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; }, false, byEventSoonest_); }
 // Advertising ROI and Best-Performing Sources both show booked value —
 // this drill-down mirrors that exactly: same source, same Booked-or-
 // Completed rule, and (when a specific ROI-by-year row was tapped) the
@@ -7283,26 +7344,28 @@ function showAdRoiSourceDrilldown(src, year){
     if(year){
       var d=pd(L[C.timestamp]);
       if(!d || d.getFullYear()!==year) return false;
-    }
+      var mo=insightsScopeMonth(); if(mo!==null && d.getMonth()!==mo) return false;
+    } else if(!inInsightsScope(L)) return false; // from Best Performing Sources: the same leads that row counted (selected year/month)
     return true;
-  }).sort(function(a,b){ return (pd(b[C.timestamp])||0)-(pd(a[C.timestamp])||0); });
+  }).sort(byValueDesc_);
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
   var total = rows.reduce(function(s,L){ return s+money(L[C.price]); },0);
-  $('insightResults_title').textContent = sourceLabel_(src)+(year?(' \u00b7 '+year):'')+' \u00b7 '+$m(total);
+  var periodY = year || insightsScopeYear();
+  $('insightResults_title').textContent = sourceLabel_(src)+(periodY?(' \u00b7 '+(insightsScopeMonth()!==null?insightsMonthName_(insightsScopeMonth())+' ':'')+periodY):'')+' \u00b7 '+$m(total);
   $('insightResults_list').innerHTML = rows.length
     ? rows.map(function(L){
         return compactRow(L[C.name]||'Lead', $m(money(L[C.price])), String(L[C.status]||''), '', 'gold', L._row?('closeInsightResults();openSheet('+L._row+')'):'');
       }).join('')
-    : '<div class="empty"><span class="star">&#10038;</span>No booked or completed leads from this source'+(year?(' in '+year):'')+'.</div>';
+    : '<div class="empty"><span class="star">&#10038;</span>No booked or completed leads from this source'+(periodY?(' in '+(insightsScopeMonth()!==null?insightsMonthName_(insightsScopeMonth())+' ':'')+periodY):'')+'.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function insightNonactiveReason(reason){
   showInsightInPlace('Lost \u00b7 '+reason, function(L){
     if(String(L[C.status])!=='Lost') return false;
     return (String(L[C.lostReason]||'').trim() || 'Not specified')===reason;
-  });
+  }, false, byNewestInquiry_);
 }
-function insightReferralPartner(name){ showInsightInPlace('Referred to \u00b7 '+name, function(L){ return String(L[C.status])==='Referred' && (String(L[C.referral]||'').trim()||'Unassigned')===name; }); }
+function insightReferralPartner(name){ showInsightInPlace('Referred to \u00b7 '+name, function(L){ return String(L[C.status])==='Referred' && (String(L[C.referral]||'').trim()||'Unassigned')===name; }, false, byNewestInquiry_); }
 
 function partnerNameById(id){
   var p=PARTNERS.find(function(x){ return x.id===id; });
@@ -7322,13 +7385,13 @@ function renderReferralsSent(){
         +(l.note?'<div class="hnote">'+linkify(l.note)+'</div>':'')+'</div>'; }).join('')
     : '';
 }
-function insightService(svc){ showInsightInPlace('Service \u00b7 '+svc, function(L){ return svcLabel(L[C.service])===svc; }); }
-function insightEvent(evt){ showInsightInPlace('Event type \u00b7 '+evt, function(L){ return String(L[C.eventType]||'').trim()===evt; }); }
+function insightService(svc){ showInsightInPlace('Service \u00b7 '+svc, function(L){ return svcLabel(L[C.service])===svc; }, false, byEventSoonest_); }
+function insightEvent(evt){ showInsightInPlace('Event type \u00b7 '+evt, function(L){ return String(L[C.eventType]||'').trim()===evt; }, false, byEventSoonest_); }
 // Lead Source bars (and the ROI "return multiple by source" bars) call this; it
 // was never defined, so those taps did nothing. Matches by normalized source
 // key (case/space-insensitive, same rule as everywhere else) and opens the
 // in-Insights overlay like the rest.
-function insightSource(src){ showInsightInPlace('Lead source \u00b7 '+src, function(L){ return sourceKey_(L[C.source])===sourceKey_(src); }); }
+function insightSource(src){ showInsightInPlace('Lead source \u00b7 '+src, function(L){ return sourceKey_(L[C.source])===sourceKey_(src); }, false, byValueDesc_); }
 function toggleTestEmail(){
   var w=$('testmail_wrap'), btn=$('testmail_toggle'); if(!w) return;
   var open=w.style.display==='none';
@@ -7384,20 +7447,7 @@ function checkSyncStatus(){
 }
 function inInsightsScope(L){
   if(INSIGHTS_SCOPE==='alltime') return true;
-  var now=new Date().getFullYear();
-  var target = INSIGHTS_SCOPE==='thisyear' ? now : INSIGHTS_SCOPE==='lastyear' ? now-1 : parseInt(INSIGHTS_SCOPE,10);
-  return leadYear(L)===target;
-}
-function showInsight(label, pred, badges){
-  IFILTER={label:label, pred:function(L){ return inInsightsScope(L) && pred(L); }, badges:badges}; Q='';
-  var btn=document.querySelector('.tab[data-v="leads"]');
-  go('leads', btn);
-  renderLeads();
-}
-function clearInsight(){
-  IFILTER=null;
-  var btn=document.querySelector('.tab[data-v="insights"]');
-  go('insights', btn);
+  var d=leadDate_(L); return !!d && inInsightsPeriod_(d);
 }
 
 /* ---------- Tabs ---------- */
@@ -7740,8 +7790,8 @@ function exportExpensesCsv(){
    Builds the rows for one calendar year from the SAME income logic Insights uses (deposit / balance marked
    received, dated by the received date) and hands them to the server, which writes a Google Sheet for the
    accountant. Each payment carries its agreed amount and its card fee separately, so the report never hides
-   the card fee. (The Income tile counts a card-paid BALANCE with its fee but a card-paid deposit without one;
-   the package keeps them apart instead.) */
+   the card fee. (Insights Income counts every payment at the agreed amount, with no card fee, since 1.5.61; the
+   package keeps the fee on its own line and includes it, with any Stripe fees entered, in its net.) */
 var TAX_PKG_BUSY=false, TAX_YEAR=0, TAX_STATE=null, TAX_LAST=null, TAX_CONTRACTORS=[], MIL_SUGG=null, MIL_ARM=null, MIL_ARM_T=null;
 function taxYearSel_(){ var s=$('exportYearSel').value; return s==='all' ? 0 : (Number(s)||0); }
 function taxNum_(v){ return String(v==null?'':v).replace(/[$,\s]/g,''); }
@@ -8965,7 +9015,6 @@ function go(v, btn){
   window.scrollTo(0,0);
 }
 
-function openSetup(){ go('settings', document.querySelector('.tab[data-v="settings"]')); }
 function maybeShowSetupNudge(){
   var box=$('setupNudgeCard'); if(!box) return;
   var configured = CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME !== 'Your Business';
@@ -9080,39 +9129,6 @@ function updateLogoPreview(val){
     + 'onload="var w=document.getElementById(\'logoWarn\');if(w)w.style.display=\'none\'" '
     + 'onerror="this.style.display=\'none\';var w=document.getElementById(\'logoWarn\');if(w)w.style.display=\'\'">'
     + '<div id="logoWarn" style="display:none;font-size:11px;color:#E9927B;margin-top:4px">This image link isn’t loading — your customers won’t see it. Make sure it’s a direct, public image link (on your site, right-click the logo → “Copy image address”).</div>';
-}
-function handleLogoUpload(input){
-  var file = input.files && input.files[0]; if(!file) return;
-  var name=(file.name||'').toLowerCase(), type=(file.type||'').toLowerCase();
-  if(type==='image/svg+xml' || /\.svg$/.test(name)){
-    toast('SVG logos aren’t supported — please upload a PNG or JPG.'); input.value=''; return;
-  }
-  if(type.indexOf('heic')>-1 || type.indexOf('heif')>-1 || /\.(heic|heif)$/.test(name)){
-    toast('iPhone HEIC photos aren’t supported — save it as JPG first (Photos: Share → Save as JPEG), then upload.'); input.value=''; return;
-  }
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var img = new Image();
-    img.onload = function(){
-      if(!img.width || !img.height){ toast('Couldn’t read that image — try a PNG or JPG.'); return; }
-      var max=256, w=img.width, h=img.height;
-      if(w>max||h>max){ var r=Math.min(max/w, max/h); w=Math.round(w*r); h=Math.round(h*r); }
-      var canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      var data;
-      try { data=canvas.toDataURL('image/png'); if(data.length>45000) data=canvas.toDataURL('image/jpeg',0.85); }
-      catch(err){ toast('Couldn’t process that image — try a different PNG or JPG.'); return; }
-      if(data.length>45000){ toast('That image is too large — try a smaller/simpler logo, or paste a direct image URL.'); return; }
-      var el=$('set_LOGO_URL'); if(el) el.value=data;
-      updateLogoPreview(data);
-      toast('Logo added ✦');
-      queueSettingsAutosave();
-    };
-    img.onerror=function(){ toast('Could not read that image. If it’s an iPhone (HEIC) photo, save it as JPG first; otherwise try a PNG or JPG.'); };
-    img.src=e.target.result;
-  };
-  reader.onerror=function(){ toast('Could not read that file.'); };
-  reader.readAsDataURL(file);
 }
 /* ---------- Settings autosave — same model as the lead editor: change/blur
    saves in the background with a running status, no manual Save button. Sends
@@ -9977,6 +9993,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.62', d:'Oct 2026', notes:[
+    'New — Month filter in Insights: next to Period, pick a month and every section follows it (booked value, leads, sources, income, expenses, profit, tax estimate, advertising and store sales). The monthly chart still shows the whole year, and “New this week / New this month” become “New in March (inquired)” and “Booked from them” when you pick a month.',
+    'Changed — Tax prep: the net line is now “Total received minus expenses” (what clients paid, including any card fee they added, minus expenses including your Stripe fees). Before, it left the card fee out but still subtracted Stripe’s cost, so it came out too low. Until you enter your Stripe fees it runs slightly high, and the report says so.',
+    'Changed — Insights lists are in a sensible order: soonest show first for Booked, In play, services and event types; newest inquiry first for New, Lost and Referred; biggest jobs first for a lead source. Tapping a source under Best Performing Sources now lists only the period you picked.'
+  ]},
   { v:'1.5.61', d:'Oct 2026', notes:[
     'New — Tax prep: in Expenses, tap “Tax prep” to build a year-end spreadsheet and PDF summary for your accountant (income, expenses, unpaid balances, mileage, contractors, and a list of things to fix before you file). Enter your Stripe fees for the year, keep a mileage log (it can suggest trips from your booked shows), mark contractors with a W-9 on file, and save a draft email to your accountant with the PDF and an Excel copy attached. Nothing is sent for you.',
     'New (optional) — “Leave for…” alerts: add your starting address in Settings → Taxes & travel and every booked show with a location gets a calendar alert at the time to leave (start time, minus an hour early, minus the typical drive time — not live traffic).',

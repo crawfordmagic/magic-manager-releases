@@ -1,11 +1,11 @@
 What's new in this update:
 
-• NEW — Tax prep. In Expenses, tap "Tax prep" to build a year-end spreadsheet and a PDF summary for your accountant: income, expenses, unpaid balances, mileage, contractors, and a list of anything to fix before you file. Enter your Stripe fees for the year, keep a mileage log (it can suggest trips from your booked shows), mark which contractors have a W-9 on file, and save a draft email to your accountant with the PDF and an Excel copy attached. Nothing is ever sent for you.
+• NEW — Month filter in Insights. Next to "Period" there is now a "Month" menu. Pick a year, then a month, and everything in Insights follows it: your booked value, leads, sources, income, expenses, profit, the tax estimate, advertising and store sales. The monthly chart always shows the whole year, and the "New this week / New this month" boxes become "New in March (inquired)" and "Booked from them" when you pick a month. Months with nothing in them aren't listed.
 
-• NEW, optional — "Leave for…" alerts. Add your starting address in Settings → Taxes & travel, and every booked show with a location gets a calendar alert at the time to leave: the start time, minus an hour to arrive early, minus the typical drive time (it doesn't use live traffic). It stays off until you add the address.
+• CHANGED — Tax prep totals. The "net" line is now "Total received minus expenses": everything clients paid you (including any card fee they added) minus your expenses, including the Stripe fees you entered. Before, it left the card fee out but still subtracted Stripe's cost, so it came out too low. If you haven't entered your Stripe fees yet, the net runs slightly high, and the report tells you so.
 
-• CHANGED — Income. The Income number in Insights no longer includes the card processing fee on balances paid by card, so deposits and balances are now counted the same way: the amount you agreed. If you take card payments you may see Income dip slightly (3.25% of card-paid balances). Nothing a client owes has changed.
+• CHANGED — Insights lists are now in a sensible order. Booked, In play, services and event types show the soonest show first; New, Lost and Referred show the newest inquiry first; a lead source shows the biggest quoted jobs first. Tapping a source under Best Performing Sources now lists only the leads for the period you picked, instead of every year.
 
-• Fixed: things due on the same day now appear in time order in your Today list, and a booked show's calendar start time now always matches the time shown in the app.
+• Cleaner behind the scenes: a few unused pieces of the app were removed. Nothing you use changes.
 
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. (Your data is never affected, and there are no new permissions to approve.) The accountant email draft uses the same Gmail permission as Branded Gmail drafts; if you haven't set that up, the button will say so.
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

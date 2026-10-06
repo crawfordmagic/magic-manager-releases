@@ -524,7 +524,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.61';
+var APP_VERSION = '1.5.62';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1136,9 +1136,9 @@ var API_ = {
   addPartnerTemplate: addPartnerTemplate_, updatePartnerTemplate: updatePartnerTemplate_, deletePartnerTemplate: deletePartnerTemplate_,
   moveTextTemplate: moveTextTemplate_, addTextTemplate: addTextTemplate_, updateTextTemplate: updateTextTemplate_,
   deleteTextTemplate: deleteTextTemplate_, addPartnerTextTemplate: addPartnerTextTemplate_, updatePartnerTextTemplate: updatePartnerTextTemplate_,
-  deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_, getTrash: getTrash_,
+  deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_,
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
-  startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, syncContactsToGoogle: syncContactsToGoogle_,
+  startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_,
   setTaxRate: setTaxRate_, getLeads: getLeads_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
   saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, markSeen: markSeen_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
@@ -5939,7 +5939,7 @@ function taxSummary_(income, expenses, stripeFees) {
   }
   s.serviceIncome = taxMoney_(s.serviceIncome); s.cardFees = taxMoney_(s.cardFees); s.expenseTotal = taxMoney_(s.expenseTotal);
   s.totalReceived = taxMoney_(s.serviceIncome + s.cardFees);
-  s.net = taxMoney_(s.serviceIncome - s.expenseTotal);
+  s.net = taxMoney_(s.totalReceived - s.expenseTotal); // cash basis: what clients paid (incl. the card fee they added) minus expenses (incl. any Stripe fees entered)
   s.months = s.months.map(function (x) { return { income: taxMoney_(x.income), cardFees: taxMoney_(x.cardFees), expenses: taxMoney_(x.expenses) }; });
   s.categories = Object.keys(s.byCategory).map(function (k) { return { category: k, amount: taxMoney_(s.byCategory[k]) }; })
     .sort(function (a, b) { return b.amount - a.amount; });
@@ -5960,7 +5960,7 @@ function taxAttention_(expenses, extra, ctx) {
     if (seen[key]) out.push({ item: 'Possible duplicate expense', detail: label });
     seen[key] = true;
   });
-  if (ctx.cardPayments && !(ctx.stripeFees > 0)) out.push({ item: 'Card payments but no Stripe fees entered', detail: 'Enter this year\'s Stripe fees in Tax prep so the expenses are complete.' });
+  if (ctx.cardPayments && !(ctx.stripeFees > 0)) out.push({ item: 'Card payments but no Stripe fees entered', detail: 'Enter this year\'s Stripe fees in Tax prep. Until then the net is slightly high: the card fees collected are counted, but Stripe\'s cost is not.' });
   (ctx.contractors || []).forEach(function (k) { if (!k.w9) out.push({ item: 'Contractor with no W-9 marked', detail: k.name + '  ' + usd(k.total) }); });
   if (ctx.mileageTrips > 0 && !(ctx.mileageRate > 0)) out.push({ item: 'Mileage logged but no rate entered', detail: 'Enter the mileage rate in Tax prep to see the estimated deduction.' });
   (Array.isArray(extra) ? extra : []).slice(0, 200).forEach(function (x) {
@@ -5999,7 +5999,7 @@ function taxContractors_(expenses, w9Keys) {
 function taxNotes_(year, receiptsUrl, x) {
   var notes = [
     '1. How this was counted: cash basis. A deposit or balance counts in the year it was marked received; a store sale counts when it is marked received. Amounts are the agreed amounts, not what a card processor may have deducted.',
-    '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". Stripe\'s actual processing fees are not recorded in this app, so they are NOT in the expenses. Stripe\'s year-end summary shows the gross amount including the added fee, plus its own fees, so please use it alongside this report.',
+    '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". Stripe\'s actual processing fees are not recorded in this app, so they are NOT in the expenses. Stripe\'s year-end summary shows the gross amount including the added fee, plus its own fees, so please use it alongside this report. The net figure is the total received from clients (which includes the added fee) minus expenses, so it runs slightly high until the Stripe fees are entered.',
     '3. Booked but not yet paid: shows booked in or before ' + year + ' with a balance not received by Dec 31 are on the "Unpaid at year end" tab. They are not counted as income here.',
     '4. Receipts: the receipt links open only for the Google account that owns them. ' + (receiptsUrl ? 'Share this folder with your accountant: ' + receiptsUrl : 'Ask the owner to share the receipts folder.'),
     '5. Large purchases (such as equipment) may need to be depreciated rather than deducted in one year, and some expenses (such as meals) may be only partly deductible. They are listed in full here; your accountant decides.',
@@ -6007,7 +6007,7 @@ function taxNotes_(year, receiptsUrl, x) {
   ];
   x = x || {};
   if (x.stripeFees > 0) {
-    notes[1] = '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". The Stripe processing fees entered for the year are included in the expenses as one yearly line. Stripe\'s year-end summary shows the gross amount including the added fee, so please use it alongside this report.';
+    notes[1] = '2. Card payments: clients who pay by card are charged an extra processing fee. That fee is shown separately above and is NOT in "Service income". The Stripe processing fees entered for the year are included in the expenses as one yearly line. Stripe\'s year-end summary shows the gross amount including the added fee, so please use it alongside this report. The net figure is the total received from clients (which includes the added fee) minus expenses, including the Stripe fees entered.';
   }
   if (x.mileage && x.mileage.trips > 0) {
     notes.push('7. Mileage: the trips in the Mileage tab are kept apart from the expenses above. The estimated deduction uses the per-mile rate entered and is NOT included in total expenses or net. If mileage is deducted at a standard rate, actual car costs (such as gas) for the same miles generally cannot also be deducted \u2014 your accountant decides.');
@@ -6039,7 +6039,7 @@ function taxSummaryRows_(cfg, year, s, receiptsUrl, x) {
   s.categories.forEach(function (c) { money.push(add('     ' + c.category, c.amount)); });
   add();
   head('NET');
-  money.push(add('Service income minus expenses', s.net));
+  money.push(add('Total received minus expenses', s.net));
   if (x.mileage && x.mileage.trips > 0) {
     add();
     head('MILEAGE (kept apart from the expenses above)');
