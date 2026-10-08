@@ -1,13 +1,11 @@
 What's new in this update:
 
-• CHANGED — A tidier lead page. The note saying how many fields are hidden is now part of the "Manage fields" link ("Manage fields · 4 hidden"), so there is one less line under Details.
+• NEW, optional — a "30 days out" check-in. In Settings → More options → Reminders & taxes, switch on "Remind me 30 days before each show". New bookings then get a "30 days out — Touch base with the client" reminder in your Today list, ahead of the 1-week check-in. A show booked less than 30 days ahead skips it, and shows you've already booked are left exactly as they are. It's off until you turn it on.
 
-• NEW — "Add extra to balance". On a booked lead, tap "+ Add extra to balance" under Details when a client extends or adds something on site. Enter the amount (and what it's for) and the balance goes up by exactly that much; the deposit stays where it was. The client's event portal, card payment and reminders all show the new balance, and a note is added to the lead's history. If the balance is already marked received, it tells you instead, since adding it would bill the whole balance again.
+• CHANGED — Settings is shorter. Instead of eleven sections, you see three up front — Your business (with your contact details), Getting paid (with your payment methods) and Services & event portal — and everything optional is tucked behind one "More options" row: Contract terms, Store, Reminders & taxes, and Advanced. Nothing you've saved moves or changes.
 
-• NEW — Compare in Insights and Expenses. Tap "Compare" under the period and month and each number shows how it changed against last year (▲ 18%, ▼ 12%). Once it's on, tap "vs 2025 ▾" to compare with any other year, such as 2023 against this year. For the current year, money is compared through the same date last year so it's a fair comparison.
+• CHANGED — Follow-up reminders tell you more. A reminder for a booked client now shows where the event stands ("Event in 30 days · Nov 7, 2026 · Corporate"), and a follow-up date you set yourself reads "Follow-up — Touch base with the client" instead of just "Follow-up".
 
-• NEW — Emailing or texting a partner about a lead you already referred. The lead can now be attached to the message (a "Check In With Partner" reminder attaches it for you), so the lead's name and details fill in. In the template editor, tap one of the buttons under the message to insert common fields in one tap (first name, event date, the lead's name and so on), or open "More fields" for the full list, now grouped by topic.
-
-• CHANGED — A cleaner, darker look for choosing things. The period at the top of Insights and Expenses is one line ("Viewing 2026 · All year"). Dropdowns open as a black-and-gold menu — a sheet that slides up from the bottom on a phone, with big rows that are easy to tap. Dates open a black-and-gold calendar and times open a scroll wheel, instead of your phone's gray pickers.
+• Also in the last two updates: "Add extra to balance" on a booked lead (for an on-site extension or add-on), Compare with last year or any other year in Insights and Expenses, attaching an already-referred lead when you follow up with a partner, one-tap field buttons in template editors, and a cleaner black-and-gold look for dropdowns, dates and times.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

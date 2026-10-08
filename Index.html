@@ -1017,7 +1017,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <span class="t"><span>Your settings</span><span class="mr-sub">Business info, payment methods &amp; more</span></span><span class="chev">&#8250;</span>
       </button>
       <div id="sec_b_yourset" class="more-detail" style="padding:4px 12px;display:none">
-        <p class="note" style="text-align:left;margin:8px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>How clients reach you</b> &mdash; the rest is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
+        <p class="note" style="text-align:left;margin:8px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>Getting paid</b> &mdash; everything under <b>More options</b> is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
         <div id="settingsBody">Loading&#8230;</div>
       </div>
     </div>
@@ -3196,6 +3196,20 @@ function bookedFollowupDue_(L){
   var f=pd(L[C.followup]); if(!f) return false;
   return new Date(f.getFullYear(), f.getMonth(), f.getDate()) <= today0();
 }
+// Where the event stands, for the follow-up reminders: "Event in 30 days \u00b7 Nov 7, 2026" (and, when there is one,
+// the event type). Without it a reminder is just a name and the word "Follow-up".
+function bookedEventNote_(L){
+  var ed=pd(L[C.eventDate]); if(!ed) return '';
+  var d0=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
+  var n=Math.round((d0-today0())/86400000), when;
+  if(n>1) when='Event in '+n+' days';
+  else if(n===1) when='Event tomorrow';
+  else if(n===0) when='Event today';
+  else if(n===-1) when='Event was yesterday';
+  else when='Event was '+(-n)+' days ago';
+  var type=String(L[C.eventType]||'').trim();
+  return when+' \u00b7 '+fmtDateY(ed)+(type ? ' \u00b7 '+type : '');
+}
 // Whole days a date is past (0 if today or in the future).
 function daysLate_(d){
   if(!d) return 0;
@@ -3213,13 +3227,16 @@ function renderFollowupDue(){
   box.style.display='';
   box.innerHTML='<div class="followupdue-card"><div class="followupdue-title td-chrome">Follow-Ups Due Today</div>'
     + due.map(function(L){
-        var idx=followupStageIndex(L), stage=idx>-1?STAGE_LABELS[idx]:'Follow-up', hint=idx>-1?STAGE_HINTS[idx]:'';
+        // A follow-up date you set yourself isn't one of the automatic stages, so it used to say only "Follow-up".
+        var SD=stageDefs_(), idx=followupStageIndex(L), stage=idx>-1?SD.labels[idx]:'Follow-up', hint=idx>-1?SD.hints[idx]:'Touch base with the client';
+        var ev=bookedEventNote_(L);
         var late=daysLate_(pd(L[C.followup]));
         var emailBtn = (L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
-        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:hint, when:lateText_(late), late:late, rank:2, ts:tdTs_(pd(L[C.followup]))})+'>'
+        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:[ev, hint].filter(Boolean).join(' \u00b7 '), when:lateText_(late), late:late, rank:2, ts:tdTs_(pd(L[C.followup]))})+'>'
           +'<div class="followupdue-info" onclick="openSheet('+L._row+')">'
             +'<div class="followupdue-name">'+esc(L[C.name]||'Lead')+'</div>'
             +'<div class="followupdue-stage">'+esc(stage)+(hint?' \u2014 '+esc(hint):'')+'</div>'
+            +(ev?'<div class="followupdue-stage" style="color:var(--gold-bright)">'+esc(ev)+'</div>':'')
           +'</div>'
           +emailBtn
           +'<button class="followupdue-btn" onclick="event.stopPropagation();'+(idx>-1?'markStageDone':'clearBookedFollowup')+'('+L._row+')">Mark done</button>'
@@ -3276,10 +3293,11 @@ function buildFollowupDoneBtn(){
   var f=pd(CURRENT[C.followup]);
   var due = idx>-1 && f && f<=today0();
   el.style.display = due ? '' : 'none';
-  hintEl.style.display = (due && STAGE_HINTS[idx]) ? '' : 'none';
+  var SD=stageDefs_();
+  hintEl.style.display = (due && SD.hints[idx]) ? '' : 'none';
   if(due){
-    el.textContent='Mark "'+STAGE_LABELS[idx]+'" as done';
-    if(STAGE_HINTS[idx]) hintEl.textContent=STAGE_HINTS[idx];
+    el.textContent='Mark "'+SD.labels[idx]+'" as done';
+    if(SD.hints[idx]) hintEl.textContent=SD.hints[idx];
   }
 }
 function quickCallLead(row){
@@ -4147,21 +4165,30 @@ function deleteTaskUI(id){
 // Must match FOLLOWUP_STAGE_OFFSETS / FOLLOWUP_STAGE_LABELS in Code.js (the server sets these dates).
 var STAGE_OFFSETS=[-7,1], STAGE_LABELS=['1 week out','Review request'];
 var STAGE_HINTS=['Send the client a check-in email', 'Reach out to the client for a review through their event portal'];
+// Optional first stage (Settings -> Reminders -> "Check-in 30 days before a show"). Must match FOLLOWUP_30_* in Code.js.
+var STAGE_30_OFFSET=-30, STAGE_30_LABEL='30 days out', STAGE_30_HINT='Touch base with the client';
+// The stage lists in force right now (the 30-day stage is prepended when the setting is on).
+function stageDefs_(){
+  var on=String((typeof CFG!=='undefined'&&CFG&&CFG.REMIND_30_DAYS)||'').trim().toLowerCase()==='yes';
+  return on ? {offsets:[STAGE_30_OFFSET].concat(STAGE_OFFSETS), labels:[STAGE_30_LABEL].concat(STAGE_LABELS), hints:[STAGE_30_HINT].concat(STAGE_HINTS)}
+            : {offsets:STAGE_OFFSETS, labels:STAGE_LABELS, hints:STAGE_HINTS};
+}
 function followupStageIndex(L){
   if(!isBookedLike(L)) return -1;
   var ed=pd(L[C.eventDate]); if(!ed) return -1;
   var f=pd(L[C.followup]); if(!f) return -1;
   ed.setHours(0,0,0,0);
   var fDate=new Date(f); fDate.setHours(0,0,0,0);
-  for(var i=0;i<STAGE_OFFSETS.length;i++){
-    var stage=new Date(ed); stage.setDate(stage.getDate()+STAGE_OFFSETS[i]);
+  var SD=stageDefs_();
+  for(var i=0;i<SD.offsets.length;i++){
+    var stage=new Date(ed); stage.setDate(stage.getDate()+SD.offsets[i]);
     if(stage.getTime()===fDate.getTime()) return i;
   }
   return -1;
 }
 function followupStageLabel(L){
   var i=followupStageIndex(L);
-  return i>-1 ? STAGE_LABELS[i] : null;
+  return i>-1 ? stageDefs_().labels[i] : null;
 }
 function section(title, arr, danger, dim){
   if(!arr.length) return '';
@@ -9696,21 +9723,43 @@ function renderSettings(){
     function fieldHtml(f){ return settingsFieldHtml(f, raw, cfg); }
     var used = {}, html = '';
     // (The guided-setup button and the Tools / Help lists are static markup on the page now.)
-    sections.forEach(function(sec){
+    // A section's fields in order; a field's `group` becomes a small heading inside the section (e.g. "Payment methods").
+    function groupedFieldsHtml(fs){
+      var out='', prev=null;
+      fs.forEach(function(f){
+        if(f.group && f.group!==prev) out+='<div class="sec-title" style="margin:16px 0 8px"><span class="t">'+esc(f.group)+'</span><span class="rule"></span></div>';
+        prev=f.group||null;
+        out+=fieldHtml(f);
+      });
+      return out;
+    }
+    function sectionHtml(sec){
       var fs = SETTINGS_FIELDS.filter(function(f){ return f.section===sec.id; });
-      if(!fs.length) return;
+      if(!fs.length) return '';
       fs.forEach(function(f){ used[f.key]=1; });
       var done = fs.filter(filled).length, tot = fs.length, complete = done===tot;
       var badge = '<span style="font-size:11px;font-weight:600;color:'+(complete?'var(--sage)':'var(--muted)')+'">'+(complete?'✓ done':done+' / '+tot)+'</span>';
-      html += '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\''+sec.id+'\')">'
+      return '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\''+sec.id+'\')">'
         + '<span class="httitle">'+esc(sec.title)+'</span>'
         + '<span class="htright">'+badge+'<span id="setsec_'+sec.id+'_chev">'+(sec.open?'&#9652;':'&#9662;')+'</span></span>'
         + '</button>'
         + '<div id="setsec_'+sec.id+'_wrap" style="'+(sec.open?'':'display:none;')+'margin-top:10px">'
         + (sec.desc?'<p class="note" style="text-align:left;margin:0 0 10px">'+esc(sec.desc)+'</p>':'')
-        + fs.map(fieldHtml).join('')
+        + groupedFieldsHtml(fs)
         + '</div>';
-    });
+    }
+    // The essentials show up front; everything optional sits behind ONE "More options" row so nobody faces a long list.
+    var mainSecs=sections.filter(function(sec){ return sec.tier!=='more'; }), moreSecs=sections.filter(function(sec){ return sec.tier==='more'; });
+    mainSecs.forEach(function(sec){ html+=sectionHtml(sec); });
+    var moreHtml=moreSecs.map(sectionHtml).join('');
+    if(moreHtml){
+      var names=moreSecs.filter(function(sec){ return SETTINGS_FIELDS.some(function(f){ return f.section===sec.id; }); })
+        .map(function(sec){ return sec.short||sec.title; }).join(' \u00b7 ');
+      html += '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'moreopts\')">'
+        + '<span class="httitle">More options (all optional)</span>'
+        + '<span class="htright"><span id="setsec_moreopts_sum" style="font-size:11px;color:var(--muted)">'+esc(names)+'</span><span id="setsec_moreopts_chev">&#9662;</span></span></button>'
+        + '<div id="setsec_moreopts_wrap" style="display:none;margin:0 0 0 10px;padding-left:10px;border-left:1px solid var(--line)">'+moreHtml+'</div>';
+    }
     var leftover = SETTINGS_FIELDS.filter(function(f){ return !used[f.key]; });
     if(leftover.length){
       html += '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'more\')">'
@@ -9745,6 +9794,8 @@ function toggleSetupSection(id){
   var open=w.style.display==='none';
   w.style.display=open?'':'none';
   var chev=$('setsec_'+id+'_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
+  // the "More options" row shows what is inside it only while it is closed
+  if(id==='moreopts'){ var sum=$('setsec_moreopts_sum'); if(sum) sum.style.display=open?'none':''; }
 }
 function updateLogoPreview(val){
   var box = $('logoPreview'); if(!box) return;
@@ -10339,7 +10390,8 @@ function cardFeeSync(){
 // Generic on/off setting — a checkbox backed by a hidden yes/no input, saved
 // through the normal Settings flow. 'no' = off; anything else (incl. blank) = on.
 function toggleEditorHtml(f, val, cfg){
-  var on = String(val||'').trim().toLowerCase()!=='no';
+  var v=String(val||'').trim().toLowerCase();
+  var on = f.defaultOff ? v==='yes' : v!=='no';   // defaultOff: only an explicit "yes" turns it on
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'no')+'">'
     + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
@@ -10618,6 +10670,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.65', d:'Oct 2026', notes:[
+    'New (optional) — a “30 days out” check-in: in Settings → More options → Reminders & taxes, switch on “Remind me 30 days before each show” and new bookings get a “30 days out — Touch base with the client” reminder ahead of the 1-week check-in. Shows booked less than 30 days ahead skip it, and shows already booked are left as they are. Off until you turn it on.',
+    'Changed — Settings is shorter: three sections up front (Your business with your contact details, Getting paid with your payment methods, Services & event portal) and everything optional behind one “More options” row. Nothing you have saved moves.',
+    'Changed — Follow-up reminders show where the event stands (“Event in 30 days · Nov 7, 2026 · Corporate”), and a follow-up date you set yourself reads “Follow-up — Touch base with the client”.'
+  ]},
   { v:'1.5.64', d:'Oct 2026', notes:[
     'Changed — A tidier lead page: the note saying how many fields are hidden is now part of the “Manage fields” link (“Manage fields · 4 hidden”), so there is one less line under Details.'
   ]},
