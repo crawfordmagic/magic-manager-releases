@@ -149,16 +149,16 @@ var CONFIG_FIELDS_ = [
   { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', group: 'Payment methods', section: 'payments' },
   { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', group: 'Payment methods', section: 'payments' },
   { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', group: 'Payment methods', section: 'payments' },
-  { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', group: 'Payment methods', section: 'payments' },
-  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', group: 'Payment methods', section: 'payments' },
-  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', group: 'Payment methods', section: 'payments' },
-  { key: 'WIRE_BANK', label: 'Wire bank name', help: 'Shown with wire instructions.', group: 'Payment methods', section: 'payments' },
-  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', group: 'Payment methods', section: 'payments' },
-  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', group: 'Payment methods', section: 'payments' },
-  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', group: 'Payment methods', section: 'payments' },
-  { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', group: 'Payment methods', section: 'payments' },
-  { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', group: 'Payment methods', section: 'payments' },
-  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', group: 'Payment methods', section: 'payments' },
+  { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', group: 'ACH bank transfer', collapse: true, section: 'payments' },
+  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', group: 'ACH bank transfer', collapse: true, section: 'payments' },
+  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', group: 'ACH bank transfer', collapse: true, section: 'payments' },
+  { key: 'WIRE_BANK', label: 'Wire bank name', help: 'Shown with wire instructions.', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', group: 'Mailed check', collapse: true, section: 'payments' },
+  { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', group: 'Mailed check', collapse: true, section: 'payments' },
+  { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', group: 'Cash', collapse: true, section: 'payments' },
   // Reminders & taxes (optional, private — only the owner ever sees these)
   { key: 'REMIND_30_DAYS', label: 'Check-in 30 days before a show', help: 'Optional. When on, a newly booked show gets a "30 days out \u2014 touch base" reminder in your Today list, ahead of the 1-week check-in. A show booked less than 30 days ahead skips it, and shows you have already booked are left exactly as they are. Off by default.', editor: 'toggle', toggleLabel: 'Remind me 30 days before each show', defaultOff: true, group: 'Reminders', section: 'reminders' },
   { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a "Leave for…" alert set for the drive time plus an hour early. Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
@@ -523,7 +523,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.65';
+var APP_VERSION = '1.5.66';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}

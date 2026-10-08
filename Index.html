@@ -9723,21 +9723,35 @@ function renderSettings(){
     function fieldHtml(f){ return settingsFieldHtml(f, raw, cfg); }
     var used = {}, html = '';
     // (The guided-setup button and the Tools / Help lists are static markup on the page now.)
-    // A section's fields in order; a field's `group` becomes a small heading inside the section (e.g. "Payment methods").
+    // A section's fields in order. A field's `group` becomes a small heading inside the section ("Payment methods"); a group
+    // marked `collapse` becomes its own slim row (ACH, wire, check, cash) that stays closed until tapped and shows a
+    // check once any of its fields is filled -- so a business that only takes Venmo never wades through account numbers.
+    function groupSlug(g){ return 'g_'+String(g).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); }
     function groupedFieldsHtml(fs){
-      var out='', prev=null;
+      var blocks=[];
       fs.forEach(function(f){
-        if(f.group && f.group!==prev) out+='<div class="sec-title" style="margin:16px 0 8px"><span class="t">'+esc(f.group)+'</span><span class="rule"></span></div>';
-        prev=f.group||null;
-        out+=fieldHtml(f);
+        var last=blocks[blocks.length-1];
+        if(last && f.group && last.group===f.group) last.fields.push(f);
+        else blocks.push({group:f.group||null, collapse:!!f.collapse, fields:[f]});
       });
-      return out;
+      return blocks.map(function(b){
+        if(b.collapse){
+          var id=groupSlug(b.group), set=b.fields.some(filled);
+          return '<button class="htoggle hstack" style="margin-top:8px" onclick="toggleSetupSection(\''+id+'\')">'
+            + '<span class="httitle" style="font-size:14px">'+esc(b.group)+'</span>'
+            + '<span class="htright"><span style="font-size:11px;font-weight:600;color:'+(set?'var(--sage)':'var(--muted)')+'">'+(set?'\u2713 set up':'not set up')+'</span><span id="setsec_'+id+'_chev">&#9662;</span></span></button>'
+            + '<div id="setsec_'+id+'_wrap" style="display:none;margin-top:8px">'+b.fields.map(fieldHtml).join('')+'</div>';
+        }
+        return (b.group ? '<div class="sec-title" style="margin:16px 0 8px"><span class="t">'+esc(b.group)+'</span><span class="rule"></span></div>' : '')
+          + b.fields.map(fieldHtml).join('');
+      }).join('');
     }
     function sectionHtml(sec){
       var fs = SETTINGS_FIELDS.filter(function(f){ return f.section===sec.id; });
       if(!fs.length) return '';
       fs.forEach(function(f){ used[f.key]=1; });
-      var done = fs.filter(filled).length, tot = fs.length, complete = done===tot;
+      var counted = fs.filter(function(f){ return !f.collapse; });
+      var done = counted.filter(filled).length, tot = counted.length, complete = done===tot;
       var badge = '<span style="font-size:11px;font-weight:600;color:'+(complete?'var(--sage)':'var(--muted)')+'">'+(complete?'✓ done':done+' / '+tot)+'</span>';
       return '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\''+sec.id+'\')">'
         + '<span class="httitle">'+esc(sec.title)+'</span>'
@@ -10670,6 +10684,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.66', d:'Oct 2026', notes:[
+    'Changed — A shorter “Getting paid” screen in Settings: up front you see your deposit, the card fee, the two notification emails and the simple payment handles (Venmo, Cash App, PayPal, Zelle). ACH bank transfer, Wire transfer, Mailed check and Cash are small rows that stay closed until you tap them, each showing a check mark once it is set up. Nothing you have saved moves.'
+  ]},
   { v:'1.5.65', d:'Oct 2026', notes:[
     'New (optional) — a “30 days out” check-in: in Settings → More options → Reminders & taxes, switch on “Remind me 30 days before each show” and new bookings get a “30 days out — Touch base with the client” reminder ahead of the 1-week check-in. Shows booked less than 30 days ahead skip it, and shows already booked are left as they are. Off until you turn it on.',
     'Changed — Settings is shorter: three sections up front (Your business with your contact details, Getting paid with your payment methods, Services & event portal) and everything optional behind one “More options” row. Nothing you have saved moves.',

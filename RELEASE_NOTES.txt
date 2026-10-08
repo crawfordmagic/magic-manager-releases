@@ -1,11 +1,7 @@
 What's new in this update:
 
-• NEW, optional — a "30 days out" check-in. In Settings → More options → Reminders & taxes, switch on "Remind me 30 days before each show". New bookings then get a "30 days out — Touch base with the client" reminder in your Today list, ahead of the 1-week check-in. A show booked less than 30 days ahead skips it, and shows you've already booked are left exactly as they are. It's off until you turn it on.
+• CHANGED — A shorter "Getting paid" screen in Settings. Up front you now see just your deposit, the card fee, the two notification emails, and the simple payment handles (Venmo, Cash App, PayPal, Zelle). ACH bank transfer, Wire transfer, Mailed check and Cash are small rows that stay closed until you tap them, and each shows a check mark once it's set up. Nothing you've saved moves or changes.
 
-• CHANGED — Settings is shorter. Instead of eleven sections, you see three up front — Your business (with your contact details), Getting paid (with your payment methods) and Services & event portal — and everything optional is tucked behind one "More options" row: Contract terms, Store, Reminders & taxes, and Advanced. Nothing you've saved moves or changes.
-
-• CHANGED — Follow-up reminders tell you more. A reminder for a booked client now shows where the event stands ("Event in 30 days · Nov 7, 2026 · Corporate"), and a follow-up date you set yourself reads "Follow-up — Touch base with the client" instead of just "Follow-up".
-
-• Also in the last two updates: "Add extra to balance" on a booked lead (for an on-site extension or add-on), Compare with last year or any other year in Insights and Expenses, attaching an already-referred lead when you follow up with a partner, one-tap field buttons in template editors, and a cleaner black-and-gold look for dropdowns, dates and times.
+• Also in the last two updates: an optional "30 days out" check-in (Settings → More options → Reminders & taxes, off until you switch it on); a shorter Settings screen with three sections up front and everything optional behind "More options"; follow-up reminders that show where the event stands; "Add extra to balance" on a booked lead; Compare with last year or any other year in Insights and Expenses; and a cleaner black-and-gold look for dropdowns, dates and times.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
