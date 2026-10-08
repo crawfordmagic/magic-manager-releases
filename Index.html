@@ -1524,7 +1524,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div class="kv" id="d_kv" style="margin-top:6px"></div>
     <div style="display:flex;align-items:center;margin-top:8px">
       <a class="dmore" id="d_addmore" href="javascript:void(0)" onclick="toggleDetails()" style="display:none;margin-top:0"></a>
-      <a class="dquiet" href="javascript:void(0)" onclick="openManageFields()">Manage fields &#9998;</a>
+      <a class="dquiet" id="d_managefields_link" href="javascript:void(0)" onclick="openManageFields()">Manage fields &#9998;</a>
     </div>
     <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
     <div id="d_extrawrap" style="display:none;margin-top:10px">
@@ -1538,7 +1538,6 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <button class="save" id="d_extra_go" type="button" style="margin:0" onclick="extraApply_()">Add to balance</button>
       </div>
     </div>
-    <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
   </div>
 
   <p class="note" style="text-align:left;margin:14px 0 0">Lead created <span id="d_created" style="color:var(--cream)">&#8212;</span></p>
@@ -4570,14 +4569,12 @@ function orderedAllKVIndices(){
 function orderedVisibleKVIndices(){
   return orderedAllKVIndices().filter(function(i){ return KVF_HIDDEN.indexOf(KVF[i].col)===-1; });
 }
+// The "Manage fields" link carries the count of hidden fields ("Manage fields \u270E \u00b7 4 hidden"), instead of a
+// separate always-on line that did the same job.
 function renderHiddenFieldsNote(){
-  var el=$('d_hiddenfields_note'); if(!el) return;
-  if(KVF_HIDDEN.length>0){
-    el.style.display='';
-    el.textContent=KVF_HIDDEN.length+' field'+(KVF_HIDDEN.length===1?' is':'s are')+' hidden on every lead \u2014 tap to manage.';
-  } else {
-    el.style.display='none'; el.textContent='';
-  }
+  var el=$('d_managefields_link'); if(!el) return;
+  var n=KVF_HIDDEN.length;
+  el.innerHTML='Manage fields &#9998;'+(n>0 ? ' \u00b7 '+n+' hidden' : '');
 }
 function renderManageFields(){
   var indices=orderedAllKVIndices();
@@ -10621,6 +10618,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.64', d:'Oct 2026', notes:[
+    'Changed — A tidier lead page: the note saying how many fields are hidden is now part of the “Manage fields” link (“Manage fields · 4 hidden”), so there is one less line under Details.'
+  ]},
   { v:'1.5.63', d:'Oct 2026', notes:[
     'New — “Add extra to balance”: on a booked lead, tap “+ Add extra to balance” under Details when a client extends or adds something on site. The balance goes up by exactly that amount and the deposit stays put; the event portal, card payment and reminders show the new balance and a note is added to the lead’s history. If the balance is already marked received it tells you instead.',
     'New — Compare in Insights and Expenses: tap “Compare” to see how each number changed against last year (▲ 18%, ▼ 12%), then tap “vs 2025 ▾” to compare with any other year. For the current year, money is compared through the same date so it is a fair comparison.',

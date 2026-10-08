@@ -1,5 +1,7 @@
 What's new in this update:
 
+• CHANGED — A tidier lead page. The note saying how many fields are hidden is now part of the "Manage fields" link ("Manage fields · 4 hidden"), so there is one less line under Details.
+
 • NEW — "Add extra to balance". On a booked lead, tap "+ Add extra to balance" under Details when a client extends or adds something on site. Enter the amount (and what it's for) and the balance goes up by exactly that much; the deposit stays where it was. The client's event portal, card payment and reminders all show the new balance, and a note is added to the lead's history. If the balance is already marked received, it tells you instead, since adding it would bill the whole balance again.
 
 • NEW — Compare in Insights and Expenses. Tap "Compare" under the period and month and each number shows how it changed against last year (▲ 18%, ▼ 12%). Once it's on, tap "vs 2025 ▾" to compare with any other year, such as 2023 against this year. For the current year, money is compared through the same date last year so it's a fair comparison.
