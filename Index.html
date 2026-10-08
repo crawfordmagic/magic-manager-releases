@@ -16,6 +16,7 @@
   --gold:#C9A050; --gold-bright:#E4C179; --gold-deep:#6E5730; --oracle-violet:#8FB8E8;
   --cream:#F4EBD3; --muted:#928A75; --crimson:#C05236; --sage:#8FA876;
   --line:rgba(201,160,80,.28);
+  color-scheme:dark;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--ink);color:var(--cream);font-family:'Archivo',sans-serif;font-size:15px;line-height:1.45}
@@ -349,14 +350,67 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .chips .glab.grow{display:flex;align-items:center;justify-content:flex-start;gap:10px;margin-top:8px}
 /* The subtle pill dropdown (Rich's favorite): sits right after the label / text that names it. */
 .pillsel{width:auto;max-width:100%;font-size:12px;font-weight:600;padding:5px 26px 5px 12px;border-radius:999px;color:var(--gold-bright);background-color:transparent;border:1px solid var(--line)}
-.pillrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
-.pillrow .pgroup{display:flex;align-items:center;gap:8px;min-width:0}
-.pillrow label{margin:0;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:700;white-space:nowrap}
-/* Period and Month sit side by side on one line on any normal phone (tighter gaps/labels/pills); only a very narrow screen wraps them, rather than clipping the text */
-#expensePeriodRow, #insightsPeriodRow{gap:8px 8px}
-#expensePeriodRow .pgroup, #insightsPeriodRow .pgroup{flex:0 0 auto;gap:5px}
-#expensePeriodRow label, #insightsPeriodRow label{letter-spacing:.1em}
-#expensePeriodRow .pillsel, #insightsPeriodRow .pillsel{padding:5px 22px 5px 10px}
+/* Period header (Insights + Expenses): one quiet centered line -- "Viewing 2026 ▾ · All year ▾" -- with a small
+   compare toggle. The selects stay real <select>s (native picker on phones) laid invisibly over their own text,
+   so each control is exactly as wide as the word it shows. */
+.perrow{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px 8px}
+.perrow .pvt{font-size:13px;color:var(--muted)}
+.perrow .pvg{display:inline-flex;align-items:center;gap:8px}
+.perrow .pv{position:relative;display:inline-flex;align-items:center;gap:3px;font-size:14px;font-weight:600;color:var(--gold-bright);border-bottom:1px dotted #6B5A32;padding-bottom:1px;cursor:pointer}
+.perrow .pv svg{width:11px;height:11px;flex:0 0 auto}
+.perrow .pv select{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;font-size:16px;border:0;padding:0}
+.pvwrap{position:relative;display:inline-block;cursor:pointer}
+.pvwrap.block{display:block}
+.pvwrap select,.pvwrap input{pointer-events:none}
+.dppop{position:fixed;z-index:1000;width:292px;max-width:calc(100vw - 16px);background:var(--ink);border:1px solid var(--gold-deep);border-radius:14px;padding:10px;box-shadow:0 12px 32px rgba(0,0,0,.65)}
+.dppop button{font-family:inherit}
+.dp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.dp-nav{width:34px;height:34px;border-radius:50%;color:var(--gold-bright);font-size:22px;line-height:1}
+.dp-nav:hover,.dp-link:hover,.dp-title:hover{background:rgba(201,160,80,.14)}
+.dp-title{font-size:14px;font-weight:600;color:var(--gold-bright);padding:7px 12px;border-radius:8px}
+.dp-dow,.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+.dp-dow span{font-size:10.5px;letter-spacing:.1em;color:var(--muted);padding:4px 0}
+.dp-day{height:36px;border-radius:50%;font-size:13.5px;color:var(--cream);background:transparent}
+.dp-day:hover{background:rgba(201,160,80,.16)}
+.dp-day.today{box-shadow:inset 0 0 0 1px var(--gold)}
+.dp-day.sel{background:var(--gold);color:var(--ink);font-weight:700}
+.dp-day[disabled]{opacity:.25;cursor:default}
+.dp-foot{display:flex;justify-content:space-between;margin-top:8px}
+.dp-link{font-size:13px;color:var(--gold-bright);padding:7px 12px;border-radius:8px;font-weight:600}
+.dp-years{max-height:236px;overflow:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.dp-yr{padding:9px 0;border-radius:8px;color:var(--cream);font-size:13.5px;background:transparent}
+.dp-yr:hover{background:rgba(201,160,80,.16)}
+.dp-yr.sel{background:var(--gold);color:var(--ink);font-weight:700}
+/* time wheel: three columns that snap row by row under a gold selection band; the row in the band is the value */
+.tp-wheels{position:relative;display:flex;gap:2px;height:150px;overflow:hidden;border-radius:10px;background:var(--ink)}
+.tp-band{position:absolute;left:0;right:0;top:60px;height:30px;border-top:1px solid var(--gold-deep);border-bottom:1px solid var(--gold-deep);background:rgba(201,160,80,.09);pointer-events:none}
+.tp-col{flex:1;height:150px;overflow-y:scroll;scroll-snap-type:y mandatory;padding:60px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 72%,transparent);mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 72%,transparent)}
+.tp-col::-webkit-scrollbar{display:none}
+.tp-it{display:block;width:100%;height:30px;line-height:30px;padding:0;text-align:center;scroll-snap-align:center;font-size:14px;color:var(--muted);background:transparent;border-radius:0}
+.tp-it.sel{color:var(--gold-bright);font-weight:700;font-size:16px}
+.dppop.tptime{width:220px}
+.pvmenu{position:fixed;z-index:1000;min-width:150px;max-height:50vh;overflow:auto;background:var(--ink);border:1px solid var(--gold-deep);border-radius:12px;padding:5px;box-shadow:0 12px 32px rgba(0,0,0,.65)}
+.pvopt{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:14px;color:var(--cream);background:transparent;white-space:nowrap}
+.pvopt:hover,.pvopt:active{background:rgba(201,160,80,.16)}
+/* On a phone, a dropdown opens as a bottom sheet: big rows, always in thumb reach, same place every time */
+.pvback{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.55);touch-action:none}
+.pvmenu.pvsheet{left:0;right:0;bottom:0;top:auto;width:auto;min-width:0;max-height:70vh;border:0;border-top:1px solid var(--gold-deep);border-radius:18px 18px 0 0;padding:0 14px calc(14px + env(safe-area-inset-bottom));overscroll-behavior:contain;box-shadow:0 -12px 32px rgba(0,0,0,.6);animation:pvup .18s ease-out}
+@keyframes pvup{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.pvhead{position:sticky;top:0;background:var(--ink);padding:8px 0 6px;text-align:center;z-index:1}
+.pvgrab{width:38px;height:4px;border-radius:2px;background:var(--gold-deep);margin:0 auto 8px}
+.pvttl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.pvsheet .pvopt{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;font-size:16px;white-space:normal}
+.pvsheet .pvck{color:var(--gold-bright);font-size:17px}
+.pvopt.on{color:var(--gold-bright);font-weight:600;background:rgba(201,160,80,.12)}
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{font-size:12.5px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);color:var(--gold-bright);background:transparent;white-space:nowrap}
+.fchip:active{background:rgba(201,160,80,.18);border-color:var(--gold)}
+.pvgrp{padding:12px 12px 4px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700}
+.cmpbtn{height:30px;padding:0 11px 0 9px;margin-left:4px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer}
+.cmpbtn svg{width:15px;height:15px;flex:0 0 auto}
+.cmpbtn.on{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+.cmpbtn .cmpchev{width:11px;height:11px;margin-left:-1px}
+.cmpbtn:not(.on) .cmpchev{display:none}
 .chips.paused .chip,.chips.paused .glab{opacity:.4}
 .pausednote{display:none;font-size:12px;color:var(--gold-bright);font-weight:600;margin:8px 2px 0}
 .filternote{display:none;font-size:12px;color:var(--muted);margin:8px 2px 0}
@@ -388,6 +442,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .stat.on::after{color:rgba(20,16,8,.55)}
 .stat[onclick]:active{background:var(--panel2);transform:scale(.97)}
 .stat .v{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--gold-bright)}
+.cmp{font-size:11px;font-weight:700;margin-top:3px;letter-spacing:.02em}
+.cmp.up{color:var(--sage)}.cmp.down{color:var(--crimson)}.cmp.flat{color:var(--muted)}
 .stat .l{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .bar-row{margin-bottom:11px}
 .bar-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
@@ -506,6 +562,7 @@ a.help-fix{display:block;text-decoration:none}
 .ctile .cvt{min-width:0}
 .ctile .ccar{flex:0 0 auto;color:var(--gold);font-size:13px;font-weight:400;line-height:1}
 /* the Status picker fills the whole value area (wide, easy to hit) without adding height */
+#d_statustile select{pointer-events:none}
 .ctile select{width:calc(100% + 24px);height:30px;min-height:0;margin:-3px -12px -5px;padding:0 28px 0 12px;border:none;background-color:transparent;font-size:13.5px;font-weight:700;color:var(--cream);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%}
 .hbar{display:block;width:100%;margin-top:8px;text-align:left;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--cream)}
 .hbar .hb1{display:flex;align-items:center;gap:10px}
@@ -622,10 +679,14 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <!-- INSIGHTS VIEW -->
   <div id="view-insights" style="display:none">
 
-    <div id="insightsPeriodRow" class="pillrow" style="margin:0 0 12px">
-      <span class="pgroup"><label for="insightsScope">Period</label><select id="insightsScope" class="pillsel" onchange="setInsightsScope(this.value)"></select></span>
-      <span class="pgroup" id="insightsMonthField" style="display:none"><label for="insightsMonth">Month</label><select id="insightsMonth" class="pillsel" onchange="setInsightsMonth(this.value)"></select></span>
+    <div id="insightsPeriodRow" class="perrow" style="margin:0 0 12px">
+      <span class="pvt">Viewing</span>
+      <span class="pv" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Period" onclick="pvOpen_('insightsScope',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('insightsScope',this);}"><span id="insightsScopeTxt"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><select id="insightsScope" aria-hidden="true" tabindex="-1" onchange="setInsightsScope(this.value)"></select></span>
+      <span class="pvg" id="insightsMonthField" style="display:none"><span class="pvt">&middot;</span><span class="pv" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Month" onclick="pvOpen_('insightsMonth',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('insightsMonth',this);}"><span id="insightsMonthTxt"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><select id="insightsMonth" aria-hidden="true" tabindex="-1" onchange="setInsightsMonth(this.value)"></select></span></span>
+      <button type="button" id="insightsCompareBtn" class="cmpbtn" style="display:none" aria-pressed="false" aria-label="Compare with last year" title="Compare with last year" aria-haspopup="listbox" onclick="insightsCompareTap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16"/><path d="M3.5 17.5L7 21l3.5-3.5"/><path d="M17 20V4"/><path d="M13.5 6.5L17 3l3.5 3.5"/></svg><span id="insightsCompareTxt">Compare</span><svg class="cmpchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <select id="insightsCompareSel" style="display:none" aria-hidden="true" tabindex="-1" onchange="setInsightsCompare(this.value)"></select>
     </div>
+    <p id="insightsCompareNote" class="note" style="display:none;text-align:left;margin:-4px 0 12px"></p>
     <div id="insightsEmptyNote" style="display:none;margin:0 0 14px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream)">Your numbers fill in here as you add leads and log expenses &mdash; nothing to set up.</div>
     <div class="stats" id="statGrid"></div>
 
@@ -788,10 +849,14 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- EXPENSES VIEW -->
   <div id="view-expenses" style="display:none">
-    <div id="expensePeriodRow" class="pillrow">
-      <span class="pgroup"><label for="exportYearSel">Period</label><select id="exportYearSel" class="pillsel" onchange="setExpenseViewYear(this.value)"></select></span>
-      <span class="pgroup" id="expenseMonthField" style="display:none"><label for="expenseMonthFilterSel">Month</label><select id="expenseMonthFilterSel" class="pillsel" onchange="setExpenseViewMonth(this.value)"></select></span>
+    <div id="expensePeriodRow" class="perrow">
+      <span class="pvt">Viewing</span>
+      <span class="pv" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Period" onclick="pvOpen_('exportYearSel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exportYearSel',this);}"><span id="exportYearTxt"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><select id="exportYearSel" aria-hidden="true" tabindex="-1" onchange="setExpenseViewYear(this.value)"></select></span>
+      <span class="pvg" id="expenseMonthField" style="display:none"><span class="pvt">&middot;</span><span class="pv" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Month" onclick="pvOpen_('expenseMonthFilterSel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('expenseMonthFilterSel',this);}"><span id="expenseMonthTxt"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><select id="expenseMonthFilterSel" aria-hidden="true" tabindex="-1" onchange="setExpenseViewMonth(this.value)"></select></span></span>
+      <button type="button" id="expenseCompareBtn" class="cmpbtn" style="display:none" aria-pressed="false" aria-label="Compare with last year" title="Compare with last year" aria-haspopup="listbox" onclick="expenseCompareTap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16"/><path d="M3.5 17.5L7 21l3.5-3.5"/><path d="M17 20V4"/><path d="M13.5 6.5L17 3l3.5 3.5"/></svg><span id="expenseCompareTxt">Compare</span><svg class="cmpchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <select id="expenseCompareSel" style="display:none" aria-hidden="true" tabindex="-1" onchange="setExpenseCompare(this.value)"></select>
     </div>
+    <p id="expenseCompareNote" class="note" style="display:none;margin:8px 0 0"></p>
     <div id="expenseSummary" style="margin-top:12px"></div>
     <button class="save" onclick="openAddExpense()">+ Add Expense</button>
 
@@ -805,13 +870,15 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       </button>
       <div id="expenseFilterWrap" class="more-detail" style="display:none">
         <div class="grid2">
-          <div class="field" style="margin-top:0"><label>Category</label><select id="expenseCategoryFilterSel" onchange="setExpenseCategoryFilter(this.value)"></select></div>
+          <div class="field" style="margin-top:0"><label>Category</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Category" onclick="pvOpen_('expenseCategoryFilterSel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('expenseCategoryFilterSel',this);}"><select id="expenseCategoryFilterSel" tabindex="-1" onchange="setExpenseCategoryFilter(this.value)"></select></div></div>
           <div class="field" style="margin-top:0"><label>Receipt</label>
-            <select id="expenseReceiptStatusSel" onchange="setExpenseReceiptFilter(this.value)">
+            <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Receipt" onclick="pvOpen_('expenseReceiptStatusSel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('expenseReceiptStatusSel',this);}">
+            <select id="expenseReceiptStatusSel" tabindex="-1" onchange="setExpenseReceiptFilter(this.value)">
               <option value="all">All expenses</option>
               <option value="missing">Missing receipt</option>
               <option value="has">Has receipt</option>
             </select>
+            </div>
           </div>
         </div>
       </div>
@@ -861,26 +928,26 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="a_details_wrap" style="display:none;margin-top:12px">
       <div class="field"><label>Company / organization</label><input id="a_company"></div>
       <div class="grid2">
-        <div class="field"><label>Date of event</label><input id="a_eventDate" type="date" min="2000-01-01" max="2100-12-31"></div>
+        <div class="field"><label>Date of event</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Date of event" onclick="dpOpen_('a_eventDate',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('a_eventDate',this,'date');}"><input tabindex="-1" id="a_eventDate" type="date" min="2000-01-01" max="2100-12-31"></div></div>
         <div class="field"><label>Audience size</label><input id="a_audience" inputmode="numeric"></div>
       </div>
       <div class="grid2">
         <div class="field"><label>Service</label>
-          <select id="a_service"></select></div>
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Service" onclick="pvOpen_('a_service',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('a_service',this);}"><select id="a_service" tabindex="-1"></select></div></div>
         <div class="field"><label>Event type</label>
-          <select id="a_eventType" onchange="onAddFormSelect('a_eventType','EVENT_TYPES','event type')"></select></div>
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Event type" onclick="pvOpen_('a_eventType',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('a_eventType',this);}"><select id="a_eventType" tabindex="-1" onchange="onAddFormSelect('a_eventType','EVENT_TYPES','event type')"></select></div></div>
       </div>
       <div class="grid2">
         <div class="field"><label>Lead source</label>
-          <select id="a_source" onchange="onAddFormSelect('a_source','LEAD_SOURCES','lead source')"></select></div>
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Lead source" onclick="pvOpen_('a_source',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('a_source',this);}"><select id="a_source" tabindex="-1" onchange="onAddFormSelect('a_source','LEAD_SOURCES','lead source')"></select></div></div>
         <div class="field"><label>Event location</label><input id="a_location"></div>
       </div>
       <div class="grid2">
         <div class="field"><label>Status</label>
-          <select id="a_status"><option>New</option><option>Pending</option><option>Booked</option></select></div>
-        <div class="field"><label>Next follow-up</label><input id="a_followup" type="date" min="2000-01-01" max="2100-12-31"></div>
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Status" onclick="pvOpen_('a_status',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('a_status',this);}"><select id="a_status" tabindex="-1"><option>New</option><option>Pending</option><option>Booked</option></select></div></div>
+        <div class="field"><label>Next follow-up</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Next follow-up" onclick="dpOpen_('a_followup',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('a_followup',this,'date');}"><input tabindex="-1" id="a_followup" type="date" min="2000-01-01" max="2100-12-31"></div></div>
       </div>
-      <div class="field"><label>Follow-up time <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional — 9 AM if blank)</span></label><input id="a_followtime" type="time"></div>
+      <div class="field"><label>Follow-up time <span style="opacity:.6;text-transform:none;letter-spacing:0">(optional — 9 AM if blank)</span></label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Follow-up time" onclick="dpOpen_('a_followtime',this,'time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('a_followtime',this,'time');}"><input tabindex="-1" id="a_followtime" type="time"></div></div>
       <div class="field"><label>Notes</label><textarea id="a_notes" rows="3"></textarea></div>
     </div>
 
@@ -1020,8 +1087,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="hd_whenview" class="v" onclick="editHdWhen()" style="cursor:pointer"></div>
     <div id="hd_whenedit" style="display:none">
       <div class="grid2">
-        <input type="date" id="hd_date" onchange="queueLogSave()">
-        <input type="time" id="hd_time" onchange="queueLogSave()">
+        <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Date" onclick="dpOpen_('hd_date',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('hd_date',this,'date');}"><input tabindex="-1" type="date" id="hd_date" onchange="queueLogSave()"></div>
+        <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Time" onclick="dpOpen_('hd_time',this,'time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('hd_time',this,'time');}"><input tabindex="-1" type="time" id="hd_time" onchange="queueLogSave()"></div>
       </div>
     </div>
   </div>
@@ -1093,7 +1160,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <h2 id="tte_title">Text Template</h2>
   <div class="field"><label>Template name</label><input id="tte_name" onchange="queueTextTplSave()"></div>
   <div class="field"><label>Message</label><textarea id="tte_body" rows="6" oninput="queueTextTplSave()" onfocus="TPL_LASTFOCUS='textbody'"></textarea></div>
-  <div class="field"><label>Insert a lead field</label>
+  <div class="field"><label>Tap to insert</label>
+    <div class="fchips" id="tte_chips"></div>
+    <label style="margin-top:12px">More fields</label>
     <select id="tte_insertfield" onchange="insertTextMergeField()">
       <option value="">Choose a field to insert&#8230;</option>
     </select>
@@ -1187,7 +1256,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <h2 id="expenseSheet_title">Add Expense</h2>
   <div id="exp_date_wrap">
   <label>Date</label>
-  <input type="date" id="exp_date">
+  <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Expense date" onclick="dpOpen_('exp_date',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('exp_date',this,'date');}"><input tabindex="-1" type="date" id="exp_date"></div>
   </div>
   <label>Vendor</label>
   <div style="position:relative">
@@ -1197,23 +1266,23 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <label>Amount</label>
   <input type="number" id="exp_amount" step="0.01" placeholder="0.00">
   <label>Category</label>
-  <select id="exp_category" onchange="onExpenseCategoryChange(this)"></select>
+  <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Category" onclick="pvOpen_('exp_category',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exp_category',this);}"><select id="exp_category" tabindex="-1" onchange="onExpenseCategoryChange(this)"></select></div>
   <div id="exp_adsource_wrap" style="display:none">
     <label>Attribute to lead source <span style="font-weight:400;color:var(--muted)">(optional, for ROI tracking)</span></label>
-    <select id="exp_adsource_sel" onchange="onAdSourceSelChange()"></select>
+    <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Lead source" onclick="pvOpen_('exp_adsource_sel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exp_adsource_sel',this);}"><select id="exp_adsource_sel" tabindex="-1" onchange="onAdSourceSelChange()"></select></div>
     <input type="text" id="exp_adsource_other" placeholder="Source name" style="display:none;margin-top:8px">
   </div>
   <div id="exp_repeat_wrap">
     <label id="exp_repeat_label">Repeat</label>
-    <select id="exp_repeat" onchange="onExpenseRepeatChange()">
+    <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Repeat" onclick="pvOpen_('exp_repeat',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exp_repeat',this);}"><select id="exp_repeat" tabindex="-1" onchange="onExpenseRepeatChange()">
       <option value="">One-time (not recurring)</option>
       <option>Weekly</option><option>Bi-weekly</option><option>Monthly</option><option>Quarterly</option><option>Annually</option>
-    </select>
+    </select></div>
     <div id="exp_repeat_dates" style="display:none">
       <label>Starts <span style="font-weight:400;color:var(--muted)">(can be backdated)</span></label>
-      <input type="date" id="exp_repeat_start">
+      <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Starts" onclick="dpOpen_('exp_repeat_start',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('exp_repeat_start',this,'date');}"><input tabindex="-1" type="date" id="exp_repeat_start"></div>
       <label>Ends <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-      <input type="date" id="exp_repeat_end">
+      <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Ends" onclick="dpOpen_('exp_repeat_end',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('exp_repeat_end',this,'date');}"><input tabindex="-1" type="date" id="exp_repeat_end"></div>
     </div>
   </div>
   <label>Notes</label>
@@ -1327,7 +1396,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <div class="field"><label>Template name</label><input id="te2_name" onchange="queueTplSave()"></div>
   <div class="field"><label>Subject</label><input id="te2_subject" onchange="queueTplSave()" onfocus="TPL_LASTFOCUS='subject'"></div>
   <div class="field"><label>Body</label><textarea id="te2_body" rows="8" oninput="queueTplSave()" onfocus="TPL_LASTFOCUS='body'"></textarea></div>
-  <div class="field"><label>Insert a lead field</label>
+  <div class="field"><label>Tap to insert</label>
+    <div class="fchips" id="te2_chips"></div>
+    <label style="margin-top:12px">More fields</label>
     <select id="te2_insertfield" onchange="insertMergeField()">
       <option value="">Choose a field to insert&#8230;</option>
     </select>
@@ -1342,8 +1413,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
   <h2>Edit Task</h2>
   <div class="field"><label>Task</label><input id="te_name" onchange="queueTaskSave()"></div>
   <div class="grid2">
-    <div class="field"><label>Date</label><input id="te_date" type="date" onchange="queueTaskSave()"></div>
-    <div class="field"><label>Time</label><input id="te_time" type="time" onchange="queueTaskSave()"></div>
+    <div class="field"><label>Date</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Task date" onclick="dpOpen_('te_date',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('te_date',this,'date');}"><input tabindex="-1" id="te_date" type="date" onchange="queueTaskSave()"></div></div>
+    <div class="field"><label>Time</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Task time" onclick="dpOpen_('te_time',this,'time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('te_time',this,'time');}"><input tabindex="-1" id="te_time" type="time" onchange="queueTaskSave()"></div></div>
   </div>
   <div class="field"><label>Repeat</label>
     <select id="te_repeat" onchange="teCustom();queueTaskSave()">
@@ -1385,8 +1456,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         <span class="cl">Follow-up</span>
         <div class="cv"><span class="cvt" id="d_followsum"></span><span class="ccar" id="d_followchg">&#9662;</span></div>
       </div>
-      <div class="ctile" id="d_statustile">
-        <label class="cl" for="d_status">Status</label>
+      <div class="ctile" id="d_statustile" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Status" onclick="pvOpen_('d_status',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('d_status',this);}">
+        <label class="cl">Status</label>
         <select id="d_status" onchange="refToggle(true);queueAutoSave()">
       <option>New</option><option>Pending</option><option>Booked</option><option>Completed</option><option>Lost</option><option>Referral</option><option>Referred</option>
     </select>
@@ -1395,8 +1466,8 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     <div id="d_followwrap">
       <div id="d_followbody" style="display:none;margin-top:10px">
         <div class="grid2">
-          <input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" onchange="onFollowupChange()">
-          <input type="time" id="d_followtime" onblur="onFollowupChange()">
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Follow-up date" onclick="dpOpen_('d_followup',this,'date')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('d_followup',this,'date');}"><input type="date" id="d_followup" min="2000-01-01" max="2100-12-31" tabindex="-1" onchange="onFollowupChange()"></div>
+          <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Follow-up time" onclick="dpOpen_('d_followtime',this,'time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('d_followtime',this,'time');}"><input type="time" id="d_followtime" tabindex="-1" onblur="onFollowupChange()"></div>
         </div>
         <p class="note" style="text-align:left;margin-top:6px">Leave time blank and the reminder fires at 9 AM. Pick a time and it fires right then.</p>
         <div class="bumps">
@@ -1456,6 +1527,17 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       <a class="dquiet" href="javascript:void(0)" onclick="openManageFields()">Manage fields &#9998;</a>
     </div>
     <p class="note" id="d_cardfee_note" style="display:none;text-align:left;color:var(--gold-bright)"></p>
+    <div id="d_extrawrap" style="display:none;margin-top:10px">
+      <a class="dquiet" id="d_extrabtn" href="javascript:void(0)" style="margin-left:0;padding-left:0;color:var(--gold-bright)" onclick="toggleExtraPanel()">+ Add extra to balance</a>
+      <div id="d_extrapanel" style="display:none;margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel)">
+        <div class="grid2">
+          <div><label>Extra amount ($)</label><input id="d_extra_amt" inputmode="decimal" placeholder="150" oninput="extraPreview_()"></div>
+          <div><label>What for <span style="font-weight:400;color:var(--muted)">(optional)</span></label><input id="d_extra_note" placeholder="Extra hour"></div>
+        </div>
+        <p class="note" id="d_extra_prev" style="text-align:left;margin:8px 0"></p>
+        <button class="save" id="d_extra_go" type="button" style="margin:0" onclick="extraApply_()">Add to balance</button>
+      </div>
+    </div>
     <p class="note" id="d_hiddenfields_note" style="display:none;text-align:left;color:var(--gold-bright);cursor:pointer" onclick="openManageFields()"></p>
   </div>
 
@@ -1971,8 +2053,8 @@ function editTaskDueTime(row){
   if(!T) return;
   var f=pd(T.due);
   var iv = f && (f.getHours()||f.getMinutes()) ? hm(f) : '09:00';
-  el.innerHTML='<input type="time" id="taskdue_time_inp_'+row+'" value="'+iv+'" style="width:112px;padding:4px 8px;font-size:12px" onblur="saveTaskDueTime('+row+')" onkeydown="if(event.key===\'Enter\')this.blur()">';
-  $('taskdue_time_inp_'+row).focus();
+  el.innerHTML='<input type="time" id="taskdue_time_inp_'+row+'" value="'+iv+'" tabindex="-1" style="width:112px;padding:4px 8px;font-size:12px;pointer-events:none" onblur="saveTaskDueTime('+row+')" onkeydown="if(event.key===\'Enter\')this.blur()">';
+  dpOpen_('taskdue_time_inp_'+row, el, 'time', function(){ saveTaskDueTime(row); });
 }
 function saveTaskDueTime(row){
   var inp=$('taskdue_time_inp_'+row);
@@ -2261,8 +2343,8 @@ function editGfuTime(row){
   if(!L) return;
   var f=pd(L[C.followup]);
   var iv = f && (f.getHours()||f.getMinutes()) ? hm(f) : '09:00';
-  el.innerHTML='<input type="time" id="gfu_time_inp_'+row+'" value="'+iv+'" style="width:112px;padding:4px 8px;font-size:12px" onblur="saveGfuTime('+row+')" onkeydown="if(event.key===\'Enter\')this.blur()">';
-  $('gfu_time_inp_'+row).focus();
+  el.innerHTML='<input type="time" id="gfu_time_inp_'+row+'" value="'+iv+'" tabindex="-1" style="width:112px;padding:4px 8px;font-size:12px;pointer-events:none" onblur="saveGfuTime('+row+')" onkeydown="if(event.key===\'Enter\')this.blur()">';
+  dpOpen_('gfu_time_inp_'+row, el, 'time', function(){ saveGfuTime(row); });
 }
 function saveGfuTime(row){
   var inp=$('gfu_time_inp_'+row);
@@ -2580,7 +2662,7 @@ function statusChipHtml(L){
   var opts=configuredStatuses().map(function(st){ return '<option'+(st===s?' selected':'')+'>'+esc(st)+'</option>'; }).join('');
   var n=contactEntriesFor(L).length, open=GFU_HIST_ROW===L._row;
   var hist = n ? '<button type="button" class="gfu-histbtn'+(open?' open':'')+'" onclick="event.stopPropagation();toggleGfuHistory('+L._row+')">History ('+n+') <span class="chev">&#9662;</span></button>' : '';
-  return '<div style="margin:7px 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><select class="gfu-statuschip '+cls+'" onclick="event.stopPropagation()" onchange="setLeadStatusFromCard('+L._row+',this.value)">'+opts+'</select>'+hist+'</div>';
+  return '<div style="margin:7px 0 2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="pvwrap" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Status" onclick="event.stopPropagation();pvOpen_(this.querySelector(\'select\'),this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();event.stopPropagation();pvOpen_(this.querySelector(\'select\'),this);}"><select class="gfu-statuschip '+cls+'" tabindex="-1" onchange="setLeadStatusFromCard('+L._row+',this.value)">'+opts+'</select></span>'+hist+'</div>';
 }
 // Newest-first contact log for a lead (shared by the "last contact" line and
 // the History expander so they can't drift).
@@ -3415,9 +3497,10 @@ function renderChips(){
   }
   // The year only filters the archive chips (Past Shows, Lost, Referred, All), so its picker lives
   // on the Archive label instead of floating between the two groups.
-  var pill='<select class="pillsel" aria-label="Archive year" onchange="setMainArchiveScope(this.value)">'
+  var pill='<span class="pvwrap" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Archive year" onclick="pvOpen_(\'mainArchiveSel\',this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();pvOpen_(\'mainArchiveSel\',this);}">'
+    +'<select id="mainArchiveSel" class="pillsel" aria-label="Archive year" tabindex="-1" onchange="setMainArchiveScope(this.value)">'
     +insightsScopeOptions().map(function(o){ return '<option value="'+o.v+'"'+(o.v===MAIN_ARCHIVE_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')
-    +'</select>';
+    +'</select></span>';
   $('statusChips').innerHTML =
       '<div class="glab">Active</div>' + act.map(chipHtml).join('')
     + '<div class="glab grow"><span>Archive</span>'+pill+'</div>' + arc.map(chipHtml).join('');
@@ -3782,8 +3865,8 @@ function renderTasks(){
   h+='<div class="field" style="margin-top:22px"><label>Add a task</label>'
     +'<input id="t_name" placeholder="Order new giveaway cards"></div>'
     +'<div id="t_extra" style="display:none">'
-    +'<div class="grid2"><div class="field"><label>Date</label><input id="t_date" type="date"></div>'
-    +'<div class="field"><label>Time</label><input id="t_time" type="time"></div></div>'
+    +'<div class="grid2"><div class="field"><label>Date</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Task date" onclick="dpOpen_(\'t_date\',this,\'date\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dpOpen_(\'t_date\',this,\'date\');}"><input tabindex="-1" id="t_date" type="date"></div></div>'
+    +'<div class="field"><label>Time</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Task time" onclick="dpOpen_(\'t_time\',this,\'time\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dpOpen_(\'t_time\',this,\'time\');}"><input tabindex="-1" id="t_time" type="time"></div></div></div>'
     +'<div class="field"><label>Repeat</label><select id="t_repeat" onchange="$(\'t_custom\').style.display = this.value===\'Custom\u2026\' ? \'\' : \'none\'">'
     +'<option>None</option><option>Daily</option><option>Weekly</option>'
     +'<option>Every 2 weeks</option><option>Monthly</option><option>Yearly</option>'
@@ -4206,6 +4289,7 @@ function renderLeadTop_(){
   var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
   sum.innerHTML=leadSummaryHtml_(L);
   if(trk){ var h=leadTrackerHtml_(L); trk.innerHTML=h; trk.style.display=h?'flex':'none'; }
+  renderExtraBtn_();
 }
 // The follow-up collapses to one row ("Follow-up  Oct 4, 9 AM  Change"); the date/time controls
 // and quick-bump buttons open on tap. Reads the inputs, which always hold the latest value.
@@ -4370,6 +4454,7 @@ function openSheet(row){
   if(!CURRENT) return;
   if(!seen('leadTap')){ markSeen('leadTap'); renderLeadTapHint(); } // they've found it — retire the tip
   if(CURRENT._pending){ CURRENT=null; toast('Still saving — one moment'); return; }
+  extraReset_();
   var L=CURRENT;
   // Rebuild the contract panel from whatever's actually saved on this lead,
   // rather than always clearing it — a contract already generated earlier
@@ -4604,8 +4689,8 @@ function editKV(i){
     F.opts.forEach(function(o){ oh+='<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>'; });
     if(cur && F.opts.indexOf(cur)===-1) oh+='<option selected>'+esc(cur)+'</option>';
     if(F.addKey) oh+='<option value="__new__">+ Add new…</option>';
-    cell.innerHTML='<select class="kvin" id="kvi_'+i+'" onchange="'+(F.addKey?'onKVSelect(':'saveKV(')+i+')" onblur="blurKV('+i+')">'+oh+'</select>';
-    $('kvi_'+i).focus();
+    cell.innerHTML='<select class="kvin" id="kvi_'+i+'" data-pv="own" tabindex="-1" style="pointer-events:none" onchange="'+(F.addKey?'onKVSelect(':'saveKV(')+i+')" onblur="blurKV('+i+')">'+oh+'</select>';
+    pvOpen_('kvi_'+i, cell, function(){ blurKV(i); });   // dismissed without choosing -> back to the plain value
     return;
   }
   if(F.type==='date'){ var d=pd(v); iv=d? ymd(d):''; }
@@ -4614,10 +4699,12 @@ function editKV(i){
   // Guard the native date picker against absurd years (e.g. an empty field's
   // spinner landing on 1902) — clamp it to a sane range.
   var dateAttrs = F.type==='date' ? ' min="2000-01-01" max="2100-12-31"' : '';
-  cell.innerHTML='<input class="kvin" type="'+F.type+'" value="'+esc(iv)+'" id="kvi_'+i+'"'+dateAttrs
+  var themed = (F.type==='date' || F.type==='time');
+  cell.innerHTML='<input class="kvin" type="'+F.type+'" value="'+esc(iv)+'" id="kvi_'+i+'"'+dateAttrs+(themed?' tabindex="-1" style="pointer-events:none"':'')
     +' onchange="saveKV('+i+')" onblur="blurKV('+i+')"'
     +' onkeydown="if(event.key===\'Enter\')this.blur()">';
-  $('kvi_'+i).focus();
+  if(themed) dpOpen_('kvi_'+i, cell, F.type, function(){ blurKV(i); });   // dismissed without choosing -> back to the plain value
+  else $('kvi_'+i).focus();
 }
 // "+ Add new…" on a lead's Event type / Source: swap the dropdown for a text box,
 // add the name to the Settings list (case-insensitive de-dupe), then save it on the lead.
@@ -4750,6 +4837,94 @@ function commitKV_(i, nv){
     toast('Save failed \u2014 try again');
   }).updateLead(row, updates);
 }
+/* ---------- "Add extra to balance" (an on-site extension, an add-on) ----------
+   Adds the amount to the Quoted price and keeps the deposit exactly where it is, so the whole extra lands in the
+   balance. Why pin the deposit: with the Deposit field blank the app works the deposit out as a percent of the
+   total, so just raising the price would also raise the deposit and spill part of the extra into it. Everything
+   downstream (the event portal, the card payment, reminders, receipts, Insights) already reads price + travel -
+   deposit, so no other number needs touching. Not offered once the balance is marked received: the event portal would
+   bill the full balance again -- collect that extra directly and add a note instead. */
+var EXTRA_ARM=false, EXTRA_ARM_T=null;
+function extraOk_(L){ return !!L && isBookedLike(L) && money(L[C.price])>0; }
+function extraAmount_(){ var el=$('d_extra_amt'); return Math.round(money(el?el.value:'')*100)/100; }
+function extraPlan_(L, extra){
+  var price=money(L[C.price]), travel=money(L[C.travelFee]);
+  var dep=depositBase(L) || defaultDeposit(price, travel);
+  var newPrice=Math.round((price+extra)*100)/100;
+  return {dep:dep, freezeDeposit:!depositBase(L) && dep>0, price:price, newPrice:newPrice,
+          oldBalance:Math.max(0, price+travel-dep), balance:Math.max(0, newPrice+travel-dep)};
+}
+function extraDisarm_(){
+  EXTRA_ARM=false; clearTimeout(EXTRA_ARM_T);
+  var b=$('d_extra_go'); if(b) b.textContent='Add to balance';
+}
+function extraReset_(){
+  extraDisarm_();
+  var p=$('d_extrapanel'); if(p) p.style.display='none';
+  var a=$('d_extra_amt'), n=$('d_extra_note'), pv=$('d_extra_prev');
+  if(a) a.value=''; if(n) n.value=''; if(pv) pv.textContent='';
+}
+function renderExtraBtn_(){
+  var w=$('d_extrawrap'); if(!w) return;
+  var L=CURRENT ? (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT) : null;
+  var ok=extraOk_(L);
+  w.style.display = ok ? '' : 'none';
+  if(!ok) extraReset_();
+}
+function toggleExtraPanel(){
+  var p=$('d_extrapanel'); if(!p) return;
+  var open=p.style.display==='none';
+  extraDisarm_();
+  p.style.display=open?'block':'none';
+  if(open){ extraPreview_(); var a=$('d_extra_amt'); if(a) a.focus(); }
+}
+function extraPreview_(){
+  extraDisarm_();
+  var pv=$('d_extra_prev'), go=$('d_extra_go'); if(!pv||!CURRENT) return;
+  var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
+  if(String(L[C.balancePaid])==='Yes'){
+    pv.textContent='The balance is already marked received, so adding an extra here would bill the whole balance again. Collect the extra directly and add a note instead.';
+    if(go) go.style.display='none';
+    return;
+  }
+  if(go) go.style.display='';
+  var extra=extraAmount_();
+  if(!(extra>0)){ pv.textContent='Enter what the client owes on top of the current price.'; return; }
+  var pl=extraPlan_(L, extra);
+  pv.textContent='Quoted '+fmtMoney(pl.price)+' \u2192 '+fmtMoney(pl.newPrice)+' \u00b7 Balance due '+(fmtMoney(pl.oldBalance)||'$0')+' \u2192 '+(fmtMoney(pl.balance)||'$0')+(pl.dep?' \u00b7 Deposit stays '+fmtMoney(pl.dep):'');
+}
+function extraApply_(){
+  var L=CURRENT; if(!L || !extraOk_(L)) return;
+  if(String(L[C.balancePaid])==='Yes') return;
+  var extra=extraAmount_();
+  if(!(extra>0)){ toast('Enter the extra amount first'); return; }
+  var btn=$('d_extra_go');
+  if(!EXTRA_ARM){                                    // money-related: tap once to arm, again to confirm
+    EXTRA_ARM=true; if(btn) btn.textContent='Tap again to add '+fmtMoney(extra);
+    clearTimeout(EXTRA_ARM_T); EXTRA_ARM_T=setTimeout(extraDisarm_, 3500);
+    return;
+  }
+  extraDisarm_();
+  var pl=extraPlan_(L, extra), why=($('d_extra_note').value||'').trim(), row=L._row, updates={};
+  var oldPrice=L[C.price], oldDeposit=L[C.deposit];
+  updates[C.price]=String(pl.newPrice);
+  if(pl.freezeDeposit) updates[C.deposit]=String(pl.dep);
+  L[C.price]=updates[C.price]; if(pl.freezeDeposit) L[C.deposit]=updates[C.deposit];
+  var refresh=function(){ buildKV(); renderLeadTop_(); renderCardFeeNote(); renderChips(); renderLeads(); renderInsights(); };
+  refresh();
+  var note='Added '+fmtMoney(extra)+' to the balance'+(why?' ('+why+')':'')+'. Quoted '+fmtMoney(pl.price)+' \u2192 '+fmtMoney(pl.newPrice)+'; balance due now '+(fmtMoney(pl.balance)||'$0')+'.';
+  extraReset_();
+  GS.withSuccessHandler(function(json){
+    ingest(json);
+    if(CURRENT){ var refound=LEADS.find(function(x){ return x._row===row; }); if(refound) CURRENT=refound; }
+    refresh();
+    logContactNow_({ key:String(L._tsKey||''), name:String(L[C.name]||''), type:'Note', note:note });
+    toast('Added '+fmtMoney(extra)+' \u2014 balance due is now '+(fmtMoney(pl.balance)||'$0'));
+  }).withFailureHandler(function(){
+    L[C.price]=oldPrice; L[C.deposit]=oldDeposit; refresh();
+    toast('Could not save \u2014 nothing was changed');
+  }).updateLead(row, updates);
+}
 function closeSheet(){
   if(SAVET) doAutoSave(); /* flush any pending edit before closing */
   $('sheet').classList.remove('open'); syncOverlay(); CURRENT=null;
@@ -4817,7 +4992,7 @@ function closeHistoryDetail(){
 }
 function editHdWhen(){
   $('hd_whenview').style.display='none'; $('hd_whenedit').style.display='';
-  $('hd_date').focus();
+  dpOpen_('hd_date', $('hd_date').parentNode, 'date');
 }
 function editHdNote(){
   $('hd_note').style.display='none'; $('hd_noteedit').style.display='';
@@ -5148,7 +5323,7 @@ function referralLinkBlock_(appLink, L){
 // one saved and a lead is attached (unless the template already placed it with {referral_link}).
 function partnerEmailBody_(t, pseudo, refLead){
   var body=fillTpl(t.body, pseudo, refLead);
-  if(pseudo && pseudo._appLink && refLead && !/\{referral_link\}/i.test(String(t.body||''))) body+=referralLinkBlock_(pseudo._appLink, refLead);
+  if(pseudo && pseudo._appLink && refLead && String(refLead[C.status])!=='Referred' && !/\{referral_link\}/i.test(String(t.body||''))) body+=referralLinkBlock_(pseudo._appLink, refLead);
   return body;
 }
 function fillTpl(s, primary, referredLead){
@@ -5214,17 +5389,35 @@ function openPartnerEmailPicker(id){
   EPICKER_MODE='partner';
   var pseudo={}; pseudo[C.name]=p.name; pseudo._appLink=p.appLink||'';
   EPICKER_CTX=pseudo; EPICKER_TO=String(p.email||'').trim(); EPICKER_REFLEAD=null;
-  fillRefLeadOptions();
+  fillRefLeadOptions('epicker_refsel', p);
   $('epicker_refwrap').style.display='';
   $('epicker_refsel').value='';
+  var ci=checkInLeadFor_(p);
+  if(ci){ EPICKER_REFLEAD=ci; $('epicker_refsel').value=String(ci._tsKey); }
   renderEmailPicker();
 }
-function fillRefLeadOptions(targetId){
-  var refs=LEADS.filter(function(L){ return String(L[C.status])==='Referral'; });
-  refs.sort(function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); });
+// Leads you can attach to a message to a partner: ones still marked Referral (not sent yet) AND the ones already
+// referred TO THIS partner -- so a follow-up ("any news on Jared?") can pull in the lead's name and details.
+// This partner's referred leads come first.
+function partnerRefLeads_(p){
+  var pn=String((p&&p.name)||'').trim().toLowerCase();
+  var mineReferred=function(L){ return String(L[C.status])==='Referred' && pn && String(L[C.referral]||'').trim().toLowerCase()===pn; };
+  var byName=function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); };
+  var mine=LEADS.filter(mineReferred).sort(byName);
+  var fresh=LEADS.filter(function(L){ return String(L[C.status])==='Referral'; }).sort(byName);
+  return mine.concat(fresh);
+}
+function fillRefLeadOptions(targetId, p){
   $(targetId||'epicker_refsel').innerHTML='<option value="">No lead info attached</option>'
-    + refs.map(function(L){ return '<option value="'+esc(String(L._tsKey))+'">'+esc(L[C.name]||'Lead')
-        +(L[C.eventType]?' \u2014 '+esc(L[C.eventType]):'')+'</option>'; }).join('');
+    + partnerRefLeads_(p).map(function(L){ return '<option value="'+esc(String(L._tsKey))+'">'+esc(L[C.name]||'Lead')
+        +(L[C.eventType]?' \u2014 '+esc(L[C.eventType]):'')+(String(L[C.status])==='Referred'?' \u00b7 referred':'')+'</option>'; }).join('');
+}
+// Coming from a "Check in with partner" card? Attach THAT lead straight away.
+function checkInLeadFor_(p){
+  if(!PT_CHECKIN_LEAD_ROW || !p) return null;
+  var L=LEADS.find(function(x){ return x._row===PT_CHECKIN_LEAD_ROW; });
+  // only if that lead really was referred to THIS partner (a stale card tap must never attach someone else's lead)
+  return (L && String(L[C.referral]||'').trim().toLowerCase()===String(p.name||'').trim().toLowerCase()) ? L : null;
 }
 function onRefLeadChange(){
   var key=$('epicker_refsel').value;
@@ -5275,9 +5468,11 @@ function openPartnerTextPicker(id){
   TXTPICKER_MODE='partner';
   var pseudo={}; pseudo[C.name]=p.name;
   TXTPICKER_CTX=pseudo; TXTPICKER_PHONE=String(p.phone||'').trim(); TXTPICKER_REFLEAD=null;
-  fillRefLeadOptions('tpicker_refsel');
+  fillRefLeadOptions('tpicker_refsel', p);
   $('tpicker_refwrap').style.display='';
   $('tpicker_refsel').value='';
+  var ci=checkInLeadFor_(p);
+  if(ci){ TXTPICKER_REFLEAD=ci; $('tpicker_refsel').value=String(ci._tsKey); }
   renderTextPicker();
 }
 function onTextRefLeadChange(){
@@ -5359,17 +5554,9 @@ function ptOrLeadTextLog(){
 
 var TTECUR=null, TTESAVET=null, DELARM4=false, TXTPL_MODE='lead';
 function fillTextMergeFieldOptions(){
-  var sel=$('tte_insertfield');
-  sel.innerHTML='<option value="">Choose a field to insert&#8230;</option>'
-    + '<optgroup label="Recipient (client or partner)">'
-    + MERGE_FIELDS.filter(function(f){ return !f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>'
-    + '<optgroup label="Your details">'
-    + MERGE_FIELDS.filter(function(f){ return f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>'
-    + '<optgroup label="Referred lead (when texting a partner)">'
-    + REF_LEAD_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>';
+  var partner = TXTPL_MODE==='partner';
+  $('tte_insertfield').innerHTML=mergeFieldOptionsHtml_(partner,'texting');
+  var ch=$('tte_chips'); if(ch) ch.innerHTML=fieldChipsHtml_(partner,'text');
 }
 function openTextTemplateEditor(id){
   TXTPL_MODE = TXTPICKER_MODE==='partner' ? 'partner' : 'lead';
@@ -5446,18 +5633,8 @@ function deleteTextTplUI(){
 }
 function insertTextMergeField(){
   var sel=$('tte_insertfield'), key=sel.value;
-  if(!key) return;
-  var target=$('tte_body');
-  var start=target.selectionStart==null?target.value.length:target.selectionStart;
-  var end=target.selectionEnd==null?target.value.length:target.selectionEnd;
-  var val=target.value;
-  var token='{'+key+'}';
-  target.value=val.slice(0,start)+token+val.slice(end);
   sel.value='';
-  target.focus();
-  var pos=start+token.length;
-  if(target.setSelectionRange) target.setSelectionRange(pos,pos);
-  queueTextTplSave();
+  insertMergeKey_(key,'text');
 }
 function renderEmailPicker(){
   var pseudoLead=EPICKER_CTX, to=EPICKER_TO, refLead=EPICKER_REFLEAD;
@@ -5546,33 +5723,67 @@ function closeTemplateEditor(){
   $('tesheet').classList.remove('open'); syncOverlay(); TPLCUR=null;
 }
 var TPL_LASTFOCUS='body';
-function fillMergeFieldOptions(){
-  var sel=$('te2_insertfield');
-  sel.innerHTML='<option value="">Choose a field to insert&#8230;</option>'
-    + '<optgroup label="Recipient (client or partner)">'
-    + MERGE_FIELDS.filter(function(f){ return !f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>'
-    + '<optgroup label="Your details">'
-    + MERGE_FIELDS.filter(function(f){ return f.mine; }).map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>'
-    + '<optgroup label="Referred lead (when emailing a partner)">'
-    + REF_LEAD_FIELDS.map(function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; }).join('')
-    + '</optgroup>';
+/* Insert-a-field lists. The common fields are one-tap chips above the list; the list holds everything, grouped by
+   topic (the headings come through in the dropdown menu). For a PARTNER template the referred lead's fields come
+   first, and the partner group is just their name (nothing else is known about a partner). */
+var MERGE_TOPICS_=[
+  {label:'The person', keys:['firstname','name','phone','email','company','companyaddress']},
+  {label:'The event', keys:['eventdate','starttime','endtime','eventtype','service','location','audience','audienceage']},
+  {label:'Money and links', keys:['quoted','contractlink','signlink']},
+  {label:'Where they found you', keys:['source']}
+];
+var FIELD_CHIP_LABELS_={firstname:'First name', eventdate:'Event date', starttime:'Start time', location:'Event location', signlink:'Event portal link',
+  owner:'Your name', business:'Your business', lead_name:"Lead's full name", lead_firstname:"Lead's first name", lead_eventdate:"Lead's event date"};
+function fieldChipKeys_(partner){
+  return partner ? ['lead_name','lead_firstname','lead_eventdate','firstname','owner','business']
+                 : ['firstname','eventdate','starttime','location','signlink','owner'];
 }
-function insertMergeField(){
-  var sel=$('te2_insertfield'), key=sel.value;
+function fieldChipsHtml_(partner, kind){
+  return fieldChipKeys_(partner).map(function(k){
+    var label=(partner && k==='firstname') ? "Partner's first name" : FIELD_CHIP_LABELS_[k];
+    return '<button type="button" class="fchip" onmousedown="event.preventDefault()" onclick="insertMergeKey_(\''+k+'\',\''+kind+'\')">'+esc(label)+'</button>';
+  }).join('');
+}
+function mergeFieldOptionsHtml_(partner, verb){
+  var byKey={}; MERGE_FIELDS.forEach(function(f){ byKey[f.key]=f; });
+  var opt=function(f){ return '<option value="'+f.key+'">'+esc(f.label)+'</option>'; };
+  var grp=function(label, fields){ return fields.length ? '<optgroup label="'+esc(label)+'">'+fields.map(opt).join('')+'</optgroup>' : ''; };
+  var pick=function(keys){ return keys.map(function(k){ return byKey[k]; }).filter(Boolean); };
+  var topics='', listed={};
+  if(partner){
+    topics=grp('The partner (who you are writing to)', pick(['firstname','name']));
+  } else {
+    MERGE_TOPICS_.forEach(function(g){ g.keys.forEach(function(k){ listed[k]=1; }); topics+=grp(g.label, pick(g.keys)); });
+    // a merge field added later that isn't filed under a topic still shows up, never lost
+    topics+=grp('Other', MERGE_FIELDS.filter(function(f){ return !f.mine && !listed[f.key]; }));
+  }
+  var mine=grp('Your details', MERGE_FIELDS.filter(function(f){ return f.mine; }));
+  var ref=grp(partner ? 'The lead you referred (their name, date, details)' : 'Referred lead (when '+verb+' a partner)', REF_LEAD_FIELDS);
+  return '<option value="">Choose a field\u2026</option>'+(partner ? ref+topics+mine : topics+mine+ref);
+}
+function fillMergeFieldOptions(){
+  var partner = TPL_MODE==='partner';
+  $('te2_insertfield').innerHTML=mergeFieldOptionsHtml_(partner,'emailing');
+  var ch=$('te2_chips'); if(ch) ch.innerHTML=fieldChipsHtml_(partner,'email');
+}
+// Drop {key} into the template at the caret (email: whichever of Subject/Body you last tapped; text: the message).
+function insertMergeKey_(key, kind){
   if(!key) return;
-  var target=$(TPL_LASTFOCUS==='subject'?'te2_subject':'te2_body');
+  var email = kind==='email';
+  var target=$(email ? (TPL_LASTFOCUS==='subject'?'te2_subject':'te2_body') : 'tte_body');
   var start=target.selectionStart==null?target.value.length:target.selectionStart;
   var end=target.selectionEnd==null?target.value.length:target.selectionEnd;
-  var val=target.value;
-  var token='{'+key+'}';
+  var token='{'+key+'}', val=target.value;
   target.value=val.slice(0,start)+token+val.slice(end);
-  sel.value='';
   target.focus();
   var pos=start+token.length;
   if(target.setSelectionRange) target.setSelectionRange(pos,pos);
-  queueTplSave();
+  if(email) queueTplSave(); else queueTextTplSave();
+}
+function insertMergeField(){
+  var sel=$('te2_insertfield'), key=sel.value;
+  sel.value='';
+  insertMergeKey_(key,'email');
 }
 function queueTplSave(){
   if(!TPLCUR) return;
@@ -6174,6 +6385,8 @@ var INSIGHTS_SCOPE='thisyear';
 // (the Month pill is hidden for All Time), and narrows every Insights module by the same date it already
 // uses for the year — so the numbers can never disagree about which month something belongs to.
 var INSIGHTS_MONTH='all';
+// Compare: 'off' or 'last' (the same period one year earlier). Only while a specific year is selected.
+var INSIGHTS_COMPARE='off';
 function insightsMonthName_(m){ return ['January','February','March','April','May','June','July','August','September','October','November','December'][m]; }
 function insightsScopeMonth(){
   if(INSIGHTS_SCOPE==='alltime' || INSIGHTS_MONTH==='all') return null;
@@ -6217,10 +6430,272 @@ function insightsScopedLeads(){
   if(INSIGHTS_SCOPE==='alltime') return LEADS;
   return LEADS.filter(inInsightsScope);
 }
+// Themed dropdown for the header line: a small black-and-gold menu under the tapped text (the browser's own
+// picker can't be styled on phones). It lists the hidden select's options and hands the choice back to it,
+// firing its normal onchange, so no filter logic is involved.
+var PV_OPEN=null, PV_ANCHOR=null, PV_CANCEL=null, PV_TY=null;
+function pvClose_(){
+  var cancel=PV_CANCEL; PV_CANCEL=null;                      // set only while a menu is open; cleared when a choice is made
+  var m=document.getElementById('pvMenu'); if(m) m.parentNode.removeChild(m);
+  var bk=document.getElementById('pvBackdrop'); if(bk) bk.parentNode.removeChild(bk);
+  PV_TY=null;
+  PV_OPEN=null; PV_ANCHOR=null;
+  document.removeEventListener('click', pvOutside_, true);
+  document.removeEventListener('keydown', pvKey_, true);
+  window.removeEventListener('scroll', pvScroll_, true);
+  window.removeEventListener('resize', pvClose_);
+  if(cancel) cancel();
+}
+function pvOutside_(e){ var m=document.getElementById('pvMenu'); if(m && !m.contains(e.target) && !(PV_ANCHOR && PV_ANCHOR.contains && PV_ANCHOR.contains(e.target))) pvClose_(); }
+function pvKey_(e){ if(e.key==='Escape') pvClose_(); }
+function pvScroll_(e){ if(e.target && e.target.id==='pvMenu') return; pvClose_(); }
+// Phones get the bottom sheet; wide screens and the small header lists (Year / Month / Compare, which sit right
+// under the text you tapped) keep the compact pop-up.
+function pvUseSheet_(anchor){
+  if((window.innerWidth||1000) > 600) return false;
+  return !(anchor && anchor.closest && anchor.closest('.perrow'));
+}
+// Swipe down on the sheet (when it is scrolled to the top) to dismiss it.
+function pvTouchStart_(e){ var t=e.touches && e.touches[0]; PV_TY = t ? t.clientY : null; }
+function pvTouchMove_(e){
+  var m=document.getElementById('pvMenu'), t=e.touches && e.touches[0];
+  if(PV_TY===null || !t || !m || m.scrollTop>0) return;
+  if(t.clientY-PV_TY>80) pvClose_();
+}
+function pvOpen_(selId, anchor, onCancel){
+  var again = PV_OPEN===selId;
+  pvClose_(); dpClose_(); if(again) return;
+  var sel=(typeof selId==='string') ? document.getElementById(selId) : selId; if(!sel || !sel.options.length) return;
+  var sheet=pvUseSheet_(anchor);
+  var m=document.createElement('div'); m.id='pvMenu'; m.className='pvmenu'+(sheet?' pvsheet':''); m.setAttribute('role','listbox');
+  var idx=0, rows='';
+  var rowFor=function(o){
+    var i=idx++, on=i===sel.selectedIndex;
+    return '<button type="button" role="option" aria-selected="'+(on?'true':'false')+'" class="pvopt'+(on?' on':'')+'" data-i="'+i+'">'+esc(o.text)+(sheet&&on?'<span class="pvck">&#10003;</span>':'')+'</button>';
+  };
+  // group headings (<optgroup label="...">) become small gold headings; option numbers still follow sel.options order
+  Array.prototype.forEach.call(sel.children || sel.options, function(ch){
+    if(ch.tagName==='OPTGROUP'){ rows+='<div class="pvgrp">'+esc(ch.label)+'</div>'; Array.prototype.forEach.call(ch.children, function(o){ rows+=rowFor(o); }); }
+    else rows+=rowFor(ch);
+  });
+  var title=sheet ? ((anchor && anchor.getAttribute && anchor.getAttribute('aria-label')) || pvLabelFor_(sel)) : '';
+  m.innerHTML = sheet ? '<div class="pvhead"><div class="pvgrab"></div><div class="pvttl">'+esc(title)+'</div></div>'+rows : rows;
+  m.onclick=function(e){
+    var b=e.target.closest ? e.target.closest('.pvopt') : null; if(!b) return;
+    sel.selectedIndex=Number(b.getAttribute('data-i'));
+    PV_CANCEL=null;
+    pvClose_();
+    sel.dispatchEvent(new Event('change'));
+  };
+  if(sheet){
+    var bk=document.createElement('div'); bk.id='pvBackdrop'; bk.className='pvback';
+    document.body.appendChild(bk);
+    document.body.appendChild(m);
+    if(m.addEventListener){ m.addEventListener('touchstart', pvTouchStart_, {passive:true}); m.addEventListener('touchmove', pvTouchMove_, {passive:true}); }
+  } else {
+    var r=anchor.getBoundingClientRect();
+    if(r.width>150) m.style.minWidth=Math.round(r.width)+'px';
+    document.body.appendChild(m);
+    var w=m.offsetWidth, left=Math.max(8, Math.min(r.left, window.innerWidth-w-8));
+    m.style.left=left+'px'; m.style.top=(r.bottom+8)+'px';
+  }
+  PV_OPEN=selId; PV_ANCHOR=anchor; PV_CANCEL=onCancel||null;
+  document.addEventListener('click', pvOutside_, true);
+  document.addEventListener('keydown', pvKey_, true);
+  window.addEventListener('scroll', pvScroll_, true);
+  window.addEventListener('resize', pvClose_);
+  var on=m.querySelector('.pvopt.on'); if(on && on.scrollIntoView) on.scrollIntoView({block: sheet ? 'center' : 'nearest'});
+}
+/* Themed calendar and time picker (black and gold, like the menus above). The real <input type="date"/"time"> stays in
+   the page, hidden under a wrapper, as the single home of the value -- so min/max, saving, autosave and every
+   onchange/onblur handler keep working untouched. The picker only reads it, and writes a new value back with the
+   same input/change(/blur) events the browser's own picker would have fired. */
+var DP=null;
+var DP_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function dpPad_(n){ return (n<10?'0':'')+n; }
+function dpIso_(y,m,d){ return y+'-'+dpPad_(m+1)+'-'+dpPad_(d); }
+function dpParse_(v){ var x=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||'')); return x ? {y:+x[1], m:+x[2]-1, d:+x[3]} : null; }
+function dpClose_(){
+  var cancel=(DP && !DP.committed) ? DP.onCancel : null;   // dismissed without choosing -> let an inline editor put itself back
+  var p=document.getElementById('dpPop'); if(p) p.parentNode.removeChild(p);
+  DP=null;
+  document.removeEventListener('click', dpOutside_, true);
+  document.removeEventListener('keydown', dpKey_, true);
+  window.removeEventListener('scroll', dpScroll_, true);
+  window.removeEventListener('resize', dpClose_);
+  if(cancel) cancel();
+}
+function dpOutside_(e){ var p=document.getElementById('dpPop'); if(p && !p.contains(e.target) && !(DP && DP.anchor && DP.anchor.contains && DP.anchor.contains(e.target))) dpClose_(); }
+function dpKey_(e){ if(e.key==='Escape') dpClose_(); }
+function dpScroll_(e){ var p=document.getElementById('dpPop'); if(p && e.target && p.contains && p.contains(e.target)) return; dpClose_(); }
+function dpCommit_(value){
+  var el=document.getElementById(DP.id), kind=DP.kind; if(!el) return;
+  el.value=value;
+  DP.committed=true;
+  dpClose_();
+  ['input','change'].concat(kind==='time'?['blur']:[]).forEach(function(t){ el.dispatchEvent(new Event(t)); });
+}
+function dpPlace_(){
+  var p=document.getElementById('dpPop'); if(!p||!DP) return;
+  var r=DP.anchor.getBoundingClientRect(), w=p.offsetWidth||292, h=p.offsetHeight||300, vh=window.innerHeight||700;
+  var left=Math.max(8, Math.min(r.left, window.innerWidth-w-8));
+  var top=r.bottom+8; if(top+h>vh-8) top=Math.max(8, r.top-h-8);
+  p.style.left=left+'px'; p.style.top=top+'px';
+}
+function dpHtml_(){
+  if(DP.kind==='time'){
+    var col=function(act, items, cur){ return '<div class="tp-col" data-col="'+act+'">'+items.map(function(it){ return '<button type="button" class="tp-it'+(String(it.v)===String(cur)?' sel':'')+'" data-a="'+act+'" data-v="'+it.v+'">'+it.t+'</button>'; }).join('')+'</div>'; };
+    var hrs=[],mins=[]; for(var h=1;h<=12;h++) hrs.push({v:h,t:h}); for(var m=0;m<60;m++) mins.push({v:m,t:dpPad_(m)});
+    return '<div class="tp-wheels"><div class="tp-band"></div>'+col('h',hrs,DP.h)+col('mi',mins,DP.mi)+col('ap',[{v:'AM',t:'AM'},{v:'PM',t:'PM'}],DP.ap)+'</div>'
+      +'<div class="dp-foot"><button type="button" class="dp-link" data-a="clear">Clear</button><button type="button" class="dp-link" data-a="set">Set</button></div>';
+  }
+  if(DP.mode==='years'){
+    var ys=''; for(var y=DP.minY; y<=DP.maxY; y++) ys+='<button type="button" class="dp-yr'+(y===DP.y?' sel':'')+'" data-a="year" data-y="'+y+'">'+y+'</button>';
+    return '<div class="dp-years">'+ys+'</div>';
+  }
+  var first=new Date(DP.y, DP.m, 1).getDay(), days=new Date(DP.y, DP.m+1, 0).getDate(), now=new Date();
+  var todayIso=dpIso_(now.getFullYear(), now.getMonth(), now.getDate()), selIso=DP.sel ? dpIso_(DP.sel.y, DP.sel.m, DP.sel.d) : '';
+  var cells=''; for(var i=0;i<first;i++) cells+='<span></span>';
+  for(var d=1; d<=days; d++){
+    var iso=dpIso_(DP.y, DP.m, d), off=(DP.min && iso<DP.min) || (DP.max && iso>DP.max);
+    cells+='<button type="button" class="dp-day'+(iso===selIso?' sel':'')+(iso===todayIso?' today':'')+'" data-a="day" data-d="'+d+'"'+(off?' disabled':'')+'>'+d+'</button>';
+  }
+  return '<div class="dp-head"><button type="button" class="dp-nav" data-a="prev" aria-label="Previous month">&#8249;</button>'
+    +'<button type="button" class="dp-title" data-a="years" aria-label="Choose year">'+DP_MONTHS[DP.m]+' '+DP.y+' &#9662;</button>'
+    +'<button type="button" class="dp-nav" data-a="next" aria-label="Next month">&#8250;</button></div>'
+    +'<div class="dp-dow"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>'
+    +'<div class="dp-grid">'+cells+'</div>'
+    +'<div class="dp-foot"><button type="button" class="dp-link" data-a="clear">Clear</button><button type="button" class="dp-link" data-a="today">Today</button></div>';
+}
+function dpRender_(){
+  var p=document.getElementById('dpPop'); if(!p||!DP) return;
+  p.innerHTML=dpHtml_();
+  dpPlace_();
+  if(DP.kind==='time'){
+    // park each wheel on its current value (rows are DP_ROW tall; the band sits on the centre row)
+    if(p.querySelectorAll) Array.prototype.forEach.call(p.querySelectorAll('.tp-col'), function(c){
+      var k=c.getAttribute('data-col'); c.scrollTop=dpWheelIndex_(k, k==='h'?DP.h:k==='mi'?DP.mi:DP.ap)*DP_ROW;
+    });
+  } else {
+    var on=p.querySelectorAll ? p.querySelectorAll('.sel') : [];
+    Array.prototype.forEach.call(on, function(n){ if(n.scrollIntoView) n.scrollIntoView({block:'center'}); });
+  }
+}
+// Wheel maths: which value is under the band for a given scroll position, and back.
+var DP_ROW=30;
+function dpWheelPick_(col, top){
+  var i=Math.max(0, Math.round(top/DP_ROW));
+  if(col==='h') return Math.min(12, i+1);
+  if(col==='mi') return Math.min(59, i);
+  return i>0 ? 'PM' : 'AM';
+}
+function dpWheelIndex_(col, v){ return col==='h' ? v-1 : col==='mi' ? v : (v==='PM' ? 1 : 0); }
+function dpWheelScroll_(colEl){
+  if(!DP || DP.kind!=='time' || !colEl || !colEl.getAttribute) return;
+  var c=colEl.getAttribute('data-col'); if(!c) return;
+  var v=dpWheelPick_(c, colEl.scrollTop);
+  if(c==='h') DP.h=v; else if(c==='mi') DP.mi=v; else DP.ap=v;
+  dpMark_();
+}
+function dpClick_(e){
+  var b=e.target.closest ? e.target.closest('[data-a]') : null; if(!b||!DP) return;
+  var a=b.getAttribute('data-a'), v=b.getAttribute('data-v');
+  if(a==='prev'||a==='next'){
+    DP.m += (a==='next'?1:-1);
+    if(DP.m<0){ DP.m=11; DP.y--; } else if(DP.m>11){ DP.m=0; DP.y++; }
+    dpRender_();
+  } else if(a==='years'){ DP.mode='years'; dpRender_(); }
+  else if(a==='year'){ DP.y=Number(b.getAttribute('data-y')); DP.mode='days'; dpRender_(); }
+  else if(a==='day'){ dpCommit_(dpIso_(DP.y, DP.m, Number(b.getAttribute('data-d')))); }
+  else if(a==='today'){ var n=new Date(), iso=dpIso_(n.getFullYear(), n.getMonth(), n.getDate()); if((DP.min && iso<DP.min)||(DP.max && iso>DP.max)) return; dpCommit_(iso); }
+  else if(a==='clear'){ dpCommit_(''); }
+  else if(a==='h'||a==='mi'||a==='ap'){
+    if(a==='h') DP.h=Number(v); else if(a==='mi') DP.mi=Number(v); else DP.ap=v;
+    dpMark_();
+    var colEl=b.parentNode; if(colEl && colEl.scrollTo) colEl.scrollTo({top:dpWheelIndex_(a, a==='ap'?v:Number(v))*DP_ROW, behavior:'smooth'});
+  }
+  else if(a==='set'){ dpCommit_(dpPad_((DP.h%12)+(DP.ap==='PM'?12:0))+':'+dpPad_(DP.mi)); }
+}
+// time picker: move the gold highlight without rebuilding (so scroll positions stay put)
+function dpMark_(){
+  var p=document.getElementById('dpPop'); if(!p||!p.querySelectorAll) return;
+  Array.prototype.forEach.call(p.querySelectorAll('.tp-it'), function(n){
+    var a=n.getAttribute('data-a'), v=n.getAttribute('data-v'), cur=a==='h'?DP.h:a==='mi'?DP.mi:DP.ap;
+    n.className='tp-it'+(String(cur)===String(v)?' sel':'');
+  });
+}
+function dpOpen_(inputId, anchor, kind, onCancel){
+  var again = DP && DP.id===inputId;
+  dpClose_(); pvClose_(); if(again) return;
+  var el=document.getElementById(inputId); if(!el) return;
+  var cur=dpParse_(el.value), now=new Date(), mn=dpParse_(el.min), mx=dpParse_(el.max);
+  DP={id:inputId, kind:kind, anchor:anchor, mode:'days', onCancel:onCancel||null, committed:false,
+      min:mn?dpIso_(mn.y,mn.m,mn.d):'', max:mx?dpIso_(mx.y,mx.m,mx.d):'', minY:mn?mn.y:2000, maxY:mx?mx.y:2100};
+  if(kind==='time'){
+    var tv=/^(\d{2}):(\d{2})/.exec(String(el.value||'')), H=tv?+tv[1]:9, M=tv?+tv[2]:0;
+    DP.h=(H%12)||12; DP.mi=M; DP.ap=H>=12?'PM':'AM';
+  } else {
+    DP.sel=cur; DP.y=cur?cur.y:now.getFullYear(); DP.m=cur?cur.m:now.getMonth();
+  }
+  var p=document.createElement('div'); p.id='dpPop'; p.className='dppop'+(kind==='time'?' tptime':''); p.setAttribute('role','dialog'); p.setAttribute('aria-label', kind==='time'?'Choose a time':'Choose a date');
+  p.onclick=dpClick_;
+  if(p.addEventListener) p.addEventListener('scroll', function(e){ dpWheelScroll_(e.target); }, true);
+  document.body.appendChild(p);
+  dpRender_();
+  document.addEventListener('click', dpOutside_, true);
+  document.addEventListener('keydown', dpKey_, true);
+  window.addEventListener('scroll', dpScroll_, true);
+  window.addEventListener('resize', dpClose_);
+}
+/* Every dropdown in the app opens the black-and-gold menu, not the browser's gray picker. The ones above were wrapped by
+   hand; this wraps ALL the rest -- the ones in the HTML at load and any that are built later (sheets, lists, import
+   previews) -- the same way: a wrapper takes the tap, the real <select> stays inside as the value-holder (pointer-events
+   off), and its own onchange fires when a choice is made. Skipped: selects already wrapped, hidden value-holders, and
+   anything marked data-pv. */
+function pvLabelFor_(sel){
+  var a=sel.getAttribute('aria-label'); if(a) return a;
+  var f=sel.closest ? sel.closest('.field') : null, l=f && f.querySelector ? f.querySelector('label') : null;
+  if(!l){ var p=sel.previousElementSibling; if(p && p.tagName==='LABEL') l=p; }
+  var t=l ? String(l.textContent||'').replace(/\s+/g,' ').trim() : '';
+  return t || 'Choose';
+}
+function pvUpgradeOne_(sel){
+  if(!sel || sel.tagName!=='SELECT' || sel.getAttribute('data-pv') || !sel.parentNode) return;
+  if((sel.closest && sel.closest('.pvwrap,.pv,#d_statustile')) || (sel.style && sel.style.display==='none')){ sel.setAttribute('data-pv','1'); return; }
+  var w=document.createElement('div');
+  w.className='pvwrap block'; w.setAttribute('role','button'); w.setAttribute('tabindex','0'); w.setAttribute('aria-haspopup','listbox');
+  w.setAttribute('aria-label', pvLabelFor_(sel));
+  w.onclick=function(){ if(!sel.disabled) pvOpen_(sel, w); };
+  w.onkeydown=function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); if(!sel.disabled) pvOpen_(sel, w); } };
+  sel.parentNode.insertBefore(w, sel);
+  w.appendChild(sel);
+  sel.setAttribute('tabindex','-1'); sel.setAttribute('data-pv','1');
+}
+function pvUpgrade_(root){
+  if(!root) return;
+  if(root.tagName==='SELECT'){ pvUpgradeOne_(root); return; }
+  if(root.querySelectorAll) Array.prototype.forEach.call(root.querySelectorAll('select:not([data-pv])'), pvUpgradeOne_);
+}
+function pvBoot_(){
+  pvUpgrade_(document.body);
+  if(typeof MutationObserver==='undefined') return;
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(n){ if(n.nodeType===1) pvUpgrade_(n); }); });
+  }).observe(document.body, {childList:true, subtree:true});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', pvBoot_); else pvBoot_();
+// Show a select's chosen option as short text ("2026", "All year", "March") in the span laid under it.
+function pvSync_(selId, txtId){
+  var sel=$(selId), t=$(txtId); if(!sel||!t) return;
+  var o=sel.options[sel.selectedIndex]; var x=o?o.text:'';
+  t.textContent = x.replace(/^(?:This|Last) Year \((\d{4})\)$/, '$1').replace(/^All of \d{4}$/, 'All year');
+}
 function fillInsightsScope(){
   var sel=$('insightsScope'); if(!sel) return;
   sel.innerHTML=insightsScopeOptions().map(function(o){ return '<option value="'+o.v+'"'+(o.v===INSIGHTS_SCOPE?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('');
+  pvSync_('insightsScope','insightsScopeTxt');
   fillInsightsMonth();
+  fillInsightsCompare();
 }
 // Month pill: only while a specific year is in view, and only the months that actually have something
 // that year (a lead, a payment, an expense or a store sale), so no choice lands on an empty screen.
@@ -6242,9 +6717,136 @@ function fillInsightsMonth(){
   if(INSIGHTS_MONTH!=='all' && months.indexOf(Number(INSIGHTS_MONTH))<0) INSIGHTS_MONTH='all';
   msel.innerHTML='<option value="all">All of '+y+'</option>'+months.map(function(m){ return '<option value="'+m+'"'+(String(INSIGHTS_MONTH)===String(m)?' selected':'')+'>'+names[m]+'</option>'; }).join('');
   msel.value=String(INSIGHTS_MONTH);
-  field.style.display='flex';
+  pvSync_('insightsMonth','insightsMonthTxt');
+  field.style.display='inline-flex';
 }
-function setInsightsScope(v){ INSIGHTS_SCOPE=v; renderInsights(); }
+// Every year that has anything in it (a lead, a payment, an expense or a store sale) -- the years Compare can offer.
+function insightsYearsWithData_(){
+  var seen={}, add=function(d){ if(d) seen[d.getFullYear()]=1; };
+  LEADS.forEach(function(L){ add(leadDate_(L)); });
+  EXPENSES.forEach(function(E){ add(pd(E.date)); });
+  leadIncomeEvents_(LEADS).concat(storeIncomeEvents_()).forEach(function(e){ add(e.date); });
+  (STORE_SALES||[]).forEach(function(x){ add(pd(x.date)); });
+  return Object.keys(seen).map(Number);
+}
+function fillInsightsCompare(){
+  var btn=$('insightsCompareBtn'); if(!btn) return;
+  var y=insightsScopeYear(), on=insightsCompareOn_();
+  btn.style.display = y===null ? 'none' : 'inline-flex';
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  var tx=$('insightsCompareTxt');
+  if(tx) tx.textContent = on ? 'vs '+compareLabel_(compareYearOf_(INSIGHTS_COMPARE, y), insightsScopeMonth()) : 'Compare';
+  if(y!==null) fillCompareSelect_('insightsCompareSel', y, INSIGHTS_COMPARE, insightsYearsWithData_());
+}
+function setInsightsCompare(v){ INSIGHTS_COMPARE = v==='off' ? 'off' : (/^\d{4}$/.test(String(v)) ? String(v) : 'last'); renderInsights(); }
+// Off -> turn on (last year). On -> open the little menu to pick a different year, or turn it off.
+function insightsCompareTap(){
+  if(INSIGHTS_COMPARE==='off') setInsightsCompare('last');
+  else pvOpen_('insightsCompareSel', $('insightsCompareBtn'));
+}
+function setInsightsScope(v){ INSIGHTS_SCOPE=v; if(INSIGHTS_COMPARE!=='off') INSIGHTS_COMPARE='last'; renderInsights(); }
+
+/* ---------- Year-over-year chips (Compare: Last year) ----------
+   The prior period is computed by running the SAME scoped-data functions the page already uses, with the
+   scope temporarily pointed at the previous year (same month if one is picked) -- no second copy of any math.
+   Money (income, expenses, profit) in the current year is compared through the same date last year, since money
+   is only "so far"; leads and bookings count by event date and include shows still ahead, so they compare the
+   whole period. If last year has nothing at all, no chips are shown. */
+// Compare choice is 'off', 'last' (the year before the one being viewed) or a 4-digit year such as '2023'.
+function compareYearOf_(choice, y){
+  if(choice==='off' || y===null) return null;
+  var c = /^\d{4}$/.test(String(choice)) ? Number(choice) : y-1;
+  return c===y ? y-1 : c;                              // never compare a year with itself
+}
+function compareLabel_(cy, m){ return (m!==null?insightsMonthName_(m).slice(0,3)+' ':'')+cy; }
+function insightsCompareOn_(){ return INSIGHTS_COMPARE!=='off' && insightsScopeYear()!==null; }
+// Same calendar day in the given year (Feb 29 -> Feb 28), end of that day.
+function sameDayInYear_(now, yr){
+  var m=now.getMonth(), d=now.getDate();
+  var x=new Date(yr, m, d, 23, 59, 59);
+  if(x.getMonth()!==m) x=new Date(yr, m+1, 0, 23, 59, 59);
+  return x;
+}
+// How the two periods line up for money: whenever either year is the current one, both sides stop at today's
+// calendar date (so a finished year is never set against a half-finished one); a month still ahead has no money yet.
+function compareWindow_(Y, C, m, now){
+  var nowY=now.getFullYear(), anyCur=(Y===nowY || C===nowY);
+  var futureMonth = anyCur && m!==null && m>now.getMonth();
+  var partial = anyCur && (m===null || m===now.getMonth());
+  return {futureMonth:futureMonth, partial:partial,
+          curCutoff:(partial && Y!==nowY) ? sameDayInYear_(now,Y) : null,
+          priorCutoff:(partial && C!==nowY) ? sameDayInYear_(now,C) : null};
+}
+// Menu choices: "Last year (2025)", every other year that has data (newest first), then "Turn off compare".
+function compareOptions_(Y, yearsWithData){
+  var opts=[{v:'last', t:'Last year ('+(Y-1)+')'}];
+  yearsWithData.filter(function(yr){ return yr!==Y && yr!==Y-1; }).sort(function(a,b){ return b-a; })
+    .forEach(function(yr){ opts.push({v:String(yr), t:String(yr)}); });
+  opts.push({v:'off', t:'Turn off compare'});
+  return opts;
+}
+function fillCompareSelect_(selId, Y, choice, yearsWithData){
+  var sel=$(selId); if(!sel) return;
+  var cy=compareYearOf_(choice, Y);
+  sel.innerHTML=compareOptions_(Y, yearsWithData).map(function(o){ return '<option value="'+o.v+'">'+esc(o.t)+'</option>'; }).join('');
+  sel.value = (cy===Y-1 || cy===null) ? 'last' : String(cy);
+}
+function withInsightsPeriod_(scope, month, fn){
+  var s0=INSIGHTS_SCOPE, m0=INSIGHTS_MONTH;
+  INSIGHTS_SCOPE=scope; INSIGHTS_MONTH=month;
+  try{ return fn(); } finally { INSIGHTS_SCOPE=s0; INSIGHTS_MONTH=m0; }
+}
+function insightsMetrics_(cutoff){
+  var all=insightsScopedLeads(), booked=all.filter(isBookedLike);
+  var bookedVal=booked.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var inc=insightsScopedIncomeEvents(), exp=insightsScopedExpenses();
+  if(cutoff){
+    inc=inc.filter(function(e){ return e.date<=cutoff; });
+    exp=exp.filter(function(E){ var d=pd(E.date); return !!d && d<=cutoff; });
+  }
+  var income=inc.reduce(function(s,e){ return s+e.amount; },0);
+  var expenses=exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
+  return {bookedVal:bookedVal, booked:booked.length, avg:booked.length?Math.round(bookedVal/booked.length):0, total:all.length,
+          income:income, expenses:expenses, profit:income-expenses, any:(all.length+inc.length+exp.length)>0};
+}
+function insightsCompareData_(){
+  if(!insightsCompareOn_()) return null;
+  var y=insightsScopeYear(), m=insightsScopeMonth(), C=compareYearOf_(INSIGHTS_COMPARE, y), w=compareWindow_(y, C, m, new Date());
+  var prior = withInsightsPeriod_(String(C), m===null?'all':m, function(){ return insightsMetrics_(w.priorCutoff); });
+  if(!prior.any) return null;
+  var cur = insightsMetrics_(w.curCutoff);
+  return {cur:cur, prior:prior, y:y, m:m, cy:C, partial:w.partial, moneyOk:!w.futureMonth,
+          label:compareLabel_(C,m)};
+}
+// One chip. goodUp=false flips the colours (more expenses is not good news).
+function cmpChip_(cur, prev, goodUp, label, asDollars){
+  if(!prev && !cur) return '';
+  var cls, txt;
+  if(!prev || (asDollars && prev<=0)){
+    if(!prev){ cls='flat'; txt='New'; }
+    else { var dd=cur-prev; if(!dd){ cls='flat'; txt='same'; } else { cls=((dd>0)===goodUp)?'up':'down'; txt=(dd>0?'&#9650; +':'&#9660; −')+'$'+Math.round(Math.abs(dd)).toLocaleString(); } }
+  } else {
+    var pct=Math.round((cur-prev)/Math.abs(prev)*100);
+    if(!pct){ cls='flat'; txt='same'; }
+    else { cls=((pct>0)===goodUp)?'up':'down'; txt=(pct>0?'&#9650; ':'&#9660; ')+Math.abs(pct)+'%'; }
+  }
+  return '<div class="cmp '+cls+'">'+txt+' vs '+esc(label)+'</div>';
+}
+function cmpFor_(cd, key, goodUp, money){
+  if(!cd) return '';
+  if(money && !cd.moneyOk) return '';
+  return cmpChip_(cd.cur[key], cd.prior[key], goodUp, cd.label, key==='profit');
+}
+function insightsCompareNoteText_(cd){
+  if(!cd){
+    if(!insightsCompareOn_()) return '';
+    var m0=insightsScopeMonth();
+    return 'Nothing from '+compareLabel_(compareYearOf_(INSIGHTS_COMPARE, insightsScopeYear()), m0)+' to compare with.';
+  }
+  if(cd.partial) return 'Compared with '+cd.label+'. Income and expenses run to the same date; leads and bookings cover the full period.';
+  return 'Compared with '+cd.label+'.';
+}
 function setInsightsMonth(v){ INSIGHTS_MONTH = v==='all' ? 'all' : Number(v); renderInsights(); }
 // Shared by the Money section below — resolves the same year-scope
 // selector used for leads into an actual year number (or null for "All
@@ -6365,20 +6967,22 @@ function renderInsights(){
   var newWeek=LEADS.filter(function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=wkStart; });
   var newMonth=LEADS.filter(function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=moStart; });
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  var cd=insightsCompareData_();
+  var _cn=$('insightsCompareNote'); if(_cn){ var _t=insightsCompareNoteText_(cd); _cn.textContent=_t; _cn.style.display=_t?'block':'none'; }
   $('statGrid').innerHTML =
     // Hero: booked value + booked count for the selected period — the headline.
     '<div class="ins-hero" style="grid-column:1/-1">'
-     +'<div class="ins-hero-main"><div class="ins-hero-v">'+$m(bookedVal)+'</div><div class="ins-hero-l">Booked value</div></div>'
+     +'<div class="ins-hero-main"><div class="ins-hero-v">'+$m(bookedVal)+'</div><div class="ins-hero-l">Booked value</div>'+cmpFor_(cd,'bookedVal',true)+'</div>'
      +'<div class="ins-hero-div"></div>'
-     +'<div class="ins-hero-side" onclick="insightBooked()"><div class="ins-hero-v2">'+booked.length+'</div><div class="ins-hero-l">Booked</div></div>'
+     +'<div class="ins-hero-side" onclick="insightBooked()"><div class="ins-hero-v2">'+booked.length+'</div><div class="ins-hero-l">Booked</div>'+cmpFor_(cd,'booked',true)+'</div>'
     +'</div>'
    // Mirrors the hero row (money on the left, count on the right) so "In-play quoted / In play"
    // reads as the pending-business counterpart directly under "Booked value / Booked", and
    // "Avg booked / Total leads" keeps the same money-left/count-right pattern below that.
    +'<div class="stat"><div class="v">'+$m(playVal)+'</div><div class="l">In-play quoted</div></div>'
    +'<div class="stat" onclick="insightInPlay()"><div class="v">'+pending.length+'</div><div class="l">In play</div></div>'
-   +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div></div>'
-   +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div></div>'
+   +'<div class="stat"><div class="v">'+$m(avgBooked)+'</div><div class="l">Avg booked</div>'+cmpFor_(cd,'avg',true)+'</div>'
+   +'<div class="stat" onclick="insightAll()"><div class="v">'+all.length+'</div><div class="l">Total leads</div>'+cmpFor_(cd,'total',true)+'</div>'
    +insightsNewTiles_(newWeek.length, newMonth.length);
 
   renderOracle(all, $m);
@@ -7028,7 +7632,7 @@ function storeSaleFormHtml(s, bare){
     +prodField
     +'<div class="grid2" style="gap:8px">'
       +'<div><label style="margin:0 0 4px">Amount ($)</label><input id="ss_amount" inputmode="decimal" value="'+esc((s.amount!==''&&s.amount!=null)?String(s.amount):'')+'" placeholder="249" style="'+inp+'"></div>'
-      +'<div><label style="margin:0 0 4px">Date</label><input id="ss_date" type="date" value="'+esc(s.date||ymd(new Date()))+'" style="'+inp+'"></div>'
+      +'<div><label style="margin:0 0 4px">Date</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Sale date" onclick="dpOpen_(\'ss_date\',this,\'date\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dpOpen_(\'ss_date\',this,\'date\');}"><input tabindex="-1" id="ss_date" type="date" value="'+esc(s.date||ymd(new Date()))+'" style="'+inp+'"></div></div>'
     +'</div>'
     +'<label style="margin:0 0 4px">Method <span style="color:var(--muted);text-transform:none;letter-spacing:normal;font-weight:400">(optional)</span></label><input id="ss_method" value="'+esc(s.method||'')+'" placeholder="e.g. Card, PayPal" style="'+inp+'">'
     +'<label style="display:flex;align-items:center;gap:10px;padding:2px 0 10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="ss_received"'+(recd?' checked':'')+' style="width:auto;flex:0 0 auto;margin:0"><span>Payment received (count it as income)</span></label>'
@@ -7087,11 +7691,13 @@ function renderProfitSummary($m){
   var profit = income - expenseTotal;
   // A loss reads as a loss ("\u2212$2,724 loss"), not "$-2,724 profit".
   $('profit_badge').innerHTML = '<span class="pill '+(profit>=0?'gold':'red')+'">'+(profit>=0 ? $m(profit)+' profit' : '\u2212'+$m(-profit)+' loss')+'</span>';
+  var cdm=insightsCompareData_();
   $('profit_summary').innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
-    +'<div class="stat" style="cursor:pointer" onclick="showIncomeBreakdown()"><div class="v">'+$m(income)+'</div><div class="l">Income</div></div>'
-    +'<div class="stat" style="cursor:pointer" onclick="showExpensesBreakdown()"><div class="v">'+$m(expenseTotal)+'</div><div class="l">Expenses</div></div>'
+    +'<div class="stat" style="cursor:pointer" onclick="showIncomeBreakdown()"><div class="v">'+$m(income)+'</div><div class="l">Income</div>'+cmpFor_(cdm,'income',true,true)+'</div>'
+    +'<div class="stat" style="cursor:pointer" onclick="showExpensesBreakdown()"><div class="v">'+$m(expenseTotal)+'</div><div class="l">Expenses</div>'+cmpFor_(cdm,'expenses',false,true)+'</div>'
     +'</div>'
+    +(cdm && cdm.moneyOk ? '<div style="margin:-4px 0 12px;text-align:center"><span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)">Profit</span>'+cmpFor_(cdm,'profit',true,true)+'</div>' : '')
     +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(storeEnabledClient_()?' and received store sales':'')+' on the day they were actually marked received, not the event date. Each payment counts at the amount you agreed to; the card processing fee a client adds on top is not counted. Tap either tile to see exactly what makes up that total.</p>';
   renderMonthlyTrend(insightsScopedIncomeEvents(true), insightsScopedExpenses(true), $m);
 }
@@ -7549,6 +8155,37 @@ var EXPENSE_CATEGORY_FILTER = 'all'; // category name, or 'all' — combines wit
 var EXPENSE_RECEIPT_FILTER = 'all'; // 'all' | 'missing' | 'has' — combines with year/month/category, independent of them
 var EXPENSE_VIEW_YEAR = new Date().getFullYear(); // this year by default; a past year or 'all' scopes the whole page (the period control)
 var EXPENSE_VIEW_MONTH = 'all'; // 'all' or a 0-11 month index — only meaningful once a specific year is chosen
+var EXPENSE_COMPARE = 'off'; // 'off' (default), 'last' (the year before), or a 4-digit year such as '2023'
+// Prior-year numbers for the Total spent / Expenses chips. Same rules as Insights: the current year is compared
+// through the same calendar date last year; a finished year or month compares whole; nothing last year -> no chips.
+function expensesCompareData_(period){
+  if(EXPENSE_COMPARE==='off' || EXPENSE_VIEW_YEAR==='all') return null;
+  var Y=Number(EXPENSE_VIEW_YEAR), m=EXPENSE_VIEW_MONTH==='all'?null:Number(EXPENSE_VIEW_MONTH);
+  var C=compareYearOf_(EXPENSE_COMPARE, Y), w=compareWindow_(Y, C, m, new Date());
+  var prior = EXPENSES.filter(function(E){
+    var d=pd(E.date); if(!d || d.getFullYear()!==C) return false;
+    if(m!==null && d.getMonth()!==m) return false;
+    return !w.priorCutoff || d<=w.priorCutoff;
+  });
+  if(!prior.length) return null;
+  var now=period.filter(function(E){ var d=pd(E.date); return !w.curCutoff || (d && d<=w.curCutoff); });
+  var sum=function(a){ return a.reduce(function(s,E){ return s+(Number(E.amount)||0); },0); };
+  return {cur:{total:sum(now), count:now.length}, prior:{total:sum(prior), count:prior.length}, cy:C, partial:w.partial, moneyOk:!w.futureMonth,
+          label:compareLabel_(C,m)};
+}
+function expensesCompareNoteText_(cd){
+  if(!cd){
+    if(EXPENSE_COMPARE==='off' || EXPENSE_VIEW_YEAR==='all') return '';
+    return 'No expenses from '+compareLabel_(compareYearOf_(EXPENSE_COMPARE, Number(EXPENSE_VIEW_YEAR)), EXPENSE_VIEW_MONTH==='all'?null:Number(EXPENSE_VIEW_MONTH))+' to compare with.';
+  }
+  return cd.partial ? 'Compared with '+cd.label+', through the same date.' : 'Compared with '+cd.label+'.';
+}
+function setExpenseCompare(v){ EXPENSE_COMPARE = v==='off' ? 'off' : (/^\d{4}$/.test(String(v)) ? String(v) : 'last'); renderExpenses(); }
+// Off -> turn on (last year). On -> open the little menu to pick a different year, or turn it off.
+function expenseCompareTap(){
+  if(EXPENSE_COMPARE==='off') setExpenseCompare('last');
+  else pvOpen_('expenseCompareSel', $('expenseCompareBtn'));
+}
 function renderExpenses(){
   var now = new Date();
   var curYear = now.getFullYear();
@@ -7565,6 +8202,7 @@ function renderExpenses(){
     + older.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('')
     + '<option value="all">All Time</option>';
   $('exportYearSel').value = String(EXPENSE_VIEW_YEAR);
+  pvSync_('exportYearSel','exportYearTxt');
 
   // ---- Month sub-filter: only when a specific year is in view; lists just the
   // months actually used that year so no choice lands on an empty screen.
@@ -7576,10 +8214,24 @@ function renderExpenses(){
     monthSel.innerHTML = '<option value="all">All of '+EXPENSE_VIEW_YEAR+'</option>' + monthList.map(function(m){ return '<option value="'+m+'">'+monthNames[m]+'</option>'; }).join('');
     if(EXPENSE_VIEW_MONTH!=='all' && usedMonths[EXPENSE_VIEW_MONTH]) monthSel.value = EXPENSE_VIEW_MONTH;
     else { EXPENSE_VIEW_MONTH='all'; monthSel.value='all'; }
-    $('expenseMonthField').style.display = '';
+    pvSync_('expenseMonthFilterSel','expenseMonthTxt');
+    $('expenseMonthField').style.display = 'inline-flex';
   } else {
     $('expenseMonthField').style.display = 'none';
     EXPENSE_VIEW_MONTH = 'all';
+  }
+  var cmpBtn=$('expenseCompareBtn');
+  if(cmpBtn){
+    cmpBtn.style.display = EXPENSE_VIEW_YEAR==='all' ? 'none' : 'inline-flex';
+    var cmpOn = EXPENSE_COMPARE!=='off' && EXPENSE_VIEW_YEAR!=='all';
+    cmpBtn.classList.toggle('on', cmpOn);
+    cmpBtn.setAttribute('aria-pressed', cmpOn ? 'true' : 'false');
+    var cmpTx=$('expenseCompareTxt');
+    if(cmpTx) cmpTx.textContent = cmpOn ? 'vs '+compareLabel_(compareYearOf_(EXPENSE_COMPARE, Number(EXPENSE_VIEW_YEAR)), EXPENSE_VIEW_MONTH==='all'?null:Number(EXPENSE_VIEW_MONTH)) : 'Compare';
+    if(EXPENSE_VIEW_YEAR!=='all'){
+      var ey={}; EXPENSES.forEach(function(E){ var d=pd(E.date); if(d) ey[d.getFullYear()]=1; });
+      fillCompareSelect_('expenseCompareSel', Number(EXPENSE_VIEW_YEAR), EXPENSE_COMPARE, Object.keys(ey).map(Number));
+    }
   }
 
   // ---- The period-scoped set drives the badges (year + month only; the
@@ -7614,39 +8266,17 @@ function renderExpenses(){
   var catTotals={}; period.forEach(function(E){ var c=E.category||'Other'; catTotals[c]=(catTotals[c]||0)+(Number(E.amount)||0); });
   var topCat=null, topAmt=-1; Object.keys(catTotals).forEach(function(c){ if(catTotals[c]>topAmt){ topAmt=catTotals[c]; topCat=c; } });
 
-  // vs last year: like-for-like — a completed year vs the whole prior year,
-  // the current year vs the same months-to-date last year, a single month vs
-  // that month a year earlier. Blank when there is no prior-year spend.
-  var vsPct=null;
-  if(EXPENSE_VIEW_YEAR!=='all'){
-    var Y=Number(EXPENSE_VIEW_YEAR), thisT, priorT;
-    if(EXPENSE_VIEW_MONTH!=='all'){
-      var M=Number(EXPENSE_VIEW_MONTH);
-      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y && d.getMonth()===M; });
-      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1 && d.getMonth()===M; });
-    } else if(Y===curYear){
-      var cut=now.getMonth();
-      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y && d.getMonth()<=cut; });
-      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1 && d.getMonth()<=cut; });
-    } else {
-      thisT = sumExpensesWhere_(function(d){ return d.getFullYear()===Y; });
-      priorT= sumExpensesWhere_(function(d){ return d.getFullYear()===Y-1; });
-    }
-    if(priorT>0) vsPct = Math.round((thisT-priorT)/priorT*100);
-  }
-  var vsHtml = (vsPct===null)
-    ? '<span style="color:var(--muted)">&#8212;</span>'
-    : (vsPct>=0?'&#8593;':'&#8595;')+Math.abs(vsPct)+'%';
+  // Compare: chips under Total spent and Expenses (replaces the old always-on "vs last year" tile).
+  var cd=expensesCompareData_(period);
+  var _cn=$('expenseCompareNote'); if(_cn){ var _t=expensesCompareNoteText_(cd); _cn.textContent=_t; _cn.style.display=_t?'block':'none'; }
 
   var recOn = EXPENSE_RECEIPT_FILTER==='missing';
   var catOn = topCat && EXPENSE_CATEGORY_FILTER===topCat;
   $('expenseSummary').innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    // With nothing to compare against, drop "vs last year" and let Total spent take the full row.
-    + expStatHtml_(fmtMoney(total)||'$0','Total spent',{span:vsPct===null})
-    + (vsPct===null ? '' : expStatHtml_(vsHtml,'vs last year'))
+    + expStatHtml_(fmtMoney(total)||'$0','Total spent',{span:true,chip:cmpFor_(cd,'total',false,true)})
     + expStatHtml_(fmtMoney(avgMonth)||'$0','Avg / month')
-    + expStatHtml_(String(count),count===1?'Expense':'Expenses')
+    + expStatHtml_(String(count),count===1?'Expense':'Expenses',{chip:cmpFor_(cd,'count',false,true)})
     + expStatHtml_(String(missing),'Missing receipts',{click:'toggleExpenseReceiptBadge()',crimson:missing>0,on:recOn})
     + (topCat ? expStatHtml_(esc(topCat),'Top category',{click:'toggleExpenseTopCat(this)',dataCat:topCat,on:catOn,vsize:'17px'})
               : expStatHtml_('&#8212;','Top category'))
@@ -7703,9 +8333,6 @@ function expenseMonthGroupsHtml_(sorted, monthNames){
   }).join('')+'</div>';
 }
 // Shared helpers for the Expenses badges.
-function sumExpensesWhere_(pred){
-  return EXPENSES.reduce(function(s,E){ var d=pd(E.date); return (d && pred(d)) ? s+(Number(E.amount)||0) : s; }, 0);
-}
 function expStatHtml_(v,l,o){
   o=o||{};
   var style='', vstyle='', attrs='';
@@ -7716,7 +8343,7 @@ function expStatHtml_(v,l,o){
   if(o.dataCat!=null) attrs+=' data-cat="'+esc(o.dataCat)+'"';
   return '<div class="stat'+(o.on?' on':'')+'"'+(style?' style="'+style+'"':'')+attrs+'>'
     +'<div class="v"'+(vstyle?' style="'+vstyle+'"':'')+'>'+v+'</div>'
-    +'<div class="l">'+l+'</div></div>';
+    +'<div class="l">'+l+'</div>'+(o.chip||'')+'</div>';
 }
 function toggleExpenseFilters(){
   var w=$('expenseFilterWrap'), btn=$('expfilter_row'); if(!w) return;
@@ -7745,6 +8372,7 @@ function categoryColor(cat){
 }function setExpenseViewYear(v){
   EXPENSE_VIEW_YEAR = v || 'all';
   EXPENSE_VIEW_MONTH = 'all'; // a new year means whatever month was picked no longer necessarily applies
+  if(EXPENSE_COMPARE!=='off') EXPENSE_COMPARE = 'last'; // ...and a comparison year chosen for the old year no longer applies either
   renderExpenses();
 }
 function setExpenseViewMonth(v){
@@ -7895,7 +8523,7 @@ function closeMileage(){
 function milToday_(){ var d=new Date(); return d.getFullYear()===TAX_YEAR ? ymd(d) : (TAX_YEAR+'-12-31'); }
 function renderMileage_(){
   var trips=(TAX_STATE.trips||[]).slice().sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
-  var h='<div class="field"><label>Date</label><input id="mil_date" type="date" min="'+TAX_YEAR+'-01-01" max="'+TAX_YEAR+'-12-31" value="'+milToday_()+'"></div>'
+  var h='<div class="field"><label>Date</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Trip date" onclick="dpOpen_(\'mil_date\',this,\'date\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dpOpen_(\'mil_date\',this,\'date\');}"><input tabindex="-1" id="mil_date" type="date" min="'+TAX_YEAR+'-01-01" max="'+TAX_YEAR+'-12-31" value="'+milToday_()+'"></div></div>'
     +'<div class="grid2"><div class="field"><label>Miles</label><input id="mil_miles" inputmode="decimal" placeholder="0.0"></div>'
     +'<div class="field"><label>Purpose</label><input id="mil_purpose" placeholder="Client or venue"></div></div>'
     +'<div id="mil_err" class="note" style="text-align:left;min-height:16px;color:var(--crimson)"></div>'
@@ -9993,6 +10621,12 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.63', d:'Oct 2026', notes:[
+    'New — “Add extra to balance”: on a booked lead, tap “+ Add extra to balance” under Details when a client extends or adds something on site. The balance goes up by exactly that amount and the deposit stays put; the event portal, card payment and reminders show the new balance and a note is added to the lead’s history. If the balance is already marked received it tells you instead.',
+    'New — Compare in Insights and Expenses: tap “Compare” to see how each number changed against last year (▲ 18%, ▼ 12%), then tap “vs 2025 ▾” to compare with any other year. For the current year, money is compared through the same date so it is a fair comparison.',
+    'New — Emailing or texting a partner about a lead you already referred: the lead can be attached (the “Check In With Partner” reminder attaches it for you) so its name and details fill in. In template editors, one-tap buttons insert common fields and “More fields” is grouped by topic.',
+    'Changed — A cleaner, darker look for choosing things: the period at the top of Insights and Expenses is one line, dropdowns open as a black-and-gold menu (a bottom sheet on phones with big rows), and dates and times use a black-and-gold calendar and scroll wheel instead of your phone’s gray pickers.'
+  ]},
   { v:'1.5.62', d:'Oct 2026', notes:[
     'New — Month filter in Insights: next to Period, pick a month and every section follows it (booked value, leads, sources, income, expenses, profit, tax estimate, advertising and store sales). The monthly chart still shows the whole year, and “New this week / New this month” become “New in March (inquired)” and “Booked from them” when you pick a month.',
     'Changed — Tax prep: the net line is now “Total received minus expenses” (what clients paid, including any card fee they added, minus expenses including your Stripe fees). Before, it left the card fee out but still subtracted Stripe’s cost, so it came out too low. Until you enter your Stripe fees it runs slightly high, and the report says so.',
