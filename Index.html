@@ -99,6 +99,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   color:var(--gold-bright);font-weight:600;font-size:13px}
 .htoggle.hstack{flex-direction:column;align-items:flex-start;flex-wrap:wrap;row-gap:6px}
 .htoggle .httitle{text-align:left}
+.htoggle .httsub{display:block;margin-top:3px;font-size:11.5px;font-weight:400;color:var(--muted);line-height:1.35}
 .htright{display:flex;align-items:center;justify-content:flex-end;gap:8px;text-align:left;width:100%}
 .hitem{padding:9px 2px;border-bottom:1px solid rgba(201,160,80,.12);font-size:13.5px;cursor:pointer}
 .hitem:active{background:var(--panel2)}
@@ -958,8 +959,19 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
   <!-- SETTINGS VIEW -->
   <div id="view-settings" style="display:none;padding-bottom:40px">
-    <button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>
-    <p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>
+    <div id="wizPrompt">
+      <button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>
+      <p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>
+    </div>
+
+    <div class="insight-group-label">Your settings</div>
+    <div class="search-wrap" style="margin:2px 0 6px">
+      <input id="setq" type="search" autocomplete="off" placeholder="Search settings&#8230;" oninput="setSettingsQ(this.value)">
+      <button id="setqClear" class="search-clear" type="button" aria-label="Clear search" onclick="clearSettingsSearch()">&#10005;</button>
+    </div>
+    <p class="note" id="setSearchNote" style="display:none;text-align:left;margin:0 0 6px"></p>
+    <p class="note" id="setIntro" style="text-align:left;margin:0 0 8px">Start with <b>Your business</b> and <b>Getting paid</b>. The rest can wait.</p>
+    <div id="settingsBody">Loading&#8230;</div>
 
     <div class="insight-group-label">Tools</div>
     <div class="more-list">
@@ -1010,23 +1022,15 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 
     </div>
 
-    <div class="insight-group-label">Your settings</div>
-    <div class="more-list">
-      <button type="button" class="more-row" id="sec_h_yourset" onclick="toggleSec_('yourset')">
-        <span class="ic"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
-        <span class="t"><span>Your settings</span><span class="mr-sub">Business info, payment methods &amp; more</span></span><span class="chev">&#8250;</span>
-      </button>
-      <div id="sec_b_yourset" class="more-detail" style="padding:4px 12px;display:none">
-        <p class="note" style="text-align:left;margin:8px 0 8px">Tap a section to open it. Start with <b>Your business</b> and <b>Getting paid</b> &mdash; everything under <b>More options</b> is optional and can wait. Changes save automatically; blank fields use the sensible defaults shown.</p>
-        <div id="settingsBody">Loading&#8230;</div>
-      </div>
-    </div>
-
     <div class="insight-group-label">Help</div>
     <div class="more-list">
       <button type="button" class="more-row" onclick="openAbout()">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span>
         <span class="t">About Magic Manager</span><span class="chev">&#8250;</span>
+      </button>
+      <button type="button" class="more-row" onclick="launchWizard()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span>
+        <span class="t">Guided setup</span><span class="chev">&#8250;</span>
       </button>
       <button type="button" class="more-row" onclick="openHelp()">
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.5-1.1 1-1.1 1.8"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg></span>
@@ -9682,6 +9686,33 @@ var SETTINGS_FIELDS = [];
 // One field's HTML — shared by the full Settings screen and the setup wizard so
 // both render (and save via set_<key>) identically. Dispatches to the custom
 // editors, otherwise a text input / textarea.
+// Tells the phone what a field is, so email / phone / web address / account-number fields open the right keyboard
+// (and don't auto-capitalise or auto-correct a handle or address).
+// Help text under a setting. Short help shows as is; long help shows its first sentence with a "More" link, so a screen of
+// settings isn't a wall of small print. (The text itself is unchanged; a trimmed-away line is simply gone.)
+function settingsHelpHtml_(help, margin){
+  help=String(help||'').trim(); if(!help) return '';
+  var st='margin:'+(margin||'4px 0 0')+';font-size:11px;color:var(--muted)';
+  if(help.length<=150) return '<div style="'+st+'">'+esc(help)+'</div>';
+  var m=/[.!?](\s|$)/.exec(help), end=m?m.index+1:-1, head;
+  if(end>20 && end<=150 && end<help.length) head=help.slice(0,end);
+  else head=help.slice(0,110).replace(/\s+\S*$/,'')+'\u2026';
+  return '<div style="'+st+'"><span class="hhead">'+esc(head)+'</span><span class="hfull" style="display:none">'+esc(help)+'</span> '
+    +'<a class="lnk" href="javascript:void(0)" style="text-decoration:none;font-weight:600" onclick="toggleHelpMore_(this)">More</a></div>';
+}
+function toggleHelpMore_(a){
+  var box=a.parentNode, head=box.querySelector('.hhead'), full=box.querySelector('.hfull'); if(!head||!full) return;
+  var open=full.style.display==='none';
+  full.style.display=open?'':'none'; head.style.display=open?'none':''; a.textContent=open?'Less':'More';
+}
+function settingsInputAttrs_(f){
+  var m={ email:' inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="email"',
+          tel:' inputmode="tel" autocomplete="tel"',
+          url:' inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="url"',
+          numeric:' inputmode="numeric" autocomplete="off"',
+          handle:' autocapitalize="none" autocorrect="off" spellcheck="false"' };
+  return (f && f.input && m[f.input]) || '';
+}
 function settingsFieldHtml(f, raw, cfg){
   raw = raw||{}; cfg = cfg||{};
   var val = (raw[f.key]!=null?raw[f.key]:'');
@@ -9698,27 +9729,146 @@ function settingsFieldHtml(f, raw, cfg){
   var ph = (cfg[f.key]!=null?cfg[f.key]:'');
   var ctrl = f.multiline
     ? '<textarea id="set_'+f.key+'" rows="4" placeholder="'+esc(ph)+'" style="width:100%;font-family:inherit;font-size:15px;color:var(--cream);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;outline:none;resize:vertical">'+esc(val)+'</textarea>'
-    : '<input id="set_'+f.key+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'"'+(f.key==='LOGO_URL'?' oninput="updateLogoPreview(this.value)"':'')+'>';
+    : '<input id="set_'+f.key+'" value="'+esc(val)+'" placeholder="'+esc(ph)+'"'+settingsInputAttrs_(f)+(f.key==='LOGO_URL'?' oninput="updateLogoPreview(this.value)"':'')+'>';
   var h = '<div class="field"><label>'+esc(f.label)+'</label>' + ctrl
-    + (f.help?'<div style="margin:4px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'');
+    + settingsHelpHtml_(f.help,'4px 0 0');
   if(f.key==='LOGO_URL'){ h += '<div id="logoPreview" style="margin-top:8px"></div>'; }
   return h + '</div>';
+}
+/* One-line summary shown under each Settings section's name, so you can check a setting without opening the section.
+   v(key) gives the value as it stands (blank = not set); cfg carries the app's defaults. */
+function settingsSummary_(id, v, cfg){
+  cfg=cfg||{};
+  var t=function(k){ return String(v(k)==null?'':v(k)).trim(); };
+  var has=function(k){ return t(k)!==''; };
+  var lines=function(k){ return t(k).split(/\n/).map(function(x){ return x.trim(); }).filter(Boolean).length; };
+  if(id==='business'){
+    var bits=[t('BUSINESS_NAME'), t('OWNER_NAME')].filter(Boolean).filter(function(x,i,a){ return a.indexOf(x)===i; });
+    return bits.length ? bits.join(' \u00b7 ') : 'Not set yet';
+  }
+  if(id==='payments'){
+    var dep = has('DEPOSIT_PERCENT') ? Number(t('DEPOSIT_PERCENT')) : (cfg.DEPOSIT_PERCENT!=null && cfg.DEPOSIT_PERCENT!=='' ? Number(cfg.DEPOSIT_PERCENT) : 50);
+    var fee = (t('CARD_FEE_ENABLED') || String(cfg.CARD_FEE_ENABLED||'yes')).toLowerCase()==='no' ? 'Card fee off' : 'Card fee on';
+    var m=[];
+    if(has('VENMO_USERNAME')) m.push('Venmo');
+    if(has('CASHAPP_CASHTAG')) m.push('Cash App');
+    if(has('PAYPAL_USERNAME')) m.push('PayPal');
+    if(has('ZELLE_HANDLE')) m.push('Zelle');
+    if(has('ACH_ACCOUNT') && has('ACH_ROUTING')) m.push('ACH');
+    if(has('WIRE_ACCOUNT') && has('WIRE_ROUTING')) m.push('Wire');
+    if(has('CHECK_PAYEE') || has('CHECK_ADDRESS')) m.push('Check');
+    if(has('CASH_INSTRUCTIONS')) m.push('Cash');
+    var mt = !m.length ? 'no methods yet' : (m.length>3 ? m.slice(0,3).join(', ')+' +'+(m.length-3) : m.join(', '));
+    return (dep>0 ? (isNaN(dep)?'50':dep)+'% deposit' : 'No deposit')+' \u00b7 '+fee+' \u00b7 '+mt;
+  }
+  if(id==='services'){
+    var s=lines('SERVICES'), e=lines('EVENT_TYPES');
+    if(!s && !e) return 'Using the standard lists';
+    return [s ? s+(s===1?' service':' services') : '', e ? e+(e===1?' event type':' event types') : ''].filter(Boolean).join(' \u00b7 ');
+  }
+  if(id==='contract'){
+    var c=[]; if(has('CANCELLATION_POLICY')) c.push('Your cancellation policy'); if(has('ADDITIONAL_TERMS')) c.push('extra terms');
+    return c.length ? c.join(' + ') : 'Standard wording';
+  }
+  if(id==='storefront') return t('STORE_ENABLED').toLowerCase()==='yes' ? 'On' : 'Off';
+  if(id==='reminders'){
+    var r=['30-day check-in '+(t('REMIND_30_DAYS').toLowerCase()==='yes'?'on':'off'), has('HOME_ADDRESS')?'Leave-for alerts on':'Leave-for alerts off'];
+    if(has('ACCOUNTANT_EMAIL')) r.push('accountant set');
+    return r.join(' \u00b7 ');
+  }
+  if(id==='advanced'){
+    var n=['CALL_LINK','TEXT_LINK','LOGO_BACKING','CONTRACTS_FOLDER','RECEIPTS_FOLDER','CAL_NAME','CONTACT_GROUP'].filter(has).length;
+    return n ? n+' customized' : 'Using the defaults';
+  }
+  return '';
+}
+var SETTINGS_SECTIONS_LIVE=[], SETTINGS_CFG_LIVE={}, SETTINGS_RAW_LIVE={};
+// Re-draws every summary from the values as they stand NOW (the form's own inputs win over what was loaded).
+function refreshSettingsSummaries_(){
+  var v=function(k){ var el=$('set_'+k); return el ? el.value : (SETTINGS_RAW_LIVE[k]==null?'':String(SETTINGS_RAW_LIVE[k])); };
+  (SETTINGS_SECTIONS_LIVE||[]).forEach(function(sec){ var el=$('setsum_'+sec.id); if(el) el.textContent=settingsSummary_(sec.id, v, SETTINGS_CFG_LIVE); });
+}
+// Same "is this business set up yet?" test the welcome card and first-run wizard use.
+function setupIsDone_(){ return !!(CFG && CFG.BUSINESS_NAME && CFG.BUSINESS_NAME !== 'Your Business'); }
+// Until the business is set up, the Settings screen leads with the guided-setup button and a one-line "start with…" hint.
+// Once it is set up, both go away entirely (help that has done its job gets out of the way); guided setup stays one tap
+// away as the "Guided setup" row under Help.
+function renderWizardPrompt_(){
+  var box=$('wizPrompt'), intro=$('setIntro'), done=setupIsDone_();
+  if(box){
+    box.style.display = done ? 'none' : '';
+    box.innerHTML = done ? '' :
+      '<button class="save" style="margin:0 0 4px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="launchWizard()">&#10038; Guided setup wizard</button>'
+      +'<p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>';
+  }
+  if(intro && !SETTINGS_Q) intro.style.display = done ? 'none' : '';
+}
+/* ---------- Search settings (same box as the Leads search: .search-wrap, type=search, a clear button that appears with text) ---------- */
+var SETTINGS_Q='';
+// Pure part: which settings match? Every word typed must appear somewhere in a setting's name, heading, section or help text;
+// typing a section's name ("store", "advanced") shows everything in it.
+function settingsSearchPlan_(q, fields, sections){
+  var words=String(q||'').toLowerCase().split(/\s+/).filter(Boolean);
+  var keys={}, secs={}, grps={}, n=0;
+  if(!words.length) return {active:false, keys:keys, secs:secs, grps:grps, count:0};
+  var secOf={}; (sections||[]).forEach(function(s){ secOf[s.id]=s; });
+  (fields||[]).forEach(function(f){
+    var sec=secOf[f.section]||{};
+    var hay=[f.label, f.group, String(f.key||'').replace(/_/g,' '), f.help, sec.title, sec.short].join(' ').toLowerCase();
+    if(words.every(function(w){ return hay.indexOf(w)>-1; })){
+      keys[f.key]=1; secs[f.section]=1; n++;
+      if(f.collapse) grps['g_'+String(f.group).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')]=1;
+    }
+  });
+  return {active:true, keys:keys, secs:secs, grps:grps, count:n};
+}
+function setSettingsQ(v){
+  SETTINGS_Q=String(v||'').trim();
+  var c=$('setqClear'); if(c) c.classList.toggle('show', !!SETTINGS_Q);
+  applySettingsSearch_();
+}
+function clearSettingsSearch(){
+  var inp=$('setq'); if(inp) inp.value='';
+  setSettingsQ('');
+  if(inp) inp.focus();
+}
+// DOM part: show only matching settings and open what holds them; clearing puts everything back (all sections closed).
+function applySettingsSearch_(){
+  var body=$('settingsBody'); if(!body) return;
+  var plan=settingsSearchPlan_(SETTINGS_Q, SETTINGS_FIELDS, SETTINGS_SECTIONS_LIVE), on=plan.active;
+  var all=function(sel){ return Array.prototype.slice.call(body.querySelectorAll(sel)); };
+  var setOpen=function(id, open){
+    var w=$('setsec_'+id+'_wrap'), ch=$('setsec_'+id+'_chev');
+    if(w) w.style.display = open ? '' : 'none';
+    if(ch) ch.innerHTML = open ? '&#9652;' : '&#9662;';
+  };
+  all('.setfld').forEach(function(el){ el.style.display = (!on || plan.keys[el.getAttribute('data-key')]) ? '' : 'none'; });
+  all('.setblk').forEach(function(el){ var any=!on || all2(el,'.setfld').some(function(f){ return f.style.display!=='none'; }); el.style.display = any ? '' : 'none'; });
+  function all2(el, sel){ return Array.prototype.slice.call(el.querySelectorAll(sel)); }
+  all('.setgrp').forEach(function(el){ var id=el.getAttribute('data-grp'), show=!on || !!plan.grps[id]; el.style.display = show ? '' : 'none'; setOpen(id, on && show); });
+  var moreAny=false;
+  all('.setsec').forEach(function(el){
+    var id=el.getAttribute('data-sec'), show=!on || !!plan.secs[id];
+    el.style.display = show ? '' : 'none'; setOpen(id, on && show);
+    if(show && on && (SETTINGS_SECTIONS_LIVE||[]).some(function(s){ return s.id===id && s.tier==='more'; })) moreAny=true;
+  });
+  var more=$('setmore'); if(more) more.style.display = (!on || moreAny) ? '' : 'none';
+  setOpen('moreopts', on && moreAny);
+  var sum=$('setsec_moreopts_sum'); if(sum) sum.style.display = (on && moreAny) ? 'none' : '';
+  var intro=$('setIntro'); if(intro) intro.style.display = (on || setupIsDone_()) ? 'none' : '';
+  var note=$('setSearchNote'); if(note){ note.style.display = on && plan.count ? 'block' : 'none'; note.textContent = plan.count+(plan.count===1?' setting matches':' settings match'); }
+  var none=$('setNoMatch'); if(none) none.style.display = on && !plan.count ? 'block' : 'none';
 }
 function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
-  // "Your settings" collapses to one row (it's the least-visited part of this screen) —
-  // collapsed by default, remembered per device once they've opened it (same mechanism
-  // as the Leads collapsible sections).
-  var ysOpen=secIsOpen_('yourset', {defaultOpen:false, noSearch:true});
-  var ysH=$('sec_h_yourset'), ysB=$('sec_b_yourset');
-  if(ysH) ysH.classList.toggle('open', ysOpen);
-  if(ysB) ysB.style.display=ysOpen?'block':'none';
+  renderWizardPrompt_();
   body.innerHTML = 'Loading…';
   GS.withSuccessHandler(function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
     var cfg = s.config || {}, raw = s.raw || {};
+    SETTINGS_SECTIONS_LIVE=sections; SETTINGS_CFG_LIVE=cfg; SETTINGS_RAW_LIVE=raw;
     function filled(f){ var v=raw[f.key]; return v!=null && String(v).trim()!==''; }
     function fieldHtml(f){ return settingsFieldHtml(f, raw, cfg); }
     var used = {}, html = '';
@@ -9734,16 +9884,17 @@ function renderSettings(){
         if(last && f.group && last.group===f.group) last.fields.push(f);
         else blocks.push({group:f.group||null, collapse:!!f.collapse, fields:[f]});
       });
+      var fld=function(f){ return '<div class="setfld" data-key="'+f.key+'">'+fieldHtml(f)+'</div>'; };
       return blocks.map(function(b){
         if(b.collapse){
           var id=groupSlug(b.group), set=b.fields.some(filled);
-          return '<button class="htoggle hstack" style="margin-top:8px" onclick="toggleSetupSection(\''+id+'\')">'
+          return '<div class="setgrp" data-grp="'+id+'"><button class="htoggle hstack" style="margin-top:8px" onclick="toggleSetupSection(\''+id+'\')">'
             + '<span class="httitle" style="font-size:14px">'+esc(b.group)+'</span>'
             + '<span class="htright"><span style="font-size:11px;font-weight:600;color:'+(set?'var(--sage)':'var(--muted)')+'">'+(set?'\u2713 set up':'not set up')+'</span><span id="setsec_'+id+'_chev">&#9662;</span></span></button>'
-            + '<div id="setsec_'+id+'_wrap" style="display:none;margin-top:8px">'+b.fields.map(fieldHtml).join('')+'</div>';
+            + '<div id="setsec_'+id+'_wrap" style="display:none;margin-top:8px">'+b.fields.map(fld).join('')+'</div></div>';
         }
-        return (b.group ? '<div class="sec-title" style="margin:16px 0 8px"><span class="t">'+esc(b.group)+'</span><span class="rule"></span></div>' : '')
-          + b.fields.map(fieldHtml).join('');
+        return '<div class="setblk">'+(b.group ? '<div class="sec-title" style="margin:16px 0 8px"><span class="t">'+esc(b.group)+'</span><span class="rule"></span></div>' : '')
+          + b.fields.map(fld).join('')+'</div>';
       }).join('');
     }
     function sectionHtml(sec){
@@ -9753,14 +9904,14 @@ function renderSettings(){
       var counted = fs.filter(function(f){ return !f.collapse; });
       var done = counted.filter(filled).length, tot = counted.length, complete = done===tot;
       var badge = '<span style="font-size:11px;font-weight:600;color:'+(complete?'var(--sage)':'var(--muted)')+'">'+(complete?'✓ done':done+' / '+tot)+'</span>';
-      return '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\''+sec.id+'\')">'
-        + '<span class="httitle">'+esc(sec.title)+'</span>'
+      return '<div class="setsec" data-sec="'+sec.id+'"><button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\''+sec.id+'\')">'
+        + '<span class="httitle">'+esc(sec.title)+'<span class="httsub" id="setsum_'+sec.id+'">'+esc(settingsSummary_(sec.id, function(k){ return raw[k]==null?'':String(raw[k]); }, cfg))+'</span></span>'
         + '<span class="htright">'+badge+'<span id="setsec_'+sec.id+'_chev">'+(sec.open?'&#9652;':'&#9662;')+'</span></span>'
         + '</button>'
         + '<div id="setsec_'+sec.id+'_wrap" style="'+(sec.open?'':'display:none;')+'margin-top:10px">'
         + (sec.desc?'<p class="note" style="text-align:left;margin:0 0 10px">'+esc(sec.desc)+'</p>':'')
         + groupedFieldsHtml(fs)
-        + '</div>';
+        + '</div></div>';
     }
     // The essentials show up front; everything optional sits behind ONE "More options" row so nobody faces a long list.
     var mainSecs=sections.filter(function(sec){ return sec.tier!=='more'; }), moreSecs=sections.filter(function(sec){ return sec.tier==='more'; });
@@ -9769,10 +9920,10 @@ function renderSettings(){
     if(moreHtml){
       var names=moreSecs.filter(function(sec){ return SETTINGS_FIELDS.some(function(f){ return f.section===sec.id; }); })
         .map(function(sec){ return sec.short||sec.title; }).join(' \u00b7 ');
-      html += '<button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'moreopts\')">'
+      html += '<div id="setmore"><button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'moreopts\')">'
         + '<span class="httitle">More options (all optional)</span>'
         + '<span class="htright"><span id="setsec_moreopts_sum" style="font-size:11px;color:var(--muted)">'+esc(names)+'</span><span id="setsec_moreopts_chev">&#9662;</span></span></button>'
-        + '<div id="setsec_moreopts_wrap" style="display:none;margin:0 0 0 10px;padding-left:10px;border-left:1px solid var(--line)">'+moreHtml+'</div>';
+        + '<div id="setsec_moreopts_wrap" style="display:none;margin:0 0 0 10px;padding-left:10px;border-left:1px solid var(--line)">'+moreHtml+'</div></div>';
     }
     var leftover = SETTINGS_FIELDS.filter(function(f){ return !used[f.key]; });
     if(leftover.length){
@@ -9784,8 +9935,10 @@ function renderSettings(){
     }
     // No Save button — every field autosaves on change/blur, matching the lead
     // editor and the rest of the app. This line is the running status.
+    html += '<p class="note" id="setNoMatch" style="display:none;text-align:left;margin:14px 0">No settings match that. Try a word like deposit, email or Venmo.</p>';
     html += '<p class="note" id="set_savestat" style="text-align:left;margin:18px 0 6px">Changes save automatically ✦</p>';
     body.innerHTML = html;
+    if(SETTINGS_Q) applySettingsSearch_();
     updateLogoPreview((raw.LOGO_URL!=null?raw.LOGO_URL:'') || (cfg.LOGO_URL!=null?cfg.LOGO_URL:''));
     if($('storeProdList')) storeLoadProducts();
     // Snapshot current values so autosave sends only what actually changes.
@@ -9853,9 +10006,13 @@ function doSettingsAutosave(){
     if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); }
     keys.forEach(function(k){ SET_LAST[k]=obj[k]; });
     var el=$('set_savestat'); if(el) el.innerHTML='Saved ✦';
+    toast('Saved ✦');                       // the status line is at the very bottom of the screen; this is where you are looking
+    refreshSettingsSummaries_();
+    renderWizardPrompt_();
     maybeShowSetupNudge();
   }).withFailureHandler(function(){
     var el=$('set_savestat'); if(el) el.innerHTML='Save failed — check connection';
+    toast('Could not save — check your connection');
   }).saveSettings(obj);
 }
 
@@ -10240,7 +10397,7 @@ function serviceMsgEditorHtml(f, val, cfg){
   try { var src = (val && String(val).trim()) ? val : ((cfg&&cfg.SERVICE_MESSAGES)||''); if(src) map = JSON.parse(src)||{}; } catch(e){ map={}; }
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+esc(JSON.stringify(map))+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<div class="smg-list" id="smgList">'+serviceMsgRowsHtml(services, map)+'</div></div>';
 }
 // Live-rebuild the message boxes when the Services list changes, without reopening
@@ -10279,7 +10436,7 @@ function portalThemeEditorHtml(f, val, cfg){
   var cs='width:56px;height:40px;padding:2px;flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     +'<input type="hidden" id="set_'+f.key+'" value="'+esc(val||'')+'">'
-    +(f.help?'<div style="margin:4px 0 10px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    +settingsHelpHtml_(f.help,'4px 0 10px')
     +'<div class="smg-label" style="margin-bottom:4px">Accent color</div>'
     +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><input type="color" id="pt_accent" value="'+(acc||'#C9A050')+'" data-set="'+(acc?'1':'')+'" style="'+cs+'" oninput="this.dataset.set=\'1\';portalThemeSync()">'
     +'<span id="pt_accent_txt" style="font-size:12px;color:var(--muted);flex:1">'+(acc?esc(acc):'Default gold')+'</span></div>'
@@ -10347,7 +10504,7 @@ function audiencesEditorHtml(f, val, cfg){
   }).join('');
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<div>'+boxes+'</div></div>';
 }
 function audiencesSync(){
@@ -10366,7 +10523,7 @@ function storefrontEditorHtml(f, val, cfg){
   var on = String(val||'').trim().toLowerCase()==='yes';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'')+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
     +   '<input type="checkbox" id="store_enable_box"'+(on?' checked':'')+' onchange="storefrontSync()" style="width:auto;flex:0 0 auto;margin:0">'
     +   '<span>Turn on my store page</span></label>'
@@ -10391,7 +10548,7 @@ function cardfeeEditorHtml(f, val, cfg){
   var on = String(val||'').trim().toLowerCase()!=='no';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'no')+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
     +   '<input type="checkbox" id="cardfee_box"'+(on?' checked':'')+' onchange="cardFeeSync()" style="width:auto;flex:0 0 auto;margin:0">'
     +   '<span>Add a 3.25% fee to credit-card payments</span></label>'
@@ -10408,7 +10565,7 @@ function toggleEditorHtml(f, val, cfg){
   var on = f.defaultOff ? v==='yes' : v!=='no';   // defaultOff: only an explicit "yes" turns it on
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+(on?'yes':'no')+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<label style="display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer">'
     +   '<input type="checkbox" id="tgl_'+f.key+'"'+(on?' checked':'')+' onchange="toggleSync(\''+f.key+'\')" style="width:auto;flex:0 0 auto;margin:0">'
     +   '<span>'+esc(f.toggleLabel||('Enable '+f.label))+'</span></label>'
@@ -10454,7 +10611,7 @@ function storemethodsEditorHtml(f, val, cfg){
   }).join('');
   return '<div class="field"><label>'+esc(f.label)+'</label>'
     + '<input type="hidden" id="set_'+f.key+'" value="'+esc(current.join('\n'))+'">'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + '<div>'+boxes+'</div></div>';
 }
 function storemethodsSync(){
@@ -10479,7 +10636,7 @@ function businessdocsEditorHtml(f, val, cfg){
     + '<b style="color:var(--gold-bright)">Before you upload a W-9:</b> anything you add here can be viewed by anyone who has a client’s event portal link. A W-9 normally shows your Social Security number — so it’s common to put an <b>EIN</b> on it instead. You can get an EIN free from the IRS in a few minutes, and then you’re never sharing your SSN. (Your call — your accountant can confirm what’s best for you.)'
     + '</div>';
   return '<div class="field"><label>'+esc(f.label)+'</label>'
-    + (f.help?'<div style="margin:4px 0 8px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 8px')
     + tip
     + '<div id="bizDocsBox">'+businessDocsRowsHtml()+'</div></div>';
 }
@@ -10561,7 +10718,7 @@ function signatureEditorHtml(f, val, cfg){
   SIG = { hasImage: !!(cfg && cfg.SIGNATURE_FILE_ID), dataUri:'' }; SIG_DEL_ARM=false;
   if(SIG.hasImage) loadSignaturePreview_();
   return '<div class="field"><label>'+esc(f.label)+'</label>'
-    + (f.help?'<div style="margin:4px 0 10px;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'4px 0 10px')
     + '<div id="sigImageBox">'+signatureImageHtml_()+'</div>'
     + '<label for="set_SIGNATURE_FONT" style="display:block;margin:12px 0 4px;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)">Signature style</label>'
     + '<select id="set_SIGNATURE_FONT" onchange="renderSignatureStyle_()">'
@@ -10660,7 +10817,7 @@ function depositpctEditorHtml(f, val, cfg){
     +   '<input id="set_DEPOSIT_PERCENT" type="number" min="0" max="100" step="1" value="'+esc(cur)+'" oninput="depositPctExample()" style="width:90px">'
     +   '<span style="color:var(--muted);font-size:13px">% of the total</span>'
     + '</div>'
-    + (f.help?'<div style="margin:6px 0 0;font-size:11px;color:var(--muted)">'+esc(f.help)+'</div>':'')
+    + settingsHelpHtml_(f.help,'6px 0 0')
     + '<div id="depositPctEx" style="font-size:12px;color:var(--gold-bright);margin-top:6px">'+esc(depositPctExampleText(cur))+'</div>'
     + '</div>';
 }
@@ -10684,6 +10841,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.67', d:'Oct 2026', notes:[
+    'New — Search your settings: a search box at the top of Settings, the same one as on Leads. Type “deposit”, “venmo” or “store” and only the matching settings show, with the sections that hold them opened for you.',
+    'Changed — A calmer, quicker Settings screen: your settings sit right on the screen (no extra tap) ahead of Tools; each section shows a one-line summary (“50% deposit · Card fee on · Venmo, Zelle”); a “Saved ✦” message pops up when a change saves; and fields open the right phone keyboard.',
+    'Changed — Less small print: help that only repeated a setting’s name is gone and longer help shows its first sentence with a “More” link. Once your business is set up, the guided-setup button and the “Start with…” hint leave Settings; guided setup lives under Help → Guided setup.'
+  ]},
   { v:'1.5.66', d:'Oct 2026', notes:[
     'Changed — A shorter “Getting paid” screen in Settings: up front you see your deposit, the card fee, the two notification emails and the simple payment handles (Venmo, Cash App, PayPal, Zelle). ACH bank transfer, Wire transfer, Mailed check and Cash are small rows that stay closed until you tap them, each showing a check mark once it is set up. Nothing you have saved moves.'
   ]},

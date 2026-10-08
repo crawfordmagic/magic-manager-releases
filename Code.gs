@@ -128,34 +128,34 @@ function cardFeeRate_() {
 // shown within a section.
 var CONFIG_FIELDS_ = [
   // Your business
-  { key: 'BUSINESS_NAME', label: 'Business name', help: 'Shown throughout the app and to clients.', section: 'business' },
-  { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: 'Full legal entity name used on contracts.', section: 'business' },
+  { key: 'BUSINESS_NAME', label: 'Business name', help: '', section: 'business' },
+  { key: 'BUSINESS_LEGAL_NAME', label: 'Legal business name', help: '', section: 'business' },
   { key: 'OWNER_NAME', label: 'Your name', help: 'Owner / service provider name on contracts and the event portal.', section: 'business' },
   { key: 'TAGLINE', label: 'Tagline', help: 'Short line under your name on the contract.', section: 'business' },
-  { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid. Also used in your branded email signature (it opens your website when tapped).', section: 'business' },
+  { key: 'LOGO_URL', label: 'Logo image link', help: 'Paste a direct, public link to your logo image (it should end in .png or .jpg). Easiest way: open the logo on your own website, right-click it, and choose "Copy image address," then paste it here. A Google Drive or Dropbox share link will not work — it has to be a direct image link. A preview appears below once the link is valid. Also used in your branded email signature (it opens your website when tapped).', input: 'url', section: 'business' },
   { key: 'SIGNATURE_FONT', label: 'Your signature', help: 'How your name is signed on contracts and receipts. Upload a picture of your signature (a PNG with a transparent background looks best), or pick a signature style.', editor: 'signature', section: 'business' },
   { key: 'BUSINESS_DOCS', label: 'Tax form & insurance', help: 'Optional. Upload your W-9 and proof of insurance (PDF or image). Clients can view them on their own event portal — handy when a venue or a client\'s accounting team asks for one.', editor: 'businessdocs', section: 'business' },
   // How clients reach you
-  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on the event portal and contract. Also used in your branded email signature.', group: 'How clients reach you', section: 'business' },
-  { key: 'PHONE', label: 'Contact phone', help: 'Shown to clients (optional). Also used in your branded email signature.', group: 'How clients reach you', section: 'business' },
-  { key: 'WEBSITE', label: 'Website', help: 'Shown to clients (optional), e.g. yourbusiness.com. Also used in your branded email signature.', group: 'How clients reach you', section: 'business' },
+  { key: 'EMAIL', label: 'Contact email', help: 'Shown to clients on your contract and event portal, and in your email signature.', group: 'How clients reach you', input: 'email', section: 'business' },
+  { key: 'PHONE', label: 'Contact phone', help: '', group: 'How clients reach you', input: 'tel', section: 'business' },
+  { key: 'WEBSITE', label: 'Website', help: '', group: 'How clients reach you', input: 'url', section: 'business' },
   { key: 'ADDRESS', label: 'Mailing address', help: 'Used on the contract and for check/wire instructions.', group: 'How clients reach you', section: 'business' },
   // Getting paid
   { key: 'DEPOSIT_PERCENT', label: 'Deposit', help: 'How much you collect up front, as a percent of the booking total. The rest becomes the balance, due before the event. Set it to 0 to skip deposits entirely — clients then pay the full amount in one payment, and their event portal goes straight to the balance. You can still set a specific deposit on an individual lead; this is only the default.', editor: 'depositpct', section: 'payments' },
   { key: 'CARD_FEE_ENABLED', label: 'Card processing fee', help: 'When on, a 3.25% fee is added to credit-card payments to cover processing costs (deposits, balances, and store card sales). Turn it off to absorb the fee yourself — clients then pay the plain amount by card, with no surcharge. On by default.', editor: 'cardfee', section: 'payments' },
   { key: 'PAYMENT_REPORT_EMAIL', label: 'Payment-report emails', help: 'When on, you get an email whenever a client taps "I’ve sent my payment" so you know to verify and confirm it. Turn it off to rely on the "Payments to confirm" card in the app, which always shows regardless. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client reports a payment', section: 'payments' },
-  { key: 'SIGN_NOTIFY_EMAIL', label: 'Contract-signed emails', help: 'When on, you get an email the moment a client signs their contract. On by default.', editor: 'toggle', toggleLabel: 'Email me when a client signs', section: 'payments' },
-  { key: 'VENMO_USERNAME', label: 'Venmo username', help: 'Enables the Venmo option. Blank hides it.', group: 'Payment methods', section: 'payments' },
-  { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: 'Enables Cash App. Blank hides it.', group: 'Payment methods', section: 'payments' },
-  { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', group: 'Payment methods', section: 'payments' },
-  { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', group: 'Payment methods', section: 'payments' },
-  { key: 'ACH_BANK', label: 'ACH bank name', help: 'Shown with ACH instructions.', group: 'ACH bank transfer', collapse: true, section: 'payments' },
-  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', group: 'ACH bank transfer', collapse: true, section: 'payments' },
-  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', group: 'ACH bank transfer', collapse: true, section: 'payments' },
-  { key: 'WIRE_BANK', label: 'Wire bank name', help: 'Shown with wire instructions.', group: 'Wire transfer', collapse: true, section: 'payments' },
-  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', group: 'Wire transfer', collapse: true, section: 'payments' },
-  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', group: 'Wire transfer', collapse: true, section: 'payments' },
-  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: 'Bank address for wire instructions.', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'SIGN_NOTIFY_EMAIL', label: 'Contract-signed emails', help: '', editor: 'toggle', toggleLabel: 'Email me when a client signs', section: 'payments' },
+  { key: 'VENMO_USERNAME', label: 'Venmo username', help: '', group: 'Payment methods', input: 'handle', section: 'payments' },
+  { key: 'CASHAPP_CASHTAG', label: 'Cash App $cashtag', help: '', group: 'Payment methods', input: 'handle', section: 'payments' },
+  { key: 'PAYPAL_USERNAME', label: 'PayPal.Me username', help: 'Enables PayPal. Your PayPal.Me handle — the part after paypal.me/ (you can set one up free at paypal.me). Blank hides it.', group: 'Payment methods', input: 'handle', section: 'payments' },
+  { key: 'ZELLE_HANDLE', label: 'Zelle email or phone', help: 'Enables Zelle. The email or US mobile number enrolled with Zelle; clients send to it from their own banking app. Blank hides it.', group: 'Payment methods', input: 'handle', section: 'payments' },
+  { key: 'ACH_BANK', label: 'ACH bank name', help: '', group: 'ACH bank transfer', collapse: true, section: 'payments' },
+  { key: 'ACH_ACCOUNT', label: 'ACH account number', help: 'ACH option appears only if account + routing are set.', group: 'ACH bank transfer', collapse: true, input: 'numeric', section: 'payments' },
+  { key: 'ACH_ROUTING', label: 'ACH routing number', help: '', group: 'ACH bank transfer', collapse: true, input: 'numeric', section: 'payments' },
+  { key: 'WIRE_BANK', label: 'Wire bank name', help: '', group: 'Wire transfer', collapse: true, section: 'payments' },
+  { key: 'WIRE_ACCOUNT', label: 'Wire account number', help: 'Wire option appears only if account + routing are set.', group: 'Wire transfer', collapse: true, input: 'numeric', section: 'payments' },
+  { key: 'WIRE_ROUTING', label: 'Wire routing number', help: '', group: 'Wire transfer', collapse: true, input: 'numeric', section: 'payments' },
+  { key: 'WIRE_BANK_ADDRESS', label: 'Wire bank address', help: '', group: 'Wire transfer', collapse: true, section: 'payments' },
   { key: 'CHECK_PAYEE', label: 'Check payable to', help: 'Enables "Mail a check". Blank uses your legal name.', group: 'Mailed check', collapse: true, section: 'payments' },
   { key: 'CHECK_ADDRESS', label: 'Check mailing address', help: 'Where checks are mailed. Blank uses your mailing address.', group: 'Mailed check', collapse: true, section: 'payments' },
   { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', group: 'Cash', collapse: true, section: 'payments' },
@@ -163,7 +163,7 @@ var CONFIG_FIELDS_ = [
   { key: 'REMIND_30_DAYS', label: 'Check-in 30 days before a show', help: 'Optional. When on, a newly booked show gets a "30 days out \u2014 touch base" reminder in your Today list, ahead of the 1-week check-in. A show booked less than 30 days ahead skips it, and shows you have already booked are left exactly as they are. Off by default.', editor: 'toggle', toggleLabel: 'Remind me 30 days before each show', defaultOff: true, group: 'Reminders', section: 'reminders' },
   { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a "Leave for…" alert set for the drive time plus an hour early. Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
   { key: 'ACCOUNTANT_NAME', label: 'Accountant\'s name', help: 'Optional. The email draft in Expenses → Tax prep starts with this name (first name only if you give a full name). Only you ever see this — it is not shown to clients.', group: 'Taxes', section: 'reminders' },
-  { key: 'ACCOUNTANT_EMAIL', label: 'Accountant\'s email', help: 'Optional. Used only to address the draft email in Expenses → Tax prep. Only you ever see this — it is not shown to clients.', group: 'Taxes', section: 'reminders' },
+  { key: 'ACCOUNTANT_EMAIL', label: 'Accountant\'s email', help: 'Optional. Used only to address the draft email in Expenses → Tax prep. Only you ever see this — it is not shown to clients.', group: 'Taxes', input: 'email', section: 'reminders' },
   // Services & client page
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
@@ -173,7 +173,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
   { key: 'LOST_REASONS', label: 'Lost reasons', help: 'One per line — your own choices in the "Why was this lead lost?" picker (clients never see these; they group your Insights). An "Other…" free-text option is always there too.', multiline: true, section: 'services' },
   { key: 'SERVICE_MESSAGES', label: 'Event messages by service', help: 'Optional. A message shown to a booked client on their event portal after they sign, matched to their booking\'s service (e.g. one message for a stage show, another for strolling). A box appears for each of your Services above; leave any blank.', editor: 'servicemsgs', section: 'services' },
-  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google "write a review" link — the short one that opens the review box directly (it looks like https://g.page/r/…/review). Get it from your Google Business Profile → "Ask for reviews" / "Get more reviews" and copy the link. After a client pays their balance and the event has passed, their event portal asks for a rating + comment; a 4- or 5-star rating then offers to share it on Google — and their comment is copied to their clipboard so they just tap the stars and paste. Lower ratings stay private with you. Leave blank to keep ALL feedback private (no Google prompt).', section: 'services' },
+  { key: 'GOOGLE_REVIEW_URL', label: 'Google review link', help: 'Optional. Paste your Google "write a review" link — the short one that opens the review box directly (it looks like https://g.page/r/…/review). Get it from your Google Business Profile → "Ask for reviews" / "Get more reviews" and copy the link. After a client pays their balance and the event has passed, their event portal asks for a rating + comment; a 4- or 5-star rating then offers to share it on Google — and their comment is copied to their clipboard so they just tap the stars and paste. Lower ratings stay private with you. Leave blank to keep ALL feedback private (no Google prompt).', input: 'url', section: 'services' },
   // Contract terms
   { key: 'CANCELLATION_POLICY', label: 'Cancellation policy', help: 'Your cancellation and refund terms, in your own words. This replaces the standard cancellation wording in the Terms section of the contract. Leave blank to keep the standard wording. (It\'s your agreement — review the wording yourself, or with an advisor.)', multiline: true, section: 'contract' },
   { key: 'ADDITIONAL_TERMS', label: 'Additional terms', help: 'Optional extra clauses to add to the Terms section of the contract — one per line (e.g. an outdoor/weather backup requirement, travel, setup space, rescheduling). Each line becomes its own bullet. Leave blank to add none.', multiline: true, section: 'contract' },
@@ -181,14 +181,14 @@ var CONFIG_FIELDS_ = [
   { key: 'STORE_ENABLED', label: 'Store page', help: 'Optional. Turn on a simple public checkout page for selling products — merch, gift cards, downloads — separate from your event bookings. Add products below; each one gets its own shareable link. Off by default.', editor: 'storefront', section: 'storefront' },
   { key: 'STORE_PAYMENT_METHODS', label: 'Store payment methods', help: 'Optional. By default your store offers the same payment methods your clients see on the event portal. Tick specific methods here to show only those in the store — leave them all unticked to offer everything. A method only appears once you\'ve set it up under "Getting paid" above.', editor: 'storemethods', section: 'storefront' },
   // Calls & texts
-  { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', group: 'Calls & texts', section: 'advanced' },
-  { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', group: 'Calls & texts', section: 'advanced' },
+  { key: 'CALL_LINK', label: 'Custom call link', help: 'Optional — blank uses your phone\'s default dialer. To route through another app, paste its dial link with {number} or {digits} where the number goes — Skype works directly: skype:{number}?call. If the app just opens without a number (e.g. Google Voice: googlevoice://), the client\'s number is copied to your clipboard so you can paste it in. Tip: to use Google Voice for everything, it\'s simplest to set it as your phone\'s default app and leave this blank.', group: 'Calls & texts', input: 'handle', section: 'advanced' },
+  { key: 'TEXT_LINK', label: 'Custom text link', help: 'Optional — blank uses your phone\'s default messaging. Use {number}/{digits} for the number and {body} for the message where the app\'s link supports them. If the app just opens (e.g. Google Voice: googlevoice://), your message is copied to your clipboard so you can paste it in after you pick the contact.', group: 'Calls & texts', input: 'handle', section: 'advanced' },
   // Advanced (optional)
   { key: 'LOGO_BACKING', label: 'Logo backing', help: 'If your logo has a transparent background, Magic Manager puts a solid black square behind it on your contracts and receipts so it doesn’t look odd on white paper. Logos that aren’t transparent are never touched. Turn this off to always show your logo exactly as-is. On by default.', editor: 'toggle', toggleLabel: 'Put a black square behind a transparent logo', group: 'Logo, folders & calendar', section: 'advanced' },
-  { key: 'CONTRACTS_FOLDER', label: 'Contracts folder', help: 'Optional. Blank = "[Business name] Contracts".', group: 'Logo, folders & calendar', section: 'advanced' },
-  { key: 'RECEIPTS_FOLDER', label: 'Receipts folder', help: 'Optional. Blank = "[Business name] Receipts".', group: 'Logo, folders & calendar', section: 'advanced' },
-  { key: 'CAL_NAME', label: 'Follow-ups calendar', help: 'Optional. Blank = "[Business name] Follow-ups".', group: 'Logo, folders & calendar', section: 'advanced' },
-  { key: 'CONTACT_GROUP', label: 'Contacts group', help: 'Optional. Blank = "[Business name] Leads".', group: 'Logo, folders & calendar', section: 'advanced' }
+  { key: 'CONTRACTS_FOLDER', label: 'Contracts folder', help: '', group: 'Logo, folders & calendar', section: 'advanced' },
+  { key: 'RECEIPTS_FOLDER', label: 'Receipts folder', help: '', group: 'Logo, folders & calendar', section: 'advanced' },
+  { key: 'CAL_NAME', label: 'Follow-ups calendar', help: '', group: 'Logo, folders & calendar', section: 'advanced' },
+  { key: 'CONTACT_GROUP', label: 'Contacts group', help: '', group: 'Logo, folders & calendar', section: 'advanced' }
 ];
 
 // Setup screen sections, in display order. `open` = expanded by default (the
@@ -523,7 +523,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.66';
+var APP_VERSION = '1.5.67';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}

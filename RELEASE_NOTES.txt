@@ -1,7 +1,11 @@
 What's new in this update:
 
-• CHANGED — A shorter "Getting paid" screen in Settings. Up front you now see just your deposit, the card fee, the two notification emails, and the simple payment handles (Venmo, Cash App, PayPal, Zelle). ACH bank transfer, Wire transfer, Mailed check and Cash are small rows that stay closed until you tap them, and each shows a check mark once it's set up. Nothing you've saved moves or changes.
+• NEW — Search your settings. At the top of Settings there's now a search box, the same one you know from Leads. Type a word like "deposit", "venmo" or "store" and only the matching settings show, with the sections that hold them opened for you. Tap the ✕ to clear it.
 
-• Also in the last two updates: an optional "30 days out" check-in (Settings → More options → Reminders & taxes, off until you switch it on); a shorter Settings screen with three sections up front and everything optional behind "More options"; follow-up reminders that show where the event stands; "Add extra to balance" on a booked lead; Compare with last year or any other year in Insights and Expenses; and a cleaner black-and-gold look for dropdowns, dates and times.
+• CHANGED — A calmer, quicker Settings screen. Your settings now sit right on the screen instead of behind an extra tap, ahead of the Tools list. Each section shows a one-line summary under its name — for example "50% deposit · Card fee on · Venmo, Zelle" — so you can check a setting without opening it. A "Saved ✦" message pops up when a change saves, and fields open the right phone keyboard (email, phone number pad, web address, account numbers).
+
+• CHANGED — Less small print. Help text that only repeated a setting's name is gone, and longer help shows its first sentence with a "More" link. Once your business is set up, the guided-setup button and the "Start with…" hint disappear from Settings; guided setup is always one tap away under Help → Guided setup.
+
+• Also in the last few updates: a shorter "Getting paid" section (ACH, wire, check and cash collapse until you need them); an optional "30 days out" check-in (Settings → More options → Reminders & taxes); follow-up reminders that show where the event stands; "Add extra to balance" on a booked lead; Compare with last year or any other year in Insights and Expenses; and a cleaner black-and-gold look for dropdowns, dates and times.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
