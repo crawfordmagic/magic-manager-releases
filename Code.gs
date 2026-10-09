@@ -523,7 +523,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.67';
+var APP_VERSION = '1.5.68';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1145,7 +1145,7 @@ var API_ = {
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
   addTask: addTask_, toggleTask: toggleTask_, deleteTask: deleteTask_, updateTask: updateTask_,
   duplicateLeadAsNewBooking: duplicateLeadAsNewBooking_, updateLead: updateLead_, clearStaleFollowups: clearStaleFollowups_,
-  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_,
+  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_,
 };
 
 function api(key, name, args) {
@@ -1988,8 +1988,16 @@ function ensureContractCols_(sh) {
     depositReceiptCol: ensure('Deposit Receipt PDF URL'),
     balanceReceiptCol: ensure('Balance Receipt PDF URL'),
     invoiceNumCol: ensure('Invoice Number'),
-    balancePmCol: ensure('Balance Payment Method')
+    balancePmCol: ensure('Balance Payment Method'),
+    termsCol: ensure('Contract Snapshot')
   };
+}
+// What a contract promises that can go stale: the event's date, times and place. Written when a contract is made (and
+// when the signed copy is built); buildLeadsArray_ compares it to the lead today to raise the "contract is out of date"
+// note. Price/deposit are left out on purpose: "Add extra to balance" changes them after signing by design.
+function contractTermsOf_(get, tz) {
+  function n(v) { return v instanceof Date ? fmtCell_(v, tz) : String(v == null ? '' : v).trim(); }
+  return JSON.stringify([n(get('Date of Event')), n(get('Start Time')), n(get('End Time')), n(get('Event Location'))]);
 }
 // Assigned exactly once, the first time a contract is generated for a
 // lead, then reused forever after — including through regeneration at
@@ -2398,6 +2406,7 @@ function generateContract_(rowNum) {
     sh.getRange(rowNum, cols.signedCol).setValue('No');
     sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
     sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
+    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, SpreadsheetApp.getActive().getSpreadsheetTimeZone()));
 
     const webAppUrl = ScriptApp.getService().getUrl();
     const signUrl = webAppUrl + '?sign=' + token;
@@ -2629,6 +2638,7 @@ function buildSignedContract_(token) {
     sh.getRange(rowNum, cols.docIdCol).setValue(result.copy.getId());
     sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
     sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
+    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, SpreadsheetApp.getActive().getSpreadsheetTimeZone()));
     // Retire the earlier preview copy now that a final signed version exists.
     try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
     return;
@@ -4764,6 +4774,12 @@ function buildLeadsArray_() {
       if (v instanceof Date) v = fmtCell_(v, tz);
       o[h] = v;
     });
+    // A contract exists and the event's date / times / place no longer match what it was made with.
+    if (o['Contract Snapshot'] && o['Contract Sign URL']) {
+      try {
+        o._contractStale = contractTermsOf_(function (name) { var k = heads.indexOf(name); return k > -1 ? row[k] : ''; }, tz) !== String(o['Contract Snapshot']);
+      } catch (e) { /* never blocks the list */ }
+    }
     leads.push(o);
   }
   return leads;
@@ -5503,6 +5519,10 @@ function updateLead_(rowNum, updates) {
       sh.getRange(rowNum, doneCol).setValue(false);
     }
   });
+  // A lead marked Lost must not keep a live contract / event portal link (it would still open and could still be paid).
+  if (updates['Status'] === 'Lost') {
+    try { deactivateContract_(sh, rowNum, heads); } catch (e) { /* never blocks the save */ }
+  }
   // Only on a deposit change, so a status you set by hand is never flipped back.
   if ('Deposit Received' in updates || 'Deposit Amount' in updates) {
     try { maybeMarkBooked_(sh, rowNum); } catch (e) { console.error('Auto-book check failed: ' + e); }
@@ -5534,6 +5554,55 @@ function updateLead_(rowNum, updates) {
     }
   } catch (e) { /* receipt generation never blocks a save */ }
   return getLeadsScoped_();
+}
+
+/**
+ * Switches a lead's contract / event portal link OFF. Every portal and payment page looks the lead up by its secret
+ * link code, so blanking the code (and the link and the "signed" flag) stops them all at once. The contract document
+ * and the signed PDF stay in Drive as a record; generating a new contract later makes a fresh link.
+ */
+function deactivateContract_(sh, rowNum, heads) {
+  ['Contract Sign Token', 'Contract Sign URL', 'Contract Signed'].forEach(function (name) {
+    var c = heads.indexOf(name) + 1;
+    if (c) sh.getRange(rowNum, c).setValue('');
+  });
+}
+
+/**
+ * "Postpone — follow up later": the client isn't moving forward now but may later (a booked show that moved, or a proposal
+ * they have put off). Sets the follow-up date you chose, moves a Booked lead back to Pending, clears the event date and
+ * times (the original date goes into the history note), switches the contract / event portal link off, and logs it.
+ * Only for an active lead. Owner-only (in API_).
+ */
+function postponeLead_(rowNum, followupYmd, note) {
+  rowNum = Number(rowNum);
+  const sh = sheet_();
+  const heads = headers_(sh);
+  if (!(rowNum > 1) || rowNum > sh.getLastRow()) throw new Error('That lead could not be found.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(followupYmd || ''))) throw new Error('Choose a follow-up date.');
+  const fu = parseYMD_(followupYmd);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (!fu || isNaN(fu.getTime()) || fu.getTime() < today.getTime()) throw new Error('Choose a follow-up date that is today or later.');
+  const cell = function (name) { var c = heads.indexOf(name) + 1; return c ? sh.getRange(rowNum, c).getValue() : ''; };
+  const status = String(cell('Status') || 'New');
+  if (['Completed', 'Lost', 'Referral', 'Referred'].indexOf(status) > -1) throw new Error('Only an active lead can be postponed.');
+  const ev = cell('Date of Event');
+  const hadContract = !!String(cell('Contract Sign URL') || '') || !!String(cell('Contract Sign Token') || '');
+  const fmt = function (d) { return Utilities.formatDate(d, tz_(), 'MMM d, yyyy'); };
+  const evText = ev instanceof Date && !isNaN(ev.getTime()) ? fmt(ev) : '';
+  const updates = { 'Followup': followupYmd, 'Date of Event': '', 'Start Time': '', 'End Time': '' };
+  if (status === 'Booked') updates['Status'] = 'Pending';
+  deactivateContract_(sh, rowNum, heads);
+  const result = updateLead_(rowNum, updates);
+  try {
+    const tsCol = heads.indexOf('Timestamp') + 1;
+    const tsv = tsCol ? sh.getRange(rowNum, tsCol).getValue() : '';
+    const key = tsv instanceof Date ? String(tsv.getTime()) : String(tsv || '');
+    const text = 'Postponed' + (evText ? ' \u2014 event was ' + evText : '') + '; follow up ' + fmt(fu)
+      + (hadContract ? '. Contract and event portal link turned off' : '') + (note ? '. ' + clientText_(String(note), 300) : '');
+    logSheet_().appendRow([new Date(), key, String(cell('Customer Name') || ''), 'Note', text, Utilities.getUuid()]);
+  } catch (e) { /* the postpone itself already succeeded */ }
+  return result;
 }
 
 // Clears the Followup date on Completed/Lost leads whose date has passed

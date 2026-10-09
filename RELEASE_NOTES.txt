@@ -1,11 +1,13 @@
 What's new in this update:
 
-• NEW — Search your settings. At the top of Settings there's now a search box, the same one you know from Leads. Type a word like "deposit", "venmo" or "store" and only the matching settings show, with the sections that hold them opened for you. Tap the ✕ to clear it.
+• NEW — Postpone a lead and follow up later. For a client who changes their mind but may use you in the future (say, a New Year's Eve client you'll call next October): tap the lead's Follow-up date and choose "Postpone — follow up later" under the calendar. Pick when you want to be reminded, add a note if you like, and the lead moves back to Pending, the event date and times clear, and the event portal link turns off. The old date stays in the lead's history. If a deposit was received you'll see a reminder to refund it or keep it as credit. It's offered on booked leads and on leads with a contract link.
 
-• CHANGED — A calmer, quicker Settings screen. Your settings now sit right on the screen instead of behind an extra tap, ahead of the Tools list. Each section shows a one-line summary under its name — for example "50% deposit · Card fee on · Venmo, Zelle" — so you can check a setting without opening it. A "Saved ✦" message pops up when a change saves, and fields open the right phone keyboard (email, phone number pad, web address, account numbers).
+• NEW — A "contract is out of date" note. If you change a lead's event date, time or place after its contract was made, the Contract section tells you and points to Regenerate (for a signed contract it adds that your client will need to sign again).
 
-• CHANGED — Less small print. Help text that only repeated a setting's name is gone, and longer help shows its first sentence with a "More" link. Once your business is set up, the guided-setup button and the "Start with…" hint disappear from Settings; guided setup is always one tap away under Help → Guided setup.
+• NEW — Search finds more, and understands questions. The search box in Settings now also searches the Tools and Help lists and every Help topic, so you can type something like "how do I put this on my phone" and get the answer. There's also a new Help topic, "Putting the app on your phone", with iPhone and Android steps.
 
-• Also in the last few updates: a shorter "Getting paid" section (ACH, wire, check and cash collapse until you need them); an optional "30 days out" check-in (Settings → More options → Reminders & taxes); follow-up reminders that show where the event stands; "Add extra to balance" on a booked lead; Compare with last year or any other year in Insights and Expenses; and a cleaner black-and-gold look for dropdowns, dates and times.
+• CHANGED — Pick a date faster. In every date field, tap the month and year, choose a year, then a month, then the day.
 
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
+• CHANGED — Marking a lead Lost now turns off its event portal link, so an old link can't be opened or paid from. The contract and signed PDF stay in your Google Drive.
+
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. A new "Contract Snapshot" column is added to your sheet automatically the next time a contract is made.
