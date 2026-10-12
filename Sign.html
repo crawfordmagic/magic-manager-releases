@@ -560,6 +560,7 @@ function renderForm(d){
     +row('Services', d.services)
     +addressRow('Location', d.location)
     +amountRows
+    +contractNoteHtml_(d)
     +'</div>'
     // Styled to match the "Your Documents" buttons below (.docbtn + fileText icon + docarrow).
     +(d.pdfUrl?'<a class="docbtn" href="'+d.pdfUrl+'" target="_blank" rel="noopener" style="margin-top:14px">'
@@ -636,6 +637,7 @@ function bookingSummaryHtml(d){
     h += row('Balance', fmtMoney(Number(d.balanceBase)||0) + (d.balancePaid ? ' <span style="color:var(--gold-bright)">\u2713 received</span>' : '<div style="font-weight:400;color:var(--muted);font-size:12px">due '+esc(balanceDueText(d))+'</div>'));
   }
   h += row('Total', fmtMoney(total) + (noDeposit && d.balancePaid ? ' <span style="color:var(--gold-bright)">\u2713 paid</span>' : ''));
+  h += contractNoteHtml_(d);
   return h + '</div>';
 }
 // Signed \u00b7 Deposit \u00b7 Balance, so a returning client sees at a glance what's done and what's next.
@@ -649,6 +651,13 @@ function progressHtml(d){
     var cls = st[1] ? 'done' : (i===firstOpen ? 'now' : '');
     return '<div class="p '+cls+'"><b>'+st[0]+'</b>'+esc(st[2])+'</div>';
   }).join('')+'</div>';
+}
+// The lead's one-off contract note ("Travel costs to be confirmed...") -- shown right with the amounts, before and after signing,
+// so it is seen by whoever opens the link, even if the client forwarded it. Escaped: it is owner-typed text.
+function contractNoteHtml_(d){
+  var n=String((d && d.contractNote)||'').trim();
+  if(!n) return '';
+  return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(201,160,80,.28);font-size:13px;line-height:1.5"><span style="color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Note</span><div style="margin-top:3px">'+esc(n)+'</div></div>';
 }
 function row(k,v){
   return '<div class="row"><span class="k">'+k+'</span><span class="v">'+(v||'\u2014')+'</span></div>';

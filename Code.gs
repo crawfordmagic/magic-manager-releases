@@ -523,7 +523,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.68';
+var APP_VERSION = '1.5.69';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1124,7 +1124,7 @@ var API_ = {
   getTaxPrep: getTaxPrep_, saveTaxExtras: saveTaxExtras_, setTaxW9: setTaxW9_, addMileageTrip: addMileageTrip_, deleteMileageTrip: deleteMileageTrip_,
   getMileageSuggestions: getMileageSuggestions_, makeAccountantDraft: makeAccountantDraft_,
   confirmReportedPayment: confirmReportedPayment_, dismissReportedPayment: dismissReportedPayment_,
-  recordManualStoreSale: recordManualStoreSale_, setStoreSaleStatus: setStoreSaleStatus_, deleteStoreSale: deleteStoreSale_,
+  addReferralFee: addReferralFee_, setReferralFeeStatus: setReferralFeeStatus_, deleteReferralFee: deleteReferralFee_, recordManualStoreSale: recordManualStoreSale_, setStoreSaleStatus: setStoreSaleStatus_, deleteStoreSale: deleteStoreSale_,
   updateStoreSale: updateStoreSale_, storeListProducts: storeListProducts_, storeSaveProduct: storeSaveProduct_,
   storeDeleteProduct: storeDeleteProduct_, addExpense: addExpense_, addRecurringExpense: addRecurringExpense_,
   stopRecurringExpense: stopRecurringExpense_, editRecurringExpense: editRecurringExpense_, importExpensesBatch: importExpensesBatch_,
@@ -1997,7 +1997,31 @@ function ensureContractCols_(sh) {
 // note. Price/deposit are left out on purpose: "Add extra to balance" changes them after signing by design.
 function contractTermsOf_(get, tz) {
   function n(v) { return v instanceof Date ? fmtCell_(v, tz) : String(v == null ? '' : v).trim(); }
-  return JSON.stringify([n(get('Date of Event')), n(get('Start Time')), n(get('End Time')), n(get('Event Location'))]);
+  var parts = [n(get('Date of Event')), n(get('Start Time')), n(get('End Time')), n(get('Event Location'))];
+  // The per-lead contract note counts too -- but only when there is one, so every contract made before the note existed keeps
+  // matching (its snapshot has the four parts only) instead of suddenly looking out of date.
+  var note = contractNoteOf_(get);
+  if (note) parts.push(note);
+  return JSON.stringify(parts);
+}
+/**
+ * The per-lead "Contract note" (Rich, 2026-10-12): one-off wording for THIS contract, e.g. "Travel costs to be confirmed and
+ * added to the final balance." It is printed in the contract's Terms (insertContractNote_) and shown on the event portal next to
+ * the amounts, so it travels with the link even if the client forwards it. Plain text, capped at 300 characters.
+ */
+function contractNoteOf_(get) { return clientText_(String(get('Contract Note') || ''), 300); }
+// Adds the note as one more bullet at the end of the Terms, just before "5. Acceptance & Authorization". Returns true if added.
+function insertContractNote_(body, note) {
+  if (!note) return false;
+  try {
+    var hit = body.findText('5\\. Acceptance & Authorization');
+    var heading = hit ? hit.getElement().getParent() : null;
+    if (!heading || heading.getType() !== DocumentApp.ElementType.PARAGRAPH) return false;
+    var p = body.insertParagraph(body.getChildIndex(heading), '\u2022 Note: ' + note);
+    p.setHeading(DocumentApp.ParagraphHeading.NORMAL).setSpacingBefore(2).setSpacingAfter(4);
+    p.editAsText().setFontFamily('Arial').setFontSize(8.5).setBold(false);
+    return true;
+  } catch (e) { return false; }                       // never blocks the contract
 }
 // Assigned exactly once, the first time a contract is generated for a
 // lead, then reused forever after — including through regeneration at
@@ -2359,6 +2383,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
     body.replaceText('\\{\\{travelfeeline\\}\\}', '\u2014');
     body.replaceText('\\{\\{totalinvestment\\}\\}', '\u2014');
   }
+  insertContractNote_(body, contractNoteOf_(get));
   if (feeRate > 0 && isCard && isBalanceCard) {
     body.replaceText('\\{\\{cardfeenote\\}\\}', ' \u2014 3.25% card processing fee included in both amounts above.');
   } else if (feeRate > 0 && isCard) {
@@ -2460,6 +2485,7 @@ function getContractForSigning(token) {
         location: get('Event Location') || '',
         depositBase: deposit,
         balanceBase: balance,
+        contractNote: contractNoteOf_(get),
         paymentMethod: get('Payment Method') || '',
         pdfUrl: get('Contract PDF URL') || '',
         pdfPending: !!signedPdfQueue_()[token], // signed, and the signed PDF is still being built
@@ -4813,6 +4839,7 @@ function getLeads_() {
     taxRate: getTaxRate_(),
     vendorCategoryMemory: getVendorCategoryMemory_(),
     storeSales: getStoreSales_(),
+    referralFees: getReferralFees_(),
     storeProducts: getStoreProducts_(),
     sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
     referralInbox: getReferralInbox_()
@@ -4951,6 +4978,94 @@ function getTemplatesScoped_() { return JSON.stringify({ templates: getTemplates
 function getPartnerTemplatesScoped_() { return JSON.stringify({ partnerTemplates: getPartnerTemplates_() }); }
 function getTextTemplatesScoped_() { return JSON.stringify({ textTemplates: getTextTemplates_() }); }
 function getPartnerTextTemplatesScoped_() { return JSON.stringify({ partnerTextTemplates: getPartnerTextTemplates_() }); }
+
+/* ---------- Referral fees ----------
+   Money a partner pays you for a lead you sent them. One row per fee on its own "Referral Fees" sheet (created the first
+   time one is added; reading never creates it). Every fee belongs to a lead in Magic Manager (Lead + Lead Key).
+   Status is Received or Expected; only Received counts as income, dated by the Date column (the day it was received). */
+var REFERRAL_FEES_SHEET = 'Referral Fees';
+var REFERRAL_FEES_HEADERS = ['Date', 'Partner', 'Lead', 'Lead Key', 'Amount', 'Status', 'Note'];
+function referralFeesSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(REFERRAL_FEES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(REFERRAL_FEES_SHEET);
+    sh.getRange(1, 1, 1, REFERRAL_FEES_HEADERS.length).setValues([REFERRAL_FEES_HEADERS]);
+    try { sh.setFrozenRows(1); } catch (e) {}
+  }
+  return sh;
+}
+function getReferralFees_() {
+  try {
+    var sh = SpreadsheetApp.getActive().getSheetByName(REFERRAL_FEES_SHEET);
+    if (!sh) return [];
+    var last = sh.getLastRow();
+    if (last < 2) return [];
+    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+    var rows = sh.getRange(2, 1, last - 1, REFERRAL_FEES_HEADERS.length).getValues();
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (!String(r[1] || '').trim() && !(Number(r[4]) > 0)) continue;       // skip blank rows
+      out.push({
+        row: i + 2,
+        date: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd') : String(r[0] || ''),
+        partner: String(r[1] || ''), lead: String(r[2] || ''), leadKey: String(r[3] || ''),
+        amount: Number(r[4]) || 0,
+        status: String(r[5] || '').trim().toLowerCase() === 'received' ? 'Received' : 'Expected',
+        note: String(r[6] || '')
+      });
+    }
+    return out;
+  } catch (e) { return []; }
+}
+function referralFeeFail_(msg) { return JSON.stringify({ ok: false, error: msg }); }
+// Owner-only (API_). Adds one fee and returns the fresh list.
+function addReferralFee_(partner, leadName, leadKey, amount, dateYmd, received, note) {
+  try {
+    var who = clientText_(partner, 120).trim();
+    if (!who) return referralFeeFail_('Choose the partner first.');
+    if (!clientText_(leadKey, 60).trim()) return referralFeeFail_('A referral fee goes on a lead. Open the lead first.');
+    var amt = Number(String(amount == null ? '' : amount).replace(/[^0-9.]/g, '')) || 0;
+    if (!(amt > 0)) return referralFeeFail_('Enter the fee amount.');
+    var d = dateYmd ? parseYMD_(dateYmd) : new Date();
+    if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+    var recd = (received === true || /^(yes|received|true)$/i.test(String(received).trim()));
+    referralFeesSheet_().appendRow([d, who, clientText_(leadName, 120), clientText_(leadKey, 60), Math.round(amt * 100) / 100, recd ? 'Received' : 'Expected', clientText_(note, 300)]);
+    return JSON.stringify({ ok: true, referralFees: getReferralFees_() });
+  } catch (e) {
+    return referralFeeFail_('Server error: ' + (e && e.message ? e.message : String(e)));
+  }
+}
+// Mark a fee Received (dated the day it arrived) or back to Expected. Returns the fresh list.
+function setReferralFeeStatus_(row, status, dateYmd) {
+  try {
+    row = Number(row) || 0;
+    var sh = referralFeesSheet_();
+    if (row < 2 || row > sh.getLastRow()) return referralFeeFail_('That fee no longer exists.');
+    var recd = String(status || '').trim().toLowerCase() === 'received';
+    sh.getRange(row, 6).setValue(recd ? 'Received' : 'Expected');
+    if (recd) {
+      var d = dateYmd ? parseYMD_(dateYmd) : new Date();
+      if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+      sh.getRange(row, 1).setValue(d);
+    }
+    return JSON.stringify({ ok: true, referralFees: getReferralFees_() });
+  } catch (e) {
+    return referralFeeFail_('Server error: ' + (e && e.message ? e.message : String(e)));
+  }
+}
+function deleteReferralFee_(row) {
+  try {
+    row = Number(row) || 0;
+    var sh = referralFeesSheet_();
+    if (row < 2 || row > sh.getLastRow()) return referralFeeFail_('That fee no longer exists.');
+    sh.deleteRow(row);
+    return JSON.stringify({ ok: true, referralFees: getReferralFees_() });
+  } catch (e) {
+    return referralFeeFail_('Server error: ' + (e && e.message ? e.message : String(e)));
+  }
+}
 
 /* ---------- Partner contact log ---------- */
 const PARTNER_LOG_SHEET = 'Partner Contact Log';

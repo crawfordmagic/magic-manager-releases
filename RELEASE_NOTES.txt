@@ -1,13 +1,17 @@
 What's new in this update:
 
-• NEW — Postpone a lead and follow up later. For a client who changes their mind but may use you in the future (say, a New Year's Eve client you'll call next October): tap the lead's Follow-up date and choose "Postpone — follow up later" under the calendar. Pick when you want to be reminded, add a note if you like, and the lead moves back to Pending, the event date and times clear, and the event portal link turns off. The old date stays in the lead's history. If a deposit was received you'll see a reminder to refund it or keep it as credit. It's offered on booked leads and on leads with a contract link.
+• NEW — Referral fees. When a partner pays you a fee for a lead you referred, record it right on that lead (the Referral fees box under "Referred to"): the amount, the date, and whether it's received or still expected. Each partner's record lists their fees with totals. Fees you mark received count as income in Insights and appear in your tax prep package.
 
-• NEW — A "contract is out of date" note. If you change a lead's event date, time or place after its contract was made, the Contract section tells you and points to Regenerate (for a signed contract it adds that your client will need to sign again).
+• NEW — A note for one contract. The new "Contract note" field on a lead prints a line in that contract's terms and shows it on the event portal right beside the amounts (for example, "Travel to be confirmed and added to the final balance"). Your client sees this text, and if you add or change a note after a contract was made, the app reminds you to regenerate it.
 
-• NEW — Search finds more, and understands questions. The search box in Settings now also searches the Tools and Help lists and every Help topic, so you can type something like "how do I put this on my phone" and get the answer. There's also a new Help topic, "Putting the app on your phone", with iPhone and Android steps.
+• NEW — The Oracle can answer "Where is my money going?" (your biggest expense categories for the period you're viewing), and it will mention a referral fee that has been waiting more than two weeks.
 
-• CHANGED — Pick a date faster. In every date field, tap the month and year, choose a year, then a month, then the day.
+• CHANGED — Settings opens instantly instead of loading every time.
 
-• CHANGED — Marking a lead Lost now turns off its event portal link, so an old link can't be opened or paid from. The contract and signed PDF stay in your Google Drive.
+• CHANGED — Emailing or texting a partner: new referrals come first, then your latest referred leads, with "Show older" for the rest. The Oracle's question buttons also line up in even rows now.
 
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. A new "Contract Snapshot" column is added to your sheet automatically the next time a contract is made.
+• CHANGED — Bottom bar: the icon of the tab you tap pops slightly, and tapping Leads while you're already on it takes you home. It closes anything open, clears the search, returns to the Follow up list and scrolls to the top.
+
+• FIXED — The Send Feedback form showed a white background instead of dark on some phones. It now matches the rest of the app.
+
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. A "Referral Fees" sheet and a "Contract Note" column are added to your Google Sheet automatically the first time you use them.

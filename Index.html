@@ -517,7 +517,7 @@ a.help-fix{display:block;text-decoration:none}
 .more-detail.chart{background:transparent;padding:12px 8px}
 .more-detail .note{margin-top:0}
 .more-detail .save{margin-top:0}
-.fbframe{width:100%;height:100%;border:0;display:block;background:var(--ink)}
+.fbframe{width:100%;height:100%;border:0;display:block;background:var(--ink);color-scheme:normal}   /* the app is color-scheme:dark; a framed page that isn't gets an opaque WHITE backdrop on some phones -- 'normal' keeps the frame transparent over the dark page */
 .fbspinner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink)}
 .fbdot{width:26px;height:26px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:fbspin .8s linear infinite}
 .fbloadtxt{margin-top:12px;color:var(--muted);font-size:13px}
@@ -609,8 +609,13 @@ a.help-fix{display:block;text-decoration:none}
 nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.94);backdrop-filter:blur(10px);
   border-top:1px solid var(--line);display:flex;justify-content:space-around;
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
-.tab{flex:1;white-space:nowrap;text-align:center;color:var(--muted);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:6px 0}
-.tab .g{display:block;font-size:17px;margin-bottom:3px;font-family:'Playfair Display',serif}
+.tab{flex:1;white-space:nowrap;text-align:center;color:var(--muted);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:6px 0;position:relative;-webkit-tap-highlight-color:transparent;transition:color .16s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tab .g{display:block;font-size:17px;margin-bottom:3px;font-family:'Playfair Display',serif;transition:transform .16s ease-out}
+/* Nav micro-interactions (Rich, 2026-10-10; no dot under the tabs -- he didn't like it, and the first squeeze was too faint to notice):
+   a quick "pop" of the icon the moment a different tab becomes active (a press squeeze was tried and removed: the thumb covers the icon, so it can't be seen). Both are
+   purely visual and 200ms or less -- the screen switches the instant you tap; the reduced-motion rule below turns them off. */
+@keyframes tabpop{0%{transform:scale(.82)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
+nav.moved .tab.on .g{animation:tabpop .2s ease-out}
 .tab .g svg{width:18px;height:18px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .tab.on{color:var(--gold-bright)}
 /* toast + loader */
@@ -704,13 +709,16 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
       </button>
       <div id="oracle_ask_wrap" style="display:none;margin-top:10px">
         <div id="oracle_questions" style="display:flex;flex-wrap:wrap;gap:6px">
+          <!-- Order matters for the layout: each long question sits beside a short one so they pair up into four even rows
+               on a phone (long + long does not fit, which left two buttons alone on the last two lines). -->
           <button class="oracle-chip" onclick="askOracle('bestsource')">Best source right now?</button>
           <button class="oracle-chip" onclick="askOracle('losing')">Why am I losing leads?</button>
           <button class="oracle-chip" onclick="askOracle('untapped')">Who haven't I referred to?</button>
-          <button class="oracle-chip" onclick="askOracle('upcoming')">What's coming up?</button>
-          <button class="oracle-chip" onclick="askOracle('conversion')">My conversion rate?</button>
           <button class="oracle-chip" onclick="askOracle('overdue')">Overdue follow-ups?</button>
           <button class="oracle-chip" onclick="askOracle('adspend')">Is my ad spend paying off?</button>
+          <button class="oracle-chip" onclick="askOracle('upcoming')">What's coming up?</button>
+          <button class="oracle-chip" onclick="askOracle('money')">Where is my money going?</button>
+          <button class="oracle-chip" onclick="askOracle('conversion')">My conversion rate?</button>
         </div>
         <div id="oracle_answer" class="oracle-answer" style="display:none"></div>
       </div>
@@ -1142,6 +1150,11 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
     </div>
   </div>
 
+  <button class="htoggle" style="margin-top:12px" onclick="togglePartnerFees()">
+    <span id="pt_feecount">Referral fees</span><span id="pt_feechev">&#9662;</span>
+  </button>
+  <div id="pt_feewrap" style="display:none;margin-top:10px"><div id="pt_feebox" data-feebox="ptfee"></div></div>
+
   <p class="note" id="pt_stat" style="margin-top:16px">Changes save automatically &#10038;</p>
   <button class="save" id="pt_delbtn" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deletePartnerUI()">Delete this partner &#10005;</button>
 </div>
@@ -1503,6 +1516,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
         </div>
       </div>
     </div>
+  <div id="d_feebox" data-feebox="ldfee" style="display:none"></div>
   <div class="field" id="d_refwrap" style="display:none"><label>Referred to</label>
     <select id="d_referral" onchange="onReferralChange()">
       <option value="">Choose a partner&#8230;</option>
@@ -1569,7 +1583,7 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(11,11,16,.
 </div>
 
 <nav>
-  <button class="tab on" data-v="leads" onclick="go('leads',this)"><span class="g">&#10038;</span>Leads</button>
+  <button class="tab on" data-v="leads" onclick="leadsTabTap_(this)"><span class="g">&#10038;</span>Leads</button>
   <button class="tab" data-v="insights" onclick="go('insights',this)"><span class="g"><svg viewBox="0 0 24 24"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="10"/></svg></span>Insights</button>
   <button class="tab" data-v="expenses" onclick="go('expenses',this)"><span class="g"><svg viewBox="0 0 24 24"><path d="M6 2h12v19l-2.4-1.4L13.2 21 12 20l-1.2 1-2.4-1.4L6 21V2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="13.5" y2="12"/></svg></span>Expenses</button>
   <button class="tab" data-v="add" onclick="go('add',this)"><span class="g">+</span>New Lead</button>
@@ -1634,7 +1648,7 @@ var C = {
   travelFee:'Travel Fee', contractPdfUrl:'Contract PDF URL', companyAddress:'Company Address',
   balancePaymentMethod:'Balance Payment Method', balanceAlertSnooze:'Balance Alert Snoozed Until',
   referredDate:'Referred Date', partnerCheckInDismissed:'Partner Check-In Dismissed',
-  contractSigned:'Contract Signed',
+  contractSigned:'Contract Signed', contractNote:'Contract Note',
   contractDocUrl:'Contract Doc URL', contractSignUrl:'Contract Sign URL',
   depositReceiptUrl:'Deposit Receipt PDF URL', balanceReceiptUrl:'Balance Receipt PDF URL',
   balanceDueDays:'Balance Due Days',
@@ -1695,7 +1709,7 @@ function onAddFormSelect(id, key, label){
       list.push(name);
       var obj={}; obj[key]=list.join('\n');
       CFG[key]=obj[key];
-      GS.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); $(id).value=name; } })
+      GS.withSuccessHandler(function(res){ settingsCacheDirty_(); if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); $(id).value=name; } })
         .withFailureHandler(function(){ toast('Could not add to Settings \u2014 try again'); }).saveSettings(obj);
       toast('Added \u201c'+name+'\u201d to your '+label+'s in Settings');
     }
@@ -1764,6 +1778,7 @@ function ingest(json){
   if('expenses' in o) EXPENSES=o.expenses||[];
   if('recurring' in o) RECURRING=o.recurring||[];
   if('storeSales' in o) STORE_SALES=o.storeSales||[];
+  if('referralFees' in o) REFERRAL_FEES=o.referralFees||[];
   if('storeProducts' in o) STORE_SALE_PRODUCTS=o.storeProducts||[];
   if('customExpenseCategories' in o) CUSTOM_EXPENSE_CATEGORIES=Array.isArray(o.customExpenseCategories)?o.customExpenseCategories:[];
   if('taxRate' in o) TAX_RATE=Number(o.taxRate)||25;
@@ -2000,6 +2015,7 @@ function load(){
     // before the Leads view paints, so a new user lands straight on it — no flash here.
     if(ORACLE_TIP_ACTIVE) (oracleForcePreview ? scheduleOracleTipFade() : scheduleOracleTipIntro());
     checkShowtimePopup();
+    setTimeout(prefetchSettings_, 1200);      // quietly, after the first screen is up
     GS.withSuccessHandler(function(r){
       if(r.status==='running') startSyncPolling();
     }).withFailureHandler(function(){}).getContactSyncStatus();
@@ -4014,6 +4030,7 @@ function openPartner(id){
   $('pt_noteprompt').style.display='none'; PT_CT_TYPE=null;
   $('pth_wrap').style.display='none'; $('pth_chev').innerHTML='&#9662;';
   refreshPartnerHistory();
+  partnerFeeInit_(p);
   DELARM3=false; $('pt_delbtn').innerHTML='Delete this partner &#10005;';
   $('overlay').classList.add('open'); $('partnersheet').classList.add('open');
 }
@@ -4335,6 +4352,7 @@ function renderLeadTop_(){
   if(trk){ var h=leadTrackerHtml_(L); trk.innerHTML=h; trk.style.display=h?'flex':'none'; }
   renderExtraBtn_();
   renderPostponeBtn_();
+  renderLeadFeeBox_();
 }
 // The follow-up collapses to one row ("Follow-up  Oct 4, 9 AM  Change"); the date/time controls
 // and quick-bump buttons open on tap. Reads the inputs, which always hold the latest value.
@@ -4573,6 +4591,7 @@ var KVF=[
   {label:'Balance received?', col:C.balancePaid, type:'select', opts:['Yes','No']},
   {label:'Balance received date', col:C.balancePaidDate, type:'date'},
   {label:'Travel fee (optional)', col:C.travelFee, type:'text', money:true},
+  {label:'Contract note (optional) \u2014 printed in the contract and shown on the event portal', col:C.contractNote, type:'text'},
   {label:'Balance due \u2014 days before event (default: due on event date)', col:C.balanceDueDays, type:'text'},
   {label:'Source', col:C.source, type:'select', opts:cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), addKey:'LEAD_SOURCES', addLabel:'lead source'},
   {label:'Company', col:C.company, type:'text'},
@@ -4770,7 +4789,7 @@ function commitAddKV(i){
     list.push(name);
     var obj={}; obj[F.addKey]=list.join('\n');
     CFG[F.addKey]=obj[F.addKey]; refreshConfigDerivedLists();
-    GS.withSuccessHandler(function(res){ if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } })
+    GS.withSuccessHandler(function(res){ settingsCacheDirty_(); if(res&&res.config){ CFG=res.config; refreshConfigDerivedLists(); } })
       .withFailureHandler(function(){ toast('Could not add to Settings — try again'); }).saveSettings(obj);
     toast('Added “'+name+'” to your '+F.addLabel+'s in Settings');
   }
@@ -5055,6 +5074,167 @@ function postponeApply_(){
     toast('Could not postpone \u2014 nothing was changed');
   }).postponeLead(row, v, note);
 }
+/* ---------- Referral fees ----------
+   Money a partner pays you for a lead you referred to them. Every fee belongs to a lead in Magic Manager (Rich: no fees
+   without a lead). Added from the lead page; the partner's record lists and totals them. Only a fee marked Received counts
+   as income (dated the day it was marked received) -- see referralIncomeEvents_. Every tap is instant: the screen changes
+   first, the sheet is written in the background, and a failure puts it back. */
+var REFERRAL_FEES=[], FEE_CTX={}, FEE_ADDING={}, FEE_TMP_=0, FEE_DEL_ARM_=null, FEE_DEL_T_=null;
+function feeKey_(s){ return String(s||'').trim().toLowerCase(); }
+function feeReceived_(f){ return String(f.status||'').trim().toLowerCase()==='received'; }
+function feeId_(f){ return f._tmp || f.row; }
+function feesFor_(ctx){
+  return (REFERRAL_FEES||[]).filter(function(f){
+    if(ctx.leadKey) return String(f.leadKey||'')===String(ctx.leadKey);
+    return feeKey_(f.partner)===feeKey_(ctx.partner);
+  });
+}
+function feeTotals_(list){
+  var r=0, e=0;
+  list.forEach(function(f){ if(feeReceived_(f)) r+=money(f.amount); else e+=money(f.amount); });
+  return {received:r, expected:e};
+}
+function feeAmt_(n){ n=money(n); return '$'+n.toLocaleString(undefined,{minimumFractionDigits:(n%1?2:0), maximumFractionDigits:2}); }
+function feeBoxHtml_(box){
+  var ctx=FEE_CTX[box]; if(!ctx) return '';
+  var list=feesFor_(ctx).slice().sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); });
+  var t=feeTotals_(list), h='';
+  if(!ctx.noHeader) h+='<div class="dlab" style="margin-top:14px">Referral fees</div>';
+  if(list.length) h+='<p class="note" style="text-align:left;margin:0 0 6px">'+feeAmt_(t.received)+' received'+(t.expected?' · '+feeAmt_(t.expected)+' expected':'')+'</p>';
+  else h+='<p class="note" style="text-align:left;margin:0 0 6px">'+(ctx.noAdd?'No referral fees recorded for this partner yet. Add one from the lead’s page.':'No fee recorded yet.')+'</p>';
+  list.forEach(function(f){
+    var got=feeReceived_(f), id=feeId_(f), tmp=!!f._tmp, armed=String(FEE_DEL_ARM_)===String(id);
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;color:var(--cream)">'+feeAmt_(f.amount)
+      +' <span style="font-weight:400;color:var(--muted);font-size:12px">· '+(got?'received ':'expected ')+esc(fmtDateY(f.date))+(ctx.noAdd&&f.lead?' · '+esc(f.lead):'')+'</span></div>'
+      +(f.note?'<div style="font-size:12px;color:var(--muted)">'+esc(f.note)+'</div>':'')+'</div>'
+      +(tmp?'':'<button type="button" class="bump" style="border-radius:8px;flex:0 0 auto;'+(got?'color:var(--sage)':'')+'" onclick="feeToggle_('+id+')">'+(got?'Received ✓':'Mark received')+'</button>'
+      +'<button type="button" class="bump" style="border-radius:8px;flex:0 0 auto" aria-label="Delete this fee" onclick="feeDelete_('+id+',this)">'+(armed?'Tap again':'✕')+'</button>')
+      +'</div>';
+  });
+  if(!ctx.noAdd){
+    if(FEE_ADDING[box]){
+      h+='<div style="margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel)">'
+        +'<label>Amount</label><input id="'+box+'_amt" inputmode="decimal" autocomplete="off" placeholder="e.g. 150">'
+        +'<label style="margin-top:10px">Date</label>'
+        +'<div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Fee date" onclick="dpOpen_(\''+box+'_date\',this,\'date\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();dpOpen_(\''+box+'_date\',this,\'date\');}"><input type="date" id="'+box+'_date" value="'+ymd(new Date())+'" min="2000-01-01" max="2100-12-31" tabindex="-1"></div>'
+        +'<label style="margin-top:10px">Status</label>'
+        +'<select id="'+box+'_st" aria-label="Fee status"><option value="Received">Received</option><option value="Expected">Expected — not paid yet</option></select>'
+        +'<label style="margin-top:10px">Note <span style="font-weight:400;color:var(--muted)">(optional)</span></label>'
+        +'<input id="'+box+'_note" placeholder="e.g. 10% of the corporate show">'
+        +'<div class="grid2" style="margin-top:12px"><button class="bump" style="border-radius:8px" onclick="feeAddCancel_(this)">Cancel</button><button class="bump" style="border-radius:8px" onclick="feeAddSave_(this)">Add fee ✦</button></div>'
+        +'</div>';
+    } else {
+      h+='<a class="dquiet" href="javascript:void(0)" style="margin-left:0;padding-left:0;color:var(--gold-bright);display:inline-block;margin-top:8px" onclick="feeAddOpen_(this)">+ Add a referral fee</a>';
+    }
+  }
+  return h;
+}
+function feeBoxOf_(el){ var b=el && el.closest ? el.closest('[data-feebox]') : null; return b ? b.getAttribute('data-feebox') : ''; }
+function feeRender_(box){
+  var ctx=FEE_CTX[box], el=ctx && $(ctx.el); if(!el) return;
+  el.innerHTML=feeBoxHtml_(box);
+}
+// Redraws every fee box that is on screen, the partner's total, and the Insights numbers.
+function feeRefreshAll_(){
+  Object.keys(FEE_CTX).forEach(feeRender_);
+  var pc=$('pt_feecount'), pctx=FEE_CTX.ptfee;
+  if(pc && pctx){ var t=feeTotals_(feesFor_(pctx)); pc.textContent='Referral fees · '+feeAmt_(t.received)+' received'+(t.expected?' · '+feeAmt_(t.expected)+' expected':''); }
+  if(typeof renderInsights==='function') renderInsights();
+}
+function feeAddOpen_(el){ var box=feeBoxOf_(el); FEE_ADDING[box]=true; feeRender_(box); var a=$(box+'_amt'); if(a && a.focus) a.focus(); }
+function feeAddCancel_(el){ var box=feeBoxOf_(el); FEE_ADDING[box]=false; feeRender_(box); }
+function feeAddSave_(el){
+  var box=feeBoxOf_(el), ctx=FEE_CTX[box]; if(!ctx) return;
+  var partner=String(ctx.partner||'').trim(), amount=money(($(box+'_amt').value||'').trim());
+  if(!partner){ toast('Choose who the lead is referred to first'); return; }
+  if(!(amount>0)){ toast('Enter the fee amount'); return; }
+  var date=($(box+'_date').value||'').trim()||ymd(new Date()), received=($(box+'_st').value==='Received'), note=($(box+'_note').value||'').trim();
+  var tmp=--FEE_TMP_;
+  REFERRAL_FEES.push({row:0, _tmp:tmp, date:date, partner:partner, lead:ctx.leadName||'', leadKey:ctx.leadKey||'', amount:amount, status:received?'Received':'Expected', note:note});
+  FEE_ADDING[box]=false; feeRefreshAll_(); toast('Referral fee added ✦');
+  var undo=function(msg){ REFERRAL_FEES=REFERRAL_FEES.filter(function(f){ return f._tmp!==tmp; }); feeRefreshAll_(); toast(msg); };
+  GS.withSuccessHandler(function(json){
+    var o=null; try{ o=JSON.parse(json); }catch(e){}
+    if(!o || !o.ok){ undo((o&&o.error)||'Could not add — nothing was saved'); return; }
+    ingest(json); feeRefreshAll_();
+  }).withFailureHandler(function(){ undo('Could not add — nothing was saved'); })
+  .addReferralFee(partner, ctx.leadName||'', ctx.leadKey||'', amount, date, received, note);
+}
+function feeFind_(key){ return (REFERRAL_FEES||[]).find(function(x){ return String(feeId_(x))===String(key); }); }
+function feeToggle_(key){
+  var f=feeFind_(key); if(!f || f._tmp) return;
+  var snap={status:f.status, date:f.date}, on=!feeReceived_(f), today=ymd(new Date());
+  f.status=on?'Received':'Expected'; if(on) f.date=today;
+  feeRefreshAll_(); toast(on?'Marked received ✦':'Back to expected');
+  var undo=function(){ f.status=snap.status; f.date=snap.date; feeRefreshAll_(); toast('Could not save — nothing was changed'); };
+  GS.withSuccessHandler(function(json){
+    var o=null; try{ o=JSON.parse(json); }catch(e){}
+    if(!o || !o.ok){ undo(); return; }
+    ingest(json); feeRefreshAll_();
+  }).withFailureHandler(undo).setReferralFeeStatus(f.row, f.status, on?today:'');
+}
+function feeDelete_(key, btn){
+  var f=feeFind_(key); if(!f || f._tmp) return;
+  if(String(FEE_DEL_ARM_)!==String(key)){                // money: tap once to arm, again to confirm
+    FEE_DEL_ARM_=key; if(btn) btn.textContent='Tap again';
+    clearTimeout(FEE_DEL_T_); FEE_DEL_T_=setTimeout(function(){ FEE_DEL_ARM_=null; feeRefreshAll_(); }, 3500);
+    return;
+  }
+  FEE_DEL_ARM_=null; clearTimeout(FEE_DEL_T_);
+  var before=REFERRAL_FEES.slice();
+  REFERRAL_FEES=REFERRAL_FEES.filter(function(x){ return x!==f; });
+  feeRefreshAll_(); toast('Fee removed');
+  var undo=function(){ REFERRAL_FEES=before; feeRefreshAll_(); toast('Could not remove — nothing was changed'); };
+  GS.withSuccessHandler(function(json){
+    var o=null; try{ o=JSON.parse(json); }catch(e){}
+    if(!o || !o.ok){ undo(); return; }
+    ingest(json); feeRefreshAll_();
+  }).withFailureHandler(undo).deleteReferralFee(f.row);
+}
+// Lead page: the box sits under "Referred to" for a lead being referred (or any lead that already has a fee).
+function renderLeadFeeBox_(){
+  var box=$('d_feebox'); if(!box) return;
+  if(!CURRENT){ box.style.display='none'; return; }
+  var L=LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT;
+  var st=$('d_status') ? $('d_status').value : String(L[C.status]||'');
+  var partner=String(($('d_referral') && $('d_referral').value) || L[C.referral] || '').trim();
+  if(partner==='__new__') partner='';
+  var existing=feesFor_({leadKey:L._tsKey});
+  if(!partner && existing.length) partner=existing[0].partner;
+  var show=!!L._tsKey && (((st==='Referral'||st==='Referred') && !!partner) || existing.length>0);
+  box.style.display=show ? 'block' : 'none';
+  if(!show){ FEE_ADDING.ldfee=false; delete FEE_CTX.ldfee; return; }
+  var changed=!FEE_CTX.ldfee || FEE_CTX.ldfee.leadKey!==L._tsKey;
+  FEE_CTX.ldfee={el:'d_feebox', partner:partner, leadKey:L._tsKey, leadName:String(L[C.name]||'')};
+  if(changed) FEE_ADDING.ldfee=false;
+  feeRender_('ldfee');
+}
+// Partner record: the same list, read-only for adding (fees are added on the lead), with a running total in the header.
+function partnerFeeInit_(p){
+  FEE_CTX.ptfee={el:'pt_feebox', partner:String(p.name||''), noAdd:true, noHeader:true};
+  var w=$('pt_feewrap'), c=$('pt_feechev'); if(w) w.style.display='none'; if(c) c.innerHTML='&#9662;';
+  feeRender_('ptfee');
+  var pc=$('pt_feecount'); if(pc){ var t=feeTotals_(feesFor_(FEE_CTX.ptfee)); pc.textContent='Referral fees · '+feeAmt_(t.received)+' received'+(t.expected?' · '+feeAmt_(t.expected)+' expected':''); }
+}
+function togglePartnerFees(){
+  var w=$('pt_feewrap'); if(!w) return;
+  var open=w.style.display==='none';
+  w.style.display=open?'block':'none';
+  var c=$('pt_feechev'); if(c) c.innerHTML=open?'&#9652;':'&#9662;';
+}
+// Received fees are cash income, dated the day they were marked received (same cash basis as deposits, balances and store sales).
+function referralIncomeEvents_(){
+  var out=[];
+  (REFERRAL_FEES||[]).forEach(function(f){
+    if(!feeReceived_(f)) return;
+    var d=pd(f.date); if(!d) return;
+    out.push({date:d, amount:money(f.amount), kind:'Referral fee', name:f.partner||'Referral fee', row:null});
+  });
+  return out;
+}
+// Everything that is income but not a lead's deposit/balance.
+function nonLeadIncomeEvents_(){ return storeIncomeEvents_().concat(referralIncomeEvents_()); }
 function closeSheet(){
   if(SAVET) doAutoSave(); /* flush any pending edit before closing */
   $('sheet').classList.remove('open'); syncOverlay(); CURRENT=null;
@@ -5332,6 +5512,7 @@ function refToggle(userInitiated){
   var s=$('d_status').value;
   $('d_refwrap').style.display = (s==='Referral'||s==='Referred') ? '' : 'none';
   if($('d_refwrap').style.display!=='none') fillReferralOptions($('d_referral').value);
+  renderLeadFeeBox_();
 
   var lostVisible = s==='Lost';
   var wasLostVisible = $('d_lostwrap').style.display!=='none';
@@ -5373,6 +5554,7 @@ function onReferralChange(){
     return;
   }
   $('d_referral_new').style.display='none';
+  renderLeadFeeBox_();
   queueAutoSave();
 }
 function addReferralPartnerInline(){
@@ -5519,28 +5701,48 @@ function openPartnerEmailPicker(id){
   EPICKER_MODE='partner';
   var pseudo={}; pseudo[C.name]=p.name; pseudo._appLink=p.appLink||'';
   EPICKER_CTX=pseudo; EPICKER_TO=String(p.email||'').trim(); EPICKER_REFLEAD=null;
-  fillRefLeadOptions('epicker_refsel', p);
+  REFLEAD_OLDER=false;
+  var ci=checkInLeadFor_(p);
+  fillRefLeadOptions('epicker_refsel', p, ci);
   $('epicker_refwrap').style.display='';
   $('epicker_refsel').value='';
-  var ci=checkInLeadFor_(p);
   if(ci){ EPICKER_REFLEAD=ci; $('epicker_refsel').value=String(ci._tsKey); }
   renderEmailPicker();
 }
-// Leads you can attach to a message to a partner: ones still marked Referral (not sent yet) AND the ones already
-// referred TO THIS partner -- so a follow-up ("any news on Jared?") can pull in the lead's name and details.
-// This partner's referred leads come first.
-function partnerRefLeads_(p){
+// Leads you can attach to a message to a partner, in two groups: "Ready to send" (still marked Referral, not sent yet --
+// what you want when you are sending a NEW referral, so it is first) and "Already referred to <partner>" (for a
+// follow-up like "any news on Jared?"), newest referral first. Only the latest few of those show; "Show older (N)" adds the rest.
+var REFLEAD_OLDER=false, REFLEAD_PAST_SHOWN=5;
+function partnerRefGroups_(p){
   var pn=String((p&&p.name)||'').trim().toLowerCase();
   var mineReferred=function(L){ return String(L[C.status])==='Referred' && pn && String(L[C.referral]||'').trim().toLowerCase()===pn; };
-  var byName=function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); };
-  var mine=LEADS.filter(mineReferred).sort(byName);
-  var fresh=LEADS.filter(function(L){ return String(L[C.status])==='Referral'; }).sort(byName);
-  return mine.concat(fresh);
+  var when=function(L){ return String(L[C.referredDate]||'').slice(0,10); };       // YYYY-MM-DD sorts as text
+  var past=LEADS.filter(mineReferred).sort(function(a,b){ return when(b).localeCompare(when(a)) || String(b._tsKey).localeCompare(String(a._tsKey)); });
+  var fresh=LEADS.filter(function(L){ return String(L[C.status])==='Referral'; })
+    .sort(function(a,b){ return (Number(b._tsKey)||0)-(Number(a._tsKey)||0) || String(a[C.name]||'').localeCompare(String(b[C.name]||'')); });
+  return {fresh:fresh, past:past};
 }
-function fillRefLeadOptions(targetId, p){
+// `must` = a lead that has to be in the list even if it is an older one (a check-in card attaches its own lead).
+function fillRefLeadOptions(targetId, p, must){
+  var g=partnerRefGroups_(p), shown=REFLEAD_OLDER ? g.past.slice() : g.past.slice(0, REFLEAD_PAST_SHOWN);
+  if(must && g.past.indexOf(must)>-1 && shown.indexOf(must)<0) shown.push(must);
+  var hidden=g.past.length-shown.length;
+  var opt=function(L, past){
+    var d=past ? pd(L[C.referredDate]) : null;
+    return '<option value="'+esc(String(L._tsKey))+'">'+esc(L[C.name]||'Lead')+(L[C.eventType]?' \u2014 '+esc(L[C.eventType]):'')
+      +(past ? ' \u00b7 referred'+(d ? ' '+esc(d.toLocaleDateString(undefined,{month:'short',day:'numeric'})) : '') : '')+'</option>';
+  };
   $(targetId||'epicker_refsel').innerHTML='<option value="">No lead info attached</option>'
-    + partnerRefLeads_(p).map(function(L){ return '<option value="'+esc(String(L._tsKey))+'">'+esc(L[C.name]||'Lead')
-        +(L[C.eventType]?' \u2014 '+esc(L[C.eventType]):'')+(String(L[C.status])==='Referred'?' \u00b7 referred':'')+'</option>'; }).join('');
+    + (g.fresh.length ? '<optgroup label="Ready to send">'+g.fresh.map(function(L){ return opt(L,false); }).join('')+'</optgroup>' : '')
+    + (shown.length ? '<optgroup label="Already referred to '+esc((p&&p.name)||'this partner')+'">'+shown.map(function(L){ return opt(L,true); }).join('')
+        +(hidden>0 ? '<option value="__older__">Show older ('+hidden+')\u2026</option>' : '')+'</optgroup>' : '');
+}
+// "Show older (N)": list them all, put the selection back, and reopen the menu so the choice is still one tap away.
+function refLeadShowOlder_(selId, current){
+  REFLEAD_OLDER=true;
+  fillRefLeadOptions(selId, PTCUR, current);
+  var s=$(selId); if(s) s.value = current ? String(current._tsKey) : '';
+  setTimeout(function(){ var sel=$(selId), w=sel && sel.closest ? sel.closest('.pvwrap') : null; if(w) pvOpen_(selId, w); }, 0);
 }
 // Coming from a "Check in with partner" card? Attach THAT lead straight away.
 function checkInLeadFor_(p){
@@ -5551,6 +5753,7 @@ function checkInLeadFor_(p){
 }
 function onRefLeadChange(){
   var key=$('epicker_refsel').value;
+  if(key==='__older__'){ refLeadShowOlder_('epicker_refsel', EPICKER_REFLEAD); return; }
   EPICKER_REFLEAD = key ? LEADS.find(function(L){ return String(L._tsKey)===key; }) : null;
   renderEmailPicker();
 }
@@ -5598,15 +5801,17 @@ function openPartnerTextPicker(id){
   TXTPICKER_MODE='partner';
   var pseudo={}; pseudo[C.name]=p.name;
   TXTPICKER_CTX=pseudo; TXTPICKER_PHONE=String(p.phone||'').trim(); TXTPICKER_REFLEAD=null;
-  fillRefLeadOptions('tpicker_refsel', p);
+  REFLEAD_OLDER=false;
+  var ci=checkInLeadFor_(p);
+  fillRefLeadOptions('tpicker_refsel', p, ci);
   $('tpicker_refwrap').style.display='';
   $('tpicker_refsel').value='';
-  var ci=checkInLeadFor_(p);
   if(ci){ TXTPICKER_REFLEAD=ci; $('tpicker_refsel').value=String(ci._tsKey); }
   renderTextPicker();
 }
 function onTextRefLeadChange(){
   var key=$('tpicker_refsel').value;
+  if(key==='__older__'){ refLeadShowOlder_('tpicker_refsel', TXTPICKER_REFLEAD); return; }
   TXTPICKER_REFLEAD = key ? LEADS.find(function(L){ return String(L._tsKey)===key; }) : null;
 }
 function renderTextPicker(){
@@ -6853,7 +7058,7 @@ function insightsUsedMonths_(y){
   var add=function(d){ if(d && d.getFullYear()===y) used[d.getMonth()]=1; };
   LEADS.forEach(function(L){ add(leadDate_(L)); });
   EXPENSES.forEach(function(E){ add(pd(E.date)); });
-  leadIncomeEvents_(LEADS).concat(storeIncomeEvents_()).forEach(function(e){ add(e.date); });
+  leadIncomeEvents_(LEADS).concat(nonLeadIncomeEvents_()).forEach(function(e){ add(e.date); });
   (STORE_SALES||[]).forEach(function(s){ add(pd(s.date)); });
   return Object.keys(used).map(Number).sort(function(a,b){ return a-b; });
 }
@@ -6874,7 +7079,7 @@ function insightsYearsWithData_(){
   var seen={}, add=function(d){ if(d) seen[d.getFullYear()]=1; };
   LEADS.forEach(function(L){ add(leadDate_(L)); });
   EXPENSES.forEach(function(E){ add(pd(E.date)); });
-  leadIncomeEvents_(LEADS).concat(storeIncomeEvents_()).forEach(function(e){ add(e.date); });
+  leadIncomeEvents_(LEADS).concat(nonLeadIncomeEvents_()).forEach(function(e){ add(e.date); });
   (STORE_SALES||[]).forEach(function(x){ add(pd(x.date)); });
   return Object.keys(seen).map(Number);
 }
@@ -7059,7 +7264,7 @@ function storeIncomeEvents_(){
 }
 function insightsScopedIncomeEvents(yearOnly){
   var y = insightsScopeYear();
-  var events = leadIncomeEvents_(LEADS).concat(storeIncomeEvents_());
+  var events = leadIncomeEvents_(LEADS).concat(nonLeadIncomeEvents_());
   if(y===null) return events;
   return events.filter(function(e){ return yearOnly ? e.date.getFullYear()===y : inInsightsPeriod_(e.date); });
 }
@@ -7205,7 +7410,7 @@ function askOracle(key){
   var fn={
     bestsource: oracleBestSource, losing: oracleLosing, untapped: oracleUntapped,
     upcoming: oracleUpcoming, conversion: oracleConversion, overdue: oracleOverdue,
-    adspend: oracleAdSpend
+    adspend: oracleAdSpend, money: oracleMoneyGoing
   }[key];
   if(!fn) return;
   var box=$('oracle_answer');
@@ -7337,6 +7542,39 @@ function oracleAdSpend(){
   var roi=bookedFromSpendSources/totalSpend;
   var verdict=roi>=1 ? 'That\u2019s paying off.' : 'That\u2019s currently costing more than it\u2019s returning.';
   return 'You\u2019ve spent '+$m(totalSpend)+' total and booked '+$m(bookedFromSpendSources)+' from those same sources \u2014 a '+(Math.round(roi*10)/10)+'x return. '+verdict;
+}
+// "Where is my money going?" (Rich, 2026-10-12): the biggest expense categories for the period Insights is showing (same Year and
+// Month pickers as everything else on the screen). Plain text on purpose -- the answer is revealed word by word -- with names escaped.
+function oraclePeriodWords_(){
+  var y=insightsScopeYear(); if(y===null) return 'everything you\u2019ve logged';
+  var m=insightsScopeMonth(); if(m!==null) return insightsMonthName_(m)+' '+y;
+  return y===new Date().getFullYear() ? 'this year so far' : String(y);
+}
+function oracleMoneyGoing(){
+  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  var rows=insightsScopedExpenses().filter(function(E){ return (Number(E.amount)||0)>0; });
+  var when=oraclePeriodWords_();
+  var total=rows.reduce(function(s,E){ return s+(Number(E.amount)||0); },0);
+  if(!total) return 'No expenses logged for '+when+' \u2014 nothing to break down yet.';
+  var cats={};
+  rows.forEach(function(E){
+    var label=String(E.category||'').trim()||'Uncategorized', key=label.toLowerCase();
+    if(!cats[key]) cats[key]={label:label, sum:0};
+    cats[key].sum+=Number(E.amount)||0;
+  });
+  var list=Object.keys(cats).map(function(k){ return cats[k]; }).sort(function(a,b){ return b.sum-a.sum; });
+  var pct=function(n){ return Math.round(n/total*100)+'%'; };
+  var out='Looking at '+when+', you\u2019ve spent '+$m(total)+'. ';
+  if(list.length===1) return out+'All of it is '+esc(list[0].label)+'.';
+  out+='Your biggest category is '+esc(list[0].label)+' at '+$m(list[0].sum)+' ('+pct(list[0].sum)+')';
+  var rest=list.slice(1,3).map(function(c){ return esc(c.label)+' ('+$m(c.sum)+')'; });
+  if(rest.length) out+=', then '+(rest.length===2 ? rest[0]+' and '+rest[1] : rest[0]);
+  out+='.';
+  if(list.length>=3){
+    var top3=list[0].sum+list[1].sum+list[2].sum;
+    out+=' Those '+(list.length===3?'three make up all':'three make up '+pct(top3)+' of')+(list.length===3?' of your spending.':' your spending.');
+  }
+  return out;
 }
 function seededHash(seed, str){
   var h=seed;
@@ -7489,6 +7727,20 @@ function computeOracleTips(all){
       '<b>'+unsignedSoon.length+' booked shows</b> within the next 30 days still don\u2019t have a signed contract.',
       'You\u2019ve got <b>'+unsignedSoon.length+' upcoming shows</b> in the next month without a signed contract yet \u2014 might be worth a nudge.'
     ])});
+  }
+
+  // A referral fee a partner was going to pay (marked Expected) that has now been waiting more than two weeks (Rich, 2026-10-12).
+  // Last in the list on purpose: it only speaks up when nothing more pressing is waiting, so it never crowds out a show or a lead.
+  var waitingFees=(REFERRAL_FEES||[]).filter(function(f){
+    if(feeReceived_(f)) return false;
+    var d=pd(f.date); return d && Math.round((today0()-d)/86400000)>14;
+  }).sort(function(a,b){ return pd(a.date)-pd(b.date); });
+  if(waitingFees.length===1){
+    var wf=waitingFees[0], wd=Math.round((today0()-pd(wf.date))/86400000), ww=Math.round(wd/7);
+    urgent.push({icon:oIcon('users'), text:'<b>'+esc(wf.partner||'A partner')+'</b>\u2019s '+fmtMoney(wf.amount)+' referral fee has been pending for about '+ww+' week'+(ww===1?'':'s')+' \u2014 might be worth a nudge.'});
+  } else if(waitingFees.length>1){
+    var wtotal=waitingFees.reduce(function(s,f){ return s+money(f.amount); },0), wold=waitingFees[0];
+    urgent.push({icon:oIcon('users'), text:'<b>'+waitingFees.length+' referral fees</b> ('+fmtMoney(wtotal)+') are still waiting on payment \u2014 the oldest is from <b>'+esc(wold.partner||'a partner')+'</b>.'});
   }
 
   return urgent;
@@ -7847,7 +8099,7 @@ function renderProfitSummary($m){
     +'<div class="stat" style="cursor:pointer" onclick="showExpensesBreakdown()"><div class="v">'+$m(expenseTotal)+'</div><div class="l">Expenses</div>'+cmpFor_(cdm,'expenses',false,true)+'</div>'
     +'</div>'
     +(cdm && cdm.moneyOk ? '<div style="margin:-4px 0 12px;text-align:center"><span style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)">Profit</span>'+cmpFor_(cdm,'profit',true,true)+'</div>' : '')
-    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(storeEnabledClient_()?' and received store sales':'')+' on the day they were actually marked received, not the event date. Each payment counts at the amount you agreed to; the card processing fee a client adds on top is not counted. Tap either tile to see exactly what makes up that total.</p>';
+    +'<p class="note" style="text-align:left;margin:0">Income counts deposits and balances'+(function(){ var x=[]; if(storeEnabledClient_()) x.push('received store sales'); if((REFERRAL_FEES||[]).some(feeReceived_)) x.push('referral fees you\u2019ve marked received'); return x.length ? ' and '+x.join(' and ') : ''; })()+' on the day they were actually marked received, not the event date. Each payment counts at the amount you agreed to; the card processing fee a client adds on top is not counted. Tap either tile to see exactly what makes up that total.</p>';
   renderMonthlyTrend(insightsScopedIncomeEvents(true), insightsScopedExpenses(true), $m);
 }
 function renderMonthlyTrend(incomeEvents, exp, $m){
@@ -8790,6 +9042,12 @@ function taxPackageData_(year){
     if(String(s.status||'').trim().toLowerCase()!=='received') return;
     var d=pd(s.date); if(!d || d.getFullYear()!==year) return;
     income.push({date:ymd(d), name:s.name||s.product||'Store sale', kind:'Store sale', method:s.method||'', invoice:'', base:money(s.amount), cardFee:0});
+  });
+  // Received referral fees count by the day they were marked received.
+  (REFERRAL_FEES||[]).forEach(function(f){
+    if(!feeReceived_(f)) return;
+    var d=pd(f.date); if(!d || d.getFullYear()!==year) return;
+    income.push({date:ymd(d), name:(f.partner||'Referral fee')+(f.lead?' \u2014 '+f.lead:''), kind:'Referral fee', method:'', invoice:'', base:money(f.amount), cardFee:0});
   });
   var expenses=[];
   (EXPENSES||[]).forEach(function(E){
@@ -9782,7 +10040,21 @@ function confirmLeadImport(){
   .importLeadsBatch(JSON.stringify(payload));
 }
 
+/* Tapping the Leads tab while you are already on it means "take me home": close anything open on top, end a search, go back to the
+   default "Follow up" list and scroll to the top. (Instead of a home-indicator line, which would fight the phone's own swipe-up.) */
+function leadsTabTap_(btn){
+  if(!btn || !btn.classList || !btn.classList.contains('on')){ go('leads', btn); return; }
+  leadsHome_();
+}
+function leadsHome_(){
+  var ov=$('overlay'); if(anyPanelOpen() && ov && ov.onclick) ov.onclick();       // same as tapping outside: saves and closes
+  if(Q && String(Q).trim()){ Q=''; var qi=$('q'); if(qi) qi.value=''; }
+  FILTER='Follow up'; renderChips(); renderLeads();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.addEventListener('touchstart', function(){}, {passive:true});   // makes :active (the nav press squeeze) work on iOS Safari
 function go(v, btn){
+  var nv=document.querySelector('nav'); if(nv) nv.classList.add('moved');     // from the first tap on, a newly active tab pops
   ['leads','insights','expenses','add','settings'].forEach(function(x){ var el=$('view-'+x); if(el) el.style.display = x===v?'':'none'; });
   document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
   if(btn) btn.classList.add('on');
@@ -10056,12 +10328,34 @@ function applyToolsHelpSearch_(q){
   }
   return {tools:tools+rows, topics:topics};
 }
+/* Settings open instantly (Rich, 2026-10-10): the settings are fetched quietly shortly after the app loads and kept in SETTINGS_CACHE,
+   so tapping Settings paints at once instead of waiting on a server round trip each time. Each open then re-checks in the
+   background and repaints only if something actually changed and you have not started typing. Any save marks the cache
+   stale and refetches it. (A cold open before the first fetch finishes still shows "Loading…" once.) */
+var SETTINGS_CACHE=null, SETTINGS_FETCHING=false;
+function prefetchSettings_(){
+  if(SETTINGS_CACHE || SETTINGS_FETCHING) return;
+  SETTINGS_FETCHING=true;
+  GS.withSuccessHandler(function(s){ SETTINGS_FETCHING=false; if(s && s.fields) SETTINGS_CACHE=s; })
+    .withFailureHandler(function(){ SETTINGS_FETCHING=false; }).getSettings();
+}
+function settingsCacheDirty_(){ SETTINGS_CACHE=null; prefetchSettings_(); }
+function refreshSettingsQuiet_(paint){
+  GS.withSuccessHandler(function(s){
+    if(!s || !s.fields) return;
+    var old=SETTINGS_CACHE||{};
+    var changed=JSON.stringify(s.raw)!==JSON.stringify(old.raw) || JSON.stringify(s.config)!==JSON.stringify(old.config);
+    SETTINGS_CACHE=s;
+    var body=$('settingsBody');
+    var busy=!!SET_SAVET || !!(body && body.contains && document.activeElement && body.contains(document.activeElement));
+    if(changed && !busy && body) paint(s);
+  }).withFailureHandler(function(){}).getSettings();
+}
 function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
   renderWizardPrompt_();
-  body.innerHTML = 'Loading…';
-  GS.withSuccessHandler(function(s){
+  var paint=function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
     var cfg = s.config || {}, raw = s.raw || {};
@@ -10150,7 +10444,11 @@ function renderSettings(){
       body.addEventListener('change', onSettingsFieldChange);
       body._autosaveWired=true;
     }
-  }).withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
+  };
+  if(SETTINGS_CACHE){ paint(SETTINGS_CACHE); refreshSettingsQuiet_(paint); return; }
+  body.innerHTML = 'Loading…';
+  GS.withSuccessHandler(function(s){ SETTINGS_CACHE=s; paint(s); })
+    .withFailureHandler(function(){ body.innerHTML = '<div class="note">Could not load settings — try again.</div>'; })
     .getSettings();
 }
 function toggleSetupSection(id){
@@ -10204,6 +10502,7 @@ function doSettingsAutosave(){
     keys.forEach(function(k){ SET_LAST[k]=obj[k]; });
     var el=$('set_savestat'); if(el) el.innerHTML='Saved ✦';
     toast('Saved ✦');                       // the status line is at the very bottom of the screen; this is where you are looking
+    settingsCacheDirty_();
     refreshSettingsSummaries_();
     renderWizardPrompt_();
     maybeShowSetupNudge();
@@ -10559,6 +10858,7 @@ function wizFinish(skipped){
   var obj=wizCollect_();
   toast('Saving…');
   GS.withSuccessHandler(function(res){
+    settingsCacheDirty_();
     if(res&&res.config) CFG=res.config;
     try{ maybeShowSetupNudge(); }catch(e){}
     if(skipped){ closeWizard(); toast('Saved — finish anytime in Settings'); return; }
@@ -11038,6 +11338,15 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.69', d:'Oct 2026', notes:[
+    'New — Referral fees: when a partner pays you a fee for a lead you referred, record it on that lead (the Referral fees box under \u201cReferred to\u201d): amount, date, and whether it is received or still expected. Each partner\u2019s record lists their fees with totals. Fees you mark received count as income in Insights and appear in your tax prep package.',
+    'New — Contract note: a one-off line for a single contract. The new \u201cContract note\u201d field on a lead prints in that contract\u2019s terms and shows on the event portal right beside the amounts (for example \u201cTravel to be confirmed and added to the final balance\u201d). Your client sees this text, and if you add or change a note after a contract was made, the app reminds you to regenerate it.',
+    'New — The Oracle answers \u201cWhere is my money going?\u201d (your biggest expense categories for the period you are viewing) and mentions a referral fee that has been waiting more than two weeks.',
+    'Changed — Settings opens instantly instead of loading every time.',
+    'Changed — Emailing or texting a partner: new referrals come first, then your latest referred leads, with \u201cShow older\u201d for the rest. The Oracle\u2019s question buttons now line up in even rows.',
+    'Changed — Bottom bar: the icon of the tab you tap pops slightly, and tapping Leads while you are already on it takes you home: it closes anything open, clears the search, returns to the Follow up list and scrolls to the top.',
+    'Fixed — The Send Feedback form showed a white background instead of dark on some phones. It now matches the rest of the app.'
+  ]},
   { v:'1.5.68', d:'Oct 2026', notes:[
     'New — Postpone — follow up later: for a client who changes their mind but may use you in the future. Tap a lead’s Follow-up date and choose “Postpone — follow up later” under the calendar (offered on booked leads and on leads with a contract link). Pick the date you want to be reminded, add a note if you like, and the lead moves back to Pending, the event date and times are cleared, and the event portal link is turned off. The old date is kept in the lead’s history. It happens instantly. If a deposit was received, you’ll see a reminder to refund it or keep it as credit.',
     'New — A “contract is out of date” note: if you change a lead’s event date, time or place after its contract was made, the Contract section tells you and points to Regenerate (for a signed contract it adds that your client will need to sign again).',
