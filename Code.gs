@@ -525,7 +525,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.70';
+var APP_VERSION = '1.5.71';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -2005,6 +2005,8 @@ function contractTermsOf_(get, tz) {
   // matching (its snapshot has the four parts only) instead of suddenly looking out of date.
   var note = contractNoteOf_(get);
   if (note) parts.push(note);
+  var zone = String(get('Event Time Zone') == null ? '' : get('Event Time Zone')).trim();
+  if (zone) parts.push('tz:' + zone);
   return JSON.stringify(parts);
 }
 /**
@@ -2284,6 +2286,28 @@ function maybeGenerateReceipt_(sh, rowNum, kind) {
   const cols = ensureContractCols_(sh);
   sh.getRange(rowNum, kind === 'deposit' ? cols.depositReceiptCol : cols.balanceReceiptCol).setValue(url);
 }
+/**
+ * Event time zone (Rich, 2026-10-13, from a buyer request): a lead can say what time zone its show is in. The Start / End times are
+ * entered as the clock at the VENUE, and the contract (and client emails) state them with that zone -- "6:00 PM Pacific (PDT)" -- so a
+ * client in another zone is never left guessing. Blank = same as yours = nothing added. The lead field holds the plain name below;
+ * the abbreviation (PDT/PST...) follows the event date's daylight saving. Keep this list in step with EVENT_ZONE_NAMES_ in Index.html.
+ */
+var EVENT_TIME_ZONES_ = {
+  'Eastern': 'America/New_York', 'Central': 'America/Chicago', 'Mountain': 'America/Denver', 'Arizona': 'America/Phoenix',
+  'Pacific': 'America/Los_Angeles', 'Alaska': 'America/Anchorage', 'Hawaii': 'Pacific/Honolulu', 'Atlantic': 'America/Halifax',
+  'UK': 'Europe/London', 'Central Europe': 'Europe/Paris', 'Sydney': 'Australia/Sydney'
+};
+function eventZoneLabel_(name, when) {
+  name = String(name == null ? '' : name).trim();
+  if (!Object.prototype.hasOwnProperty.call(EVENT_TIME_ZONES_, name)) return '';
+  var abbr = '';
+  try { abbr = Utilities.formatDate(when instanceof Date && !isNaN(when.getTime()) ? when : new Date(), EVENT_TIME_ZONES_[name], 'z'); } catch (e) {}
+  return name + (abbr ? ' (' + abbr + ')' : '');
+}
+function withEventZone_(timeText, name, when) {
+  var label = eventZoneLabel_(name, when);
+  return timeText && label ? timeText + ' ' + label : timeText;
+}
 // Shared merge logic used both when first generating a preview contract and
 // when finalizing it at signing time. Google Docs' replaceText() is
 // one-directional — once a {{token}} is substituted it can't be swapped
@@ -2295,7 +2319,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
   const eventDateVal = get('Date of Event');
   const eventDateFmt = eventDateVal ? Utilities.formatDate(new Date(eventDateVal), tz_(), 'M/d/yyyy') : '';
   const startVal = get('Start Time');
-  const startFmt = startVal ? Utilities.formatDate(new Date(startVal), tz_(), 'h:mm a') : '';
+  const startFmt = withEventZone_(startVal ? Utilities.formatDate(new Date(startVal), tz_(), 'h:mm a') : '', get('Event Time Zone'), eventDateVal ? new Date(eventDateVal) : null);
 
   const amounts = computeBaseAmounts_(get);
   const price = amounts.price;

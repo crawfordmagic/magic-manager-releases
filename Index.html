@@ -378,6 +378,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .dp-day.sel{background:var(--gold);color:var(--ink);font-weight:700}
 .dp-day[disabled]{opacity:.25;cursor:default}
 .dp-foot{display:flex;justify-content:space-between;margin-top:8px}
+.dp-type{margin-top:8px}
+.dp-type input{width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--gold-deep);border-radius:8px;background:rgba(255,255,255,.04);color:var(--cream);text-align:center}
 .dp-link{font-size:13px;color:var(--gold-bright);padding:7px 12px;border-radius:8px;font-weight:600}
 .dp-years{max-height:236px;overflow:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .dp-yr{padding:9px 0;border-radius:8px;color:var(--cream);font-size:13.5px;background:transparent}
@@ -1651,7 +1653,7 @@ var C = {
   travelFee:'Travel Fee', contractPdfUrl:'Contract PDF URL', companyAddress:'Company Address',
   balancePaymentMethod:'Balance Payment Method', balanceAlertSnooze:'Balance Alert Snoozed Until',
   referredDate:'Referred Date', partnerCheckInDismissed:'Partner Check-In Dismissed',
-  contractSigned:'Contract Signed', contractNote:'Contract Note',
+  contractSigned:'Contract Signed', contractNote:'Contract Note', eventZone:'Event Time Zone',
   contractDocUrl:'Contract Doc URL', contractSignUrl:'Contract Sign URL',
   depositReceiptUrl:'Deposit Receipt PDF URL', balanceReceiptUrl:'Balance Receipt PDF URL',
   balanceDueDays:'Balance Due Days',
@@ -4704,10 +4706,15 @@ function openSheet(row){
 }
 
 /* ---------- Tap-to-edit detail fields ---------- */
+/* The time zone a show is in (Rich, 2026-10-13). Start / End are the clock at the venue; the contract and client emails say which zone.
+   Blank = same as yours. Keep in step with EVENT_TIME_ZONES_ in Code.js. */
+var EVENT_ZONE_NAMES_ = ['Eastern','Central','Mountain','Arizona','Pacific','Alaska','Hawaii','Atlantic','UK','Central Europe','Sydney'];
+function eventZoneName_(L){ var z=String((L && L[C.eventZone])||'').trim(); return EVENT_ZONE_NAMES_.indexOf(z)>-1 ? z : ''; }
 var KVF=[
   {label:'Event date', col:C.eventDate, type:'date'},
   {label:'Start', col:C.start, type:'time'},
   {label:'End', col:C.end, type:'time'},
+  {label:'Event time zone (blank = same as yours)', col:C.eventZone, type:'select', opts:EVENT_ZONE_NAMES_},
   {label:'Service', col:C.service, type:'select', opts:cfgList('SERVICES', FALLBACK_SERVICES)},
   {label:'Event type', col:C.eventType, type:'select', opts:cfgList('EVENT_TYPES', FALLBACK_EVENT_TYPES), addKey:'EVENT_TYPES', addLabel:'event type'},
   {label:'Audience', col:C.audience, type:'text'},
@@ -5709,7 +5716,7 @@ var MERGE_FIELDS=[
   {key:'firstname', label:'First name', get:function(L){ return firstName(L[C.name]); }},
   {key:'name', label:'Full name', get:function(L){ return String(L[C.name]||''); }},
   {key:'eventdate', label:'Event date', get:function(L){ return fmtDateY(L[C.eventDate]); }},
-  {key:'starttime', label:'Start time', get:function(L){ var d=timeToday(L[C.start]); return d?hm12(d):''; }},
+  {key:'starttime', label:'Start time', get:function(L){ var d=timeToday(L[C.start]); if(!d) return ''; var z=eventZoneName_(L); return hm12(d)+(z?' '+z+' time':''); }},
   {key:'endtime', label:'End time', get:function(L){ var d=timeToday(L[C.end]); return d?hm12(d):''; }},
   {key:'eventtype', label:'Event type', get:function(L){ return String(L[C.eventType]||''); }},
   {key:'service', label:'Service requested', get:function(L){ return svcLabel(L[C.service]); }},
@@ -7022,6 +7029,7 @@ function dpHtml_(){
     var col=function(act, items, cur){ return '<div class="tp-col" data-col="'+act+'">'+items.map(function(it){ return '<button type="button" class="tp-it'+(String(it.v)===String(cur)?' sel':'')+'" data-a="'+act+'" data-v="'+it.v+'">'+it.t+'</button>'; }).join('')+'</div>'; };
     var hrs=[],mins=[]; for(var h=1;h<=12;h++) hrs.push({v:h,t:h}); for(var m=0;m<60;m++) mins.push({v:m,t:dpPad_(m)});
     return '<div class="tp-wheels"><div class="tp-band"></div>'+col('h',hrs,DP.h)+col('mi',mins,DP.mi)+col('ap',[{v:'AM',t:'AM'},{v:'PM',t:'PM'}],DP.ap)+'</div>'
+      +'<div class="dp-type"><input id="dpTypeIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type a time" placeholder="Or type it, like 5:30 PM"></div>'
       +'<div class="dp-foot"><button type="button" class="dp-link" data-a="clear">Clear</button><button type="button" class="dp-link" data-a="set">Set</button></div>';
   }
   if(DP.mode==='months'){
@@ -7100,7 +7108,41 @@ function dpClick_(e){
     dpMark_();
     var colEl=b.parentNode; if(colEl && colEl.scrollTo) colEl.scrollTo({top:dpWheelIndex_(a, a==='ap'?v:Number(v))*DP_ROW, behavior:'smooth'});
   }
-  else if(a==='set'){ dpCommit_(dpPad_((DP.h%12)+(DP.ap==='PM'?12:0))+':'+dpPad_(DP.mi)); }
+  else if(a==='set'){ dpSetTime_(); }
+}
+/* Typing a time (Rich, 2026-10-13): on a computer the wheels are slow to scroll, so the time picker also has a box to TYPE the time in --
+   "5:30 PM", "5:30pm", "530p", "17:30", "1730" or just "5". Without am/pm, 1-12 uses whatever AM/PM the wheel is on; 13-23 is read
+   as 24-hour. Enter (or Set) uses the typed time if there is one, otherwise the wheels. */
+function dpParseTyped_(txt, defAp){
+  var t=String(txt==null?'':txt).toLowerCase().replace(/[\s.]/g,''); if(!t) return null;
+  var m=t.match(/^(\d{1,2}):?(\d{2})?([ap])m?$/), h, mi;
+  if(m){
+    h=Number(m[1]); mi=m[2]?Number(m[2]):0;
+    if(h<1 || h>12 || mi>59) return null;
+    return {h:(h%12)+(m[3]==='p'?12:0), mi:mi};
+  }
+  m=t.match(/^(\d{1,2}):(\d{2})$/) || t.match(/^(\d{1,2})(\d{2})$/) || t.match(/^(\d{1,2})()$/);
+  if(!m) return null;
+  h=Number(m[1]); mi=m[2]?Number(m[2]):0;
+  if(h>23 || mi>59) return null;
+  if(h>=1 && h<=12) h=(h%12)+(defAp==='PM'?12:0);
+  return {h:h, mi:mi};
+}
+// true when the typed box had something in it (committed, or refused with a message)
+function dpTypedCommit_(){
+  var inp=document.getElementById('dpTypeIn'); if(!inp || !DP) return false;
+  var v=String(inp.value||'').trim(); if(!v) return false;
+  var r=dpParseTyped_(v, DP.ap);
+  if(!r){ if(inp.style) inp.style.borderColor='var(--crimson)'; toast('Type a time like 5:30 PM'); return true; }
+  dpCommit_(dpPad_(r.h)+':'+dpPad_(r.mi));
+  return true;
+}
+function dpSetTime_(){
+  if(dpTypedCommit_()) return;
+  dpCommit_(dpPad_((DP.h%12)+(DP.ap==='PM'?12:0))+':'+dpPad_(DP.mi));
+}
+function dpTypeKey_(e){
+  if(e.key==='Enter' && e.target && e.target.id==='dpTypeIn'){ e.preventDefault(); e.stopPropagation(); dpSetTime_(); }
 }
 // time picker: move the gold highlight without rebuilding (so scroll positions stay put)
 function dpMark_(){
@@ -7125,9 +7167,13 @@ function dpOpen_(inputId, anchor, kind, onCancel){
   }
   var p=document.createElement('div'); p.id='dpPop'; p.className='dppop'+(kind==='time'?' tptime':''); p.setAttribute('role','dialog'); p.setAttribute('aria-label', kind==='time'?'Choose a time':'Choose a date');
   p.onclick=dpClick_;
-  if(p.addEventListener) p.addEventListener('scroll', function(e){ dpWheelScroll_(e.target); }, true);
+  if(p.addEventListener){ p.addEventListener('scroll', function(e){ dpWheelScroll_(e.target); }, true); p.addEventListener('keydown', dpTypeKey_, true); }
   document.body.appendChild(p);
   dpRender_();
+  if(kind==='time'){        // on a computer the cursor goes straight into the typing box; on a phone the wheels stay the way in (no keyboard popping up)
+    var ti=document.getElementById('dpTypeIn');
+    try{ if(ti && ti.focus && window.matchMedia && window.matchMedia('(pointer: fine)').matches) ti.focus(); }catch(e){}
+  }
   document.addEventListener('click', dpOutside_, true);
   document.addEventListener('keydown', dpKey_, true);
   window.addEventListener('scroll', dpScroll_, true);
@@ -11509,6 +11555,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.71', d:'Oct 2026', notes:[
+    'New — Event time zone: for a show in a different time zone, pick the zone on the lead (the new \u201cEvent time zone\u201d field, right after End). Enter the start and end times as the clock at the venue, and the contract states them with the zone, for example \u201c6:00 PM Pacific (PDT)\u201d, and your emails say \u201c6:00 PM Pacific time\u201d. Leave it blank to keep things exactly as before. Regenerate a contract after setting a zone. Your calendar entry and \u201cLeave for\u201d alert still use your own time zone for now.',
+    'New — Type a time instead of scrolling: the time picker now has a box where you can type \u201c5:30 PM\u201d (or 5:30pm, 530p, 17:30). On a computer the cursor goes straight into it; on a phone the wheels are still the quick way in.'
+  ]},
   { v:'1.5.70', d:'Oct 2026', notes:[
     'New — Double-booking warnings now look at TIME, not just the date. Two shows on the same day only conflict if their times overlap, or leave less than the gap you set between them. A noon show and a 9 PM show no longer clash. Set the gap in Settings \u2192 Services & event portal \u2192 Time needed between shows (60 minutes unless you change it). If a show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours.',
     'New — \u201cCan you make it?\u201d When two booked shows are on the same day without overlapping, the lead page checks the typical drive between the two event locations and tells you whether you have plenty of time, it\u2019s tight, or you\u2019re short. It needs an Event Location on both shows (full street addresses work best) and uses a typical drive, not live traffic.',

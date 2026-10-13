@@ -1,15 +1,7 @@
 What's new in this update:
 
-• NEW — Double-booking warnings now look at time, not just the date. Two shows on the same day only conflict if their times overlap, or leave less than the gap you set between them, so a noon show and a 9 PM show no longer clash. Set the gap in Settings → Services & event portal → "Time needed between shows" (60 minutes unless you change it). If a show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours. Add start and end times to your leads to get the most out of it.
+• NEW — Event time zone. For a show in a different time zone, pick the zone on the lead (the new "Event time zone" field, right after End). Enter the start and end times as the clock at the venue, and the contract states them with the zone, for example "6:00 PM Pacific (PDT)", and your client emails say "6:00 PM Pacific time". Leave it blank and everything stays exactly as before. Regenerate a contract after setting a zone so it picks it up. For now your Google Calendar entry and "Leave for" alert still use your own time zone, so for a show in another zone, check the calendar time.
 
-• NEW — "Can you make it?" When two booked shows are on the same day without overlapping, the lead page checks the typical drive between the two event locations and tells you whether you have plenty of time, it's tight, or you're short. It needs an Event Location on both shows (full street addresses work best) and it uses a typical drive, not live traffic.
+• NEW — Type a time instead of scrolling. The time picker now has a box where you can type "5:30 PM" (or 5:30pm, 530p, 17:30) and press Enter. On a computer the cursor goes straight into it; on a phone the wheels are still the quick way in.
 
-• NEW — Settings now tells you if your Google Sheet and your Apps Script project are set to different time zones, which can make saved times shift, and shows the steps to fix it. The note goes away on its own once they match.
-
-• NEW — Tap through from the Oracle. After "What's coming up?", "Overdue follow-ups?" or "Why am I losing leads?", a "See the …" link opens the list of leads behind the answer.
-
-• CHANGED — In your Today list, items at the same time are now ordered by the event type that has earned you the most (for example, a 9 AM Corporate show above a 9 AM Wedding), based on your own booked leads.
-
-• Also new: Help topics "Times look wrong (time zones)" and "Double-booking warnings and travel time".
-
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. An "Event Time Zone" column is added to your Google Sheet automatically the first time you set a zone.
