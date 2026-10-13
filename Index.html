@@ -154,6 +154,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   background:rgba(143,184,232,.08);
 }
 .oracle-chip:active{ background:rgba(143,184,232,.22); }
+.oracle-see{ background:none; border:none; padding:2px 0; color:var(--gold-bright); font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
 .oracle-chip::before{ content:'\2726 '; opacity:.8; }
 .oracle-answer{
   margin-top:10px; padding:12px 14px; border-radius:14px 14px 14px 4px;
@@ -972,6 +973,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
       <p class="note" style="text-align:left;margin:0 0 4px">Prefer step-by-step? Run the guided wizard &mdash; or edit anything directly below.</p>
     </div>
 
+    <div id="setTzWarn" style="display:none"></div>
     <div class="insight-group-label">Your settings</div>
     <div class="search-wrap" style="margin:2px 0 6px">
       <input id="setq" type="search" autocomplete="off" placeholder="Search settings, tools and help&#8230;" oninput="setSettingsQ(this.value)">
@@ -1455,6 +1457,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
   <h2 id="d_name" onclick="editName()"></h2>
   <div class="lsum" id="d_sub"></div>
   <div id="d_conflict"></div>
+  <div id="d_travel"></div>
   <div class="trk" id="d_track" style="display:none"></div>
   <div class="nextstep" id="d_nextstep" style="display:none"></div>
   <div id="d_review" style="display:none"></div>
@@ -1779,6 +1782,7 @@ function ingest(json){
   if('recurring' in o) RECURRING=o.recurring||[];
   if('storeSales' in o) STORE_SALES=o.storeSales||[];
   if('referralFees' in o) REFERRAL_FEES=o.referralFees||[];
+  if('tzCheck' in o) TZ_CHECK=o.tzCheck||null;
   if('storeProducts' in o) STORE_SALE_PRODUCTS=o.storeProducts||[];
   if('customExpenseCategories' in o) CUSTOM_EXPENSE_CATEGORIES=Array.isArray(o.customExpenseCategories)?o.customExpenseCategories:[];
   if('taxRate' in o) TAX_RATE=Number(o.taxRate)||25;
@@ -2150,8 +2154,8 @@ function conflictBadgeHtml(L){
   var border = conflict.hard ? 'var(--crimson)' : 'var(--gold)';
   var bg = conflict.hard ? 'rgba(192,82,54,.12)' : 'rgba(201,160,80,.08)';
   var cText = conflict.hard
-    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+cName+' already Booked this date'
-    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+cName+' also wants this date'+(conflict.count>1?' (+'+(conflict.count-1)+')':'');
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+conflictHeadline_(conflict, cName)
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'+conflictHeadline_(conflict, cName);
   var myName=esc(L[C.name]||'This lead');
   var quoteLine = '<div style="font-size:11.5px;color:'+accent+';opacity:.85;margin-top:3px">'
     +myName+': '+(L[C.price]?esc(fmtMoney(L[C.price])):'Not quoted yet')
@@ -2177,24 +2181,133 @@ function conflictIconHtml(L){
   if(!conflict) return '';
   var color = conflict.hard ? '#E9927B' : 'var(--gold-bright)';
   var title = conflict.hard
-    ? 'Date conflict with a Booked lead'
-    : 'Another lead is also being considered for this date';
+    ? (conflict.exact ? 'Overlaps a Booked show' : 'Same date as a Booked lead (times not set)')
+    : (conflict.exact ? 'Another lead is also being considered for an overlapping time' : 'Another lead is also being considered for this date');
   return '<span title="'+esc(title)+'" style="color:'+color+';display:inline-flex;vertical-align:-2px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>';
+}
+/* ---------- Show conflicts by TIME, and can-you-make-it travel check (Rich, 2026-10-13) ----------
+   A conflict used to mean "same date". Now, when both shows have a start time, two shows only conflict if they overlap -- plus the
+   gap you set in Settings ("Time needed between shows", default 60 min, for packing up and setting up). A missing end time is assumed
+   to be 2 hours; an end earlier than the start means the show runs past midnight. If either show has no start time we cannot tell,
+   so it falls back to the old same-date warning ("times not set"). For two Booked shows on one day that DON'T clash, the lead page
+   also asks Google Maps for the typical drive between the two event locations and says whether it is plausible (same lookup as the
+   "Leave for" alerts; typical drive, not live traffic). */
+var SHOW_ASSUMED_MIN_=120;
+function timeMins_(v){
+  var m=String(v==null?'':v).trim().match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?\s*$/);
+  if(!m) return null;
+  var h=Number(m[1]), mi=Number(m[2]);
+  if(m[3]){ var ap=m[3].toLowerCase(); if(ap==='pm' && h<12) h+=12; if(ap==='am' && h===12) h=0; }
+  return (h>23 || mi>59) ? null : h*60+mi;
+}
+function minsLabel_(m){
+  m=((Math.round(m)%1440)+1440)%1440;
+  var h=Math.floor(m/60), mi=m%60, ap=h>=12?'PM':'AM', h12=h%12||12;
+  return h12+':'+(mi<10?'0':'')+mi+' '+ap;
+}
+function showGapMinutes_(){
+  var n=parseFloat(String((typeof CFG!=='undefined' && CFG && CFG.SHOW_GAP_MINUTES)||'').replace(/[^0-9.]/g,''));
+  return isNaN(n) ? 60 : Math.max(0, Math.min(600, Math.round(n)));
+}
+// {s,e} in ms for a lead's show on its event date, or null when there is no date or no start time.
+function showWindow_(L){
+  var ed=pd(L[C.eventDate]), sm=timeMins_(L[C.start]);
+  if(!ed || sm===null) return null;
+  var em=timeMins_(L[C.end]), assumed=false;
+  if(em===null){ em=sm+SHOW_ASSUMED_MIN_; assumed=true; } else if(em<=sm) em+=1440;
+  var base=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate()).getTime();
+  return {s:base+sm*60000, e:base+em*60000, assumed:assumed};
+}
+function windowsClash_(a, b, gapMin){
+  var g=gapMin*60000;
+  return a.s < b.e+g && b.s < a.e+g;
+}
+function showTimesLabel_(L){
+  var sm=timeMins_(L[C.start]); if(sm===null) return '';
+  var em=timeMins_(L[C.end]);
+  return minsLabel_(sm)+(em!==null ? '–'+minsLabel_(em) : '');
 }
 function findDateConflict(L){
   var ed=pd(L[C.eventDate]);
   if(!ed) return null;
-  var edStr=ymd(ed);
-  var conflicts=LEADS.filter(function(other){
-    if(other._row===L._row) return false;
+  var edStr=ymd(ed), gap=showGapMinutes_(), mine=showWindow_(L), clash=[];
+  LEADS.forEach(function(other){
+    if(other._row===L._row) return;
     var oed=pd(other[C.eventDate]);
-    if(!oed || ymd(oed)!==edStr) return false;
+    if(!oed || ymd(oed)!==edStr) return;
     var s=String(other[C.status]||'');
-    return s==='Booked' || s==='New' || s==='Pending' || s==='No response';
+    if(!(s==='Booked' || s==='New' || s==='Pending' || s==='No response')) return;
+    var theirs=showWindow_(other);
+    if(mine && theirs){ if(!windowsClash_(mine, theirs, gap)) return; clash.push({lead:other, exact:true}); }
+    else clash.push({lead:other, exact:false});
   });
-  if(!conflicts.length) return null;
-  var booked=conflicts.find(function(o){ return String(o[C.status])==='Booked'; });
-  return { lead: booked||conflicts[0], hard: !!booked, count: conflicts.length };
+  if(!clash.length) return null;
+  var booked=clash.filter(function(c){ return String(c.lead[C.status])==='Booked'; })[0];
+  var pick=booked||clash[0];
+  return { lead:pick.lead, hard:!!booked, count:clash.length, exact:pick.exact };
+}
+// The one line a conflict badge / referral note shows.
+function conflictHeadline_(conflict, name){
+  var times=showTimesLabel_(conflict.lead);
+  if(conflict.hard){
+    return conflict.exact ? name+' is Booked '+(times||'at an overlapping time')+' — too close to this show'
+                          : name+' already Booked this date (times not set)';
+  }
+  return (conflict.exact ? name+' also wants an overlapping time' : name+' also wants this date')+(conflict.count>1?' (+'+(conflict.count-1)+')':'');
+}
+// Booked shows on the same day that do NOT clash, with times known: the nearest one before and the nearest one after.
+// avail = minutes between the two shows.
+function findShowNeighbors_(L){
+  var mine=showWindow_(L), ed=pd(L[C.eventDate]);
+  if(!mine || !ed) return [];
+  var edStr=ymd(ed), gap=showGapMinutes_(), before=null, after=null;
+  LEADS.forEach(function(o){
+    if(o._row===L._row || String(o[C.status])!=='Booked') return;
+    var oed=pd(o[C.eventDate]); if(!oed || ymd(oed)!==edStr) return;
+    var w=showWindow_(o); if(!w || windowsClash_(mine, w, gap)) return;
+    if(w.e<=mine.s){ if(!before || w.e>before.w.e) before={lead:o, w:w, dir:'before', avail:Math.round((mine.s-w.e)/60000)}; }
+    else if(w.s>=mine.e){ if(!after || w.s<after.w.s) after={lead:o, w:w, dir:'after', avail:Math.round((w.s-mine.e)/60000)}; }
+  });
+  return [before, after].filter(Boolean);
+}
+// spare = what is left after the drive and the setup gap. 30+ min spare = fine, under that = tight, negative = not enough time.
+function travelVerdict_(avail, drive, gap){
+  var spare=avail-drive-gap;
+  return {spare:spare, level: spare>=30 ? 'ok' : spare>=0 ? 'tight' : 'no'};
+}
+var TRAVEL_CACHE={};
+function renderTravelCheck_(L){
+  var el=$('d_travel'); if(!el) return;
+  if(!L){ el.innerHTML=''; return; }
+  var nb=findShowNeighbors_(L), gap=showGapMinutes_();
+  if(!nb.length){ el.innerHTML=''; return; }
+  var row=L._row, here=String(L[C.location]||'').trim();
+  var box=function(i, color, html){ return '<div id="trv_'+i+'" style="margin-bottom:10px;padding:9px 10px;border:1px solid '+color+';border-radius:8px;font-size:12.5px;line-height:1.5">'+html+'</div>'; };
+  el.innerHTML=nb.map(function(n, i){
+    return box(i, 'var(--line)', '<span style="color:var(--muted)">Checking travel '+(n.dir==='before'?'from ':'to ')+esc(n.lead[C.name]||'another show')+'…</span>');
+  }).join('');
+  nb.forEach(function(n, i){
+    var there=String(n.lead[C.location]||'').trim(), who=esc(n.lead[C.name]||'another show');
+    var when = n.dir==='before' ? 'After <b>'+who+'</b> (ends '+minsLabel_((n.w.e-new Date(n.w.e).setHours(0,0,0,0))/60000)+')'
+                                : 'Before <b>'+who+'</b> (starts '+minsLabel_((n.w.s-new Date(n.w.s).setHours(0,0,0,0))/60000)+')';
+    var put=function(color, html){ if(!CURRENT || CURRENT._row!==row) return; var b=$('trv_'+i); if(b){ b.style.borderColor=color; b.innerHTML=html; } };
+    if(!here || !there){ put('var(--gold)', when+': add an event location to both shows to check the drive between them.'); return; }
+    var from=n.dir==='before' ? there : here, to=n.dir==='before' ? here : there, key=from+'|'+to;
+    var show=function(d){
+      var v=travelVerdict_(n.avail, d.minutes, gap);
+      var color=v.level==='ok'?'var(--sage)':v.level==='tight'?'var(--gold)':'var(--crimson)';
+      var head=v.level==='ok' ? 'Plenty of time' : v.level==='tight' ? 'Tight' : 'Not enough time — '+Math.abs(v.spare)+' min short';
+      put(color, '<div style="font-weight:700;color:'+(v.level==='no'?'#E9927B':v.level==='tight'?'var(--gold-bright)':'var(--sage)')+'">'+head+'</div>'
+        +'<div style="color:var(--muted);font-size:12px">'+when+' · about a '+d.minutes+' min drive ('+d.miles+' mi) · '+n.avail+' min between the shows, '+gap+' min set aside for packing up and setting up'
+        +(v.level==='no'?'':' · '+v.spare+' min to spare')+'. Typical drive, not live traffic.</div>');
+    };
+    if(TRAVEL_CACHE[key]){ show(TRAVEL_CACHE[key]); return; }
+    GS.withSuccessHandler(function(json){
+      var d=null; try{ d=JSON.parse(json); }catch(e){}
+      if(!d || !d.ok){ put('var(--gold)', when+': couldn’t work out the drive'+(d&&d.error?' ('+esc(d.error)+')':'')+'. Full street addresses in Event Location work best.'); return; }
+      TRAVEL_CACHE[key]={minutes:d.minutes, miles:d.miles}; show(TRAVEL_CACHE[key]);
+    }).withFailureHandler(function(){ put('var(--gold)', when+': couldn’t check the drive just now.'); }).driveBetween(from, to);
+  });
 }
 function isChildrenAudience(ageText){
   var s=String(ageText||'').toLowerCase().trim();
@@ -2227,7 +2340,7 @@ function openReferModal(row){
   if(isKids){
     reasonText='Children\u2019s audience \u2014 outside what you take.';
   } else if(conflict && conflict.hard){
-    reasonText=(conflict.lead[C.name]||'Another lead')+' is already Booked this date.';
+    reasonText=conflictHeadline_(conflict, conflict.lead[C.name]||'Another lead')+'.';
   }
   $('refm_context').textContent = reasonText;
   $('refm_step1').style.display=''; $('refm_step2').style.display='none';
@@ -2655,7 +2768,7 @@ function renderGenFollowupDue(){
         var conflictHtml = showKids ? '' : conflictBadgeHtml(L);
 
         var gNote=[L[C.eventDate]?('Event '+fmtDateY(L[C.eventDate])):'', L[C.eventType]||''].filter(Boolean).join(' \u00b7 ');
-        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3, ts:tdTs_(fuTime)})+'>'
+        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3, ts:tdTs_(fuTime), etype:L[C.eventType]})+'>'
           +kidsHtml
           +conflictHtml
           +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
@@ -3266,7 +3379,7 @@ function renderFollowupDue(){
         var ev=bookedEventNote_(L);
         var late=daysLate_(pd(L[C.followup]));
         var emailBtn = (L[C.email]) ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright);margin-right:6px" onclick="event.stopPropagation();quickEmailLead('+L._row+')">Email</button>' : '';
-        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:[ev, hint].filter(Boolean).join(' \u00b7 '), when:lateText_(late), late:late, rank:2, ts:tdTs_(pd(L[C.followup]))})+'>'
+        return '<div class="followupdue-row"'+tdItem('bk:'+L._row, {name:L[C.name]||'Lead', tag:stage, note:[ev, hint].filter(Boolean).join(' \u00b7 '), when:lateText_(late), late:late, rank:2, ts:tdTs_(pd(L[C.followup])), etype:L[C.eventType]})+'>'
           +'<div class="followupdue-info" onclick="openSheet('+L._row+')">'
             +'<div class="followupdue-name">'+esc(L[C.name]||'Lead')+'</div>'
             +'<div class="followupdue-stage">'+esc(stage)+(hint?' \u2014 '+esc(hint):'')+'</div>'
@@ -3319,6 +3432,7 @@ function clearBookedFollowup(row){
 function renderDConflict(L){
   var el=$('d_conflict'); if(!el || !L) return;
   el.innerHTML=conflictBadgeHtml(L);
+  renderTravelCheck_(L);
 }
 function buildFollowupDoneBtn(){
   var el=$('d_followdonebtn'), hintEl=$('d_followdone_hint'); if(!el || !CURRENT) return;
@@ -3604,7 +3718,7 @@ function tdKey_(k){ return String(k).replace(/[^A-Za-z0-9:_-]/g,'_'); }
 function tdItem(key, o){
   return ' data-td="'+tdKey_(key)+'" data-td-name="'+esc(o.name||'')+'" data-td-tag="'+esc(o.tag||'')+'" data-td-note="'+esc(o.note||'')
     +'" data-td-when="'+esc(o.when||'')+'" data-td-late="'+(Number(o.late)>0?Math.round(o.late):0)+'" data-td-rank="'+(Number(o.rank)||0)+'"'
-    +' data-td-ts="'+(o.ts?Math.round(o.ts):'')+'"';
+    +' data-td-ts="'+(o.ts?Math.round(o.ts):'')+'" data-td-etype="'+esc(o.etype||'')+'"';
 }
 // Sort time for a due item (ms). A date with no time set reads as 9:00 AM, same as the card labels show.
 function tdTs_(d){
@@ -3642,15 +3756,32 @@ function tdItems_(){
     Array.prototype.forEach.call(el.querySelectorAll('[data-td]'), function(n){
       items.push({card:id, key:n.getAttribute('data-td'), name:n.getAttribute('data-td-name'), tag:n.getAttribute('data-td-tag'),
         note:n.getAttribute('data-td-note'), when:n.getAttribute('data-td-when'), late:Number(n.getAttribute('data-td-late'))||0,
-        rank:Number(n.getAttribute('data-td-rank'))||0, ts:Number(n.getAttribute('data-td-ts'))||0});
+        rank:Number(n.getAttribute('data-td-rank'))||0, ts:Number(n.getAttribute('data-td-ts'))||0, etype:n.getAttribute('data-td-etype')||''});
     });
   });
+  return tdSort_(items);
+}
+// Event types ranked by what they have actually earned you (Rich, 2026-10-13): the average total (price + travel) of your Booked / Completed
+// leads of each type. Returns a function giving a type's average, or -1 for a type with no booked history (and for items with no type,
+// like tasks) so those sort last. Case- and space-insensitive, like every other grouping in the app.
+function tdEventRanks_(){
+  var sum={}, cnt={};
+  LEADS.forEach(function(L){
+    if(!isBookedLike(L)) return;
+    var k=String(L[C.eventType]||'').trim().toLowerCase(); if(!k) return;
+    sum[k]=(sum[k]||0)+money(L[C.price])+money(L[C.travelFee]); cnt[k]=(cnt[k]||0)+1;
+  });
+  return function(type){ var k=String(type||'').trim().toLowerCase(); return cnt[k] ? sum[k]/cnt[k] : -1; };
+}
+function tdSort_(items){
+  var er=tdEventRanks_();
   // Payments waiting on you first, then whatever is most overdue. Follow-ups and tasks (ranks 2 and 3) are
   // one group, so within the same day they run earliest time to latest; then by kind and name.
   var grp=function(r){ return (r===2||r===3)?2:r; };
   items.sort(function(a,b){
     var pa=a.rank===0?0:1, pb=b.rank===0?0:1;
-    return (pa-pb) || (b.late-a.late) || (grp(a.rank)-grp(b.rank)) || (a.ts-b.ts) || (a.rank-b.rank) || String(a.name).localeCompare(String(b.name));
+    // Same day, same time of day? The event type that earns the most goes first (Corporate before Wedding, say), then kind, then name.
+    return (pa-pb) || (b.late-a.late) || (grp(a.rank)-grp(b.rank)) || (a.ts-b.ts) || (er(b.etype)-er(a.etype)) || (a.rank-b.rank) || String(a.name).localeCompare(String(b.name));
   });
   return items;
 }
@@ -4844,6 +4975,7 @@ function commitKV_(i, nv){
     updates[F.col]=nv;
     CURRENT[F.col]=nv;
   }
+  if(F.col===C.eventDate || F.col===C.start || F.col===C.end || F.col===C.location) renderDConflict(CURRENT);   // conflicts + travel check follow the edit at once
   // Deposit defaults to your configured percent (Settings -> Getting paid) of
   // the total the moment a price is set — but only while deposit is still blank,
   // so it never overwrites a figure you've deliberately typed in yourself. Uses
@@ -7406,6 +7538,23 @@ function toggleReferrals(){ toggleInsight('lref'); }
 function toggleTasksDone(){ var w=$('tdone_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('tdone_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 function toggleAskOracle(){ var w=$('oracle_ask_wrap'), open=w.style.display==='none'; w.style.display=open?'':'none'; $('oracle_ask_chev').innerHTML=open?'&#9652;':'&#9662;'; }
 
+/* Oracle answers that name a set of leads can be opened (Rich, 2026-10-13): after the answer finishes typing, a "See the 2 shows" link
+   opens that exact list (same sheet Insights uses), built from the same selector the answer was, so they always agree. */
+var ORACLE_LISTS = {
+  upcoming:{ noun:['show','shows'], label:'Booked in the next 30 days', get:oracleUpcomingLeads_, sort:function(a,b){ return (pd(a[C.eventDate])||0)-(pd(b[C.eventDate])||0); } },
+  overdue: { noun:['overdue follow-up','overdue follow-ups'], label:'Overdue follow-ups', get:function(){ var s=oracleOverdueSets_(); return s.overdue.length ? s.overdue : s.due; }, sort:function(a,b){ return (pd(a[C.followup])||0)-(pd(b[C.followup])||0); } },
+  losing:  { noun:['lost lead','lost leads'], label:'Lost leads', get:oracleLostLeads_, sort:function(a,b){ return (pd(b[C.timestamp])||0)-(pd(a[C.timestamp])||0); } }
+};
+function oracleSeeLink_(key){
+  var d=ORACLE_LISTS[key]; if(!d) return '';
+  var n=d.get().length; if(!n) return '';
+  return '<div style="margin-top:8px"><button type="button" class="oracle-see" onclick="oracleSeeList(\''+key+'\')">See the '+n+' '+d.noun[n===1?0:1]+' &#8250;</button></div>';
+}
+function oracleSeeList(key){
+  var d=ORACLE_LISTS[key]; if(!d) return;
+  var rows={}; d.get().forEach(function(L){ rows[L._row]=1; });
+  showInsightInPlace(d.label, function(L){ return !!rows[L._row]; }, true, d.sort);
+}
 function askOracle(key){
   var fn={
     bestsource: oracleBestSource, losing: oracleLosing, untapped: oracleUntapped,
@@ -7416,17 +7565,17 @@ function askOracle(key){
   var box=$('oracle_answer');
   box.style.display='';
   box.innerHTML='<span style="opacity:.6">\u2726 thinking\u2026</span>';
-  setTimeout(function(){ revealOracleAnswer(fn()); }, 250);
+  setTimeout(function(){ revealOracleAnswer(fn(), key); }, 250);
 }
 var ORACLE_REVEAL_ID=0;
-function revealOracleAnswer(html){
+function revealOracleAnswer(html, key){
   var box=$('oracle_answer');
   var myId=++ORACLE_REVEAL_ID;
   var words=html.split(' ');
   var i=0;
   function step(){
     if(myId!==ORACLE_REVEAL_ID) return; // a newer question was asked mid-reveal
-    box.innerHTML='\u2726 '+words.slice(0,i+1).join(' ')+(i<words.length-1?'<span class="oracle-cursor">&#9612;</span>':'');
+    box.innerHTML='\u2726 '+words.slice(0,i+1).join(' ')+(i<words.length-1?'<span class="oracle-cursor">&#9612;</span>':oracleSeeLink_(key));
     i++;
     if(i<words.length) setTimeout(step, 28);
   }
@@ -7470,8 +7619,9 @@ function oracleBestSource(){
   if(byVal.length) return '<b>'+esc(byVal[0].src)+'</b> \u2014 '+$m(byVal[0].bookedVal)+' in booked business, your top source by value. No ad spend logged for it yet, so I can\u2019t speak to ROI.';
   return 'Not enough booked leads yet to call a winner.';
 }
+function oracleLostLeads_(){ return LEADS.filter(function(L){ return String(L[C.status])==='Lost'; }); }
 function oracleLosing(){
-  var lost=LEADS.filter(function(L){ return String(L[C.status])==='Lost'; });
+  var lost=oracleLostLeads_();
   if(!lost.length) return 'You haven\u2019t lost any leads yet \u2014 nothing to report.';
   var reasonTally=tally(lost, function(L){ return String(L[C.lostReason]||'').trim()||'Not specified'; });
   var top=reasonTally[0], pct=Math.round(top.n/lost.length*100);
@@ -7493,14 +7643,17 @@ function oracleUntapped(){
   var names=untapped.slice(0,5).map(function(p){ return esc(p.name); }).join(', ');
   return untapped.length+' of '+PARTNERS.length+' partner'+(PARTNERS.length===1?'':'s')+' '+(untapped.length===1?'hasn\u2019t':'haven\u2019t')+' gotten a referral yet: <b>'+names+'</b>'+(untapped.length>5?', and '+(untapped.length-5)+' more':'')+'.';
 }
-function oracleUpcoming(){
-  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+function oracleUpcomingLeads_(){
   var in30=new Date(); in30.setDate(in30.getDate()+30);
-  var upcoming=LEADS.filter(function(L){
+  return LEADS.filter(function(L){
     if(String(L[C.status])!=='Booked') return false;
     var ed=pd(L[C.eventDate]);
     return ed && ed>=today0() && ed<=in30;
   });
+}
+function oracleUpcoming(){
+  var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  var upcoming=oracleUpcomingLeads_();
   if(!upcoming.length) return 'Nothing booked in the next 30 days.';
   var val=upcoming.reduce(function(s,L){ return s+money(L[C.price]); },0);
   return '<b>'+upcoming.length+' show'+(upcoming.length===1?'':'s')+'</b> booked in the next 30 days, worth '+$m(val)+' total.';
@@ -7512,13 +7665,18 @@ function oracleConversion(){
   var pct=Math.round(booked.length/eligible.length*100);
   return '<b>'+pct+'%</b> \u2014 '+booked.length+' booked out of '+eligible.length+' leads (referrals not counted, since those were never really yours to convert).';
 }
+function oracleOverdueSets_(){
+  return {
+    overdue: LEADS.filter(function(L){
+      if(!isWorkingLead(L)) return false;
+      var f=pd(L[C.followup]);
+      return f && f<today0();
+    }),
+    due: LEADS.filter(bookedFollowupDue_)
+  };
+}
 function oracleOverdue(){
-  var overdue=LEADS.filter(function(L){
-    if(!isWorkingLead(L)) return false;
-    var f=pd(L[C.followup]);
-    return f && f<today0();
-  });
-  var due=LEADS.filter(bookedFollowupDue_);
+  var od=oracleOverdueSets_(), overdue=od.overdue, due=od.due;
   if(!overdue.length && due.length) return '<b>'+due.length+'</b> booked client'+(due.length===1?'':'s')+' ha'+(due.length===1?'s':'ve')+' a follow-up due: '+due.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ')+'. No new inquiries are overdue.';
   if(!overdue.length) return 'Nothing overdue \u2014 you\u2019re caught up.';
   var names=overdue.slice(0,5).map(function(L){ return esc(L[C.name]||'Unnamed'); }).join(', ');
@@ -10333,6 +10491,18 @@ function applyToolsHelpSearch_(q){
    background and repaints only if something actually changed and you have not started typing. Any save marks the cache
    stale and refetches it. (A cold open before the first fetch finishes still shows "Loading…" once.) */
 var SETTINGS_CACHE=null, SETTINGS_FETCHING=false;
+/* Time zones (Rich, 2026-10-12): times are read in the SHEET's zone but saved by code running in the Apps Script PROJECT's zone, so if
+   the two differ a time can shift. The server only detects it (TZ_CHECK); this note appears at the top of Settings, only while they
+   differ, and goes away by itself once they match. */
+var TZ_CHECK=null;
+function renderTzWarn_(){
+  var box=$('setTzWarn'); if(!box) return;
+  if(!TZ_CHECK || TZ_CHECK.ok!==false){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  box.innerHTML='<div style="border:1px solid var(--crimson);border-radius:12px;padding:12px 14px;margin:0 0 14px;background:rgba(192,82,54,.08)">'
+    +'<div style="font-weight:700;color:var(--cream);margin-bottom:4px">Your time zones don\u2019t match</div>'
+    +'<div style="font-size:13px;line-height:1.5;color:var(--muted)">Your sheet is set to <b style="color:var(--cream)">'+esc(TZ_CHECK.sheetTz||'?')+'</b> but your Apps Script project is set to <b style="color:var(--cream)">'+esc(TZ_CHECK.scriptTz||'?')+'</b>, so times can shift when they\u2019re saved. To fix it: open your Google Sheet, go to <b style="color:var(--cream)">Extensions \u2192 Apps Script</b>, click the <b style="color:var(--cream)">gear icon</b> (Project Settings), and set <b style="color:var(--cream)">Time zone</b> to match your sheet. Then choose <b style="color:var(--cream)">Deploy \u2192 Manage deployments \u2192 pencil \u2192 New version \u2192 Deploy</b>. Times you entered before may need a second look.</div></div>';
+}
 function prefetchSettings_(){
   if(SETTINGS_CACHE || SETTINGS_FETCHING) return;
   SETTINGS_FETCHING=true;
@@ -10355,6 +10525,7 @@ function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
   renderWizardPrompt_();
+  renderTzWarn_();
   var paint=function(s){
     SETTINGS_FIELDS = s.fields || [];
     var sections = s.sections || [];
@@ -11338,6 +11509,14 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.70', d:'Oct 2026', notes:[
+    'New — Double-booking warnings now look at TIME, not just the date. Two shows on the same day only conflict if their times overlap, or leave less than the gap you set between them. A noon show and a 9 PM show no longer clash. Set the gap in Settings \u2192 Services & event portal \u2192 Time needed between shows (60 minutes unless you change it). If a show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours.',
+    'New — \u201cCan you make it?\u201d When two booked shows are on the same day without overlapping, the lead page checks the typical drive between the two event locations and tells you whether you have plenty of time, it\u2019s tight, or you\u2019re short. It needs an Event Location on both shows (full street addresses work best) and uses a typical drive, not live traffic.',
+    'New — Settings tells you if your Google Sheet and your Apps Script project are set to different time zones (a cause of wrong times), with the steps to fix it. The note goes away on its own once they match.',
+    'New — Tap through from the Oracle: after \u201cWhat\u2019s coming up?\u201d, \u201cOverdue follow-ups?\u201d or \u201cWhy am I losing leads?\u201d, a \u201cSee the \u2026\u201d link opens the list of leads behind the answer.',
+    'New — Help topics \u201cTimes look wrong (time zones)\u201d and \u201cDouble-booking warnings and travel time\u201d.',
+    'Changed — In your Today list, items at the same time are now ordered by the event type that has earned you the most (for example, a 9 AM Corporate show above a 9 AM Wedding), based on your own booked leads.'
+  ]},
   { v:'1.5.69', d:'Oct 2026', notes:[
     'New — Referral fees: when a partner pays you a fee for a lead you referred, record it on that lead (the Referral fees box under \u201cReferred to\u201d): amount, date, and whether it is received or still expected. Each partner\u2019s record lists their fees with totals. Fees you mark received count as income in Insights and appear in your tax prep package.',
     'New — Contract note: a one-off line for a single contract. The new \u201cContract note\u201d field on a lead prints in that contract\u2019s terms and shows on the event portal right beside the amounts (for example \u201cTravel to be confirmed and added to the final balance\u201d). Your client sees this text, and if you add or change a note after a contract was made, the app reminds you to regenerate it.',
@@ -11547,6 +11726,8 @@ var CHANGELOG_ = [
 ];
 // Features that are easy to miss. Opt-in reference only (Help) — never pushed at anyone.
 var HELP_KNOW = [
+  { q:'Double-booking warnings and travel time',
+    a:'A lead is flagged when another show on the same date <b>overlaps</b> its times, or leaves less than your set gap between them (<b>Settings \u2192 Services &amp; event portal \u2192 Time needed between shows</b>, 60 minutes unless you change it). If either show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours.<br><br>When two <b>Booked</b> shows are on the same day without overlapping, the lead page also checks the <b>typical drive</b> between the two event locations and tells you whether you can make it. It needs an Event Location on both shows (full street addresses work best) and it is a typical drive, not live traffic.' },
   { q:'Putting the app on your phone',
     a:'<b>Get the link.</b> On your computer, open Magic Manager the way you normally do. Click the address bar at the top of the browser and copy the whole link — it starts with <b>script.google.com</b> and has <b>?key=</b> near the end. Send it to your phone by text, email, or AirDrop.<br><br><b>iPhone</b><ol><li>Tap the link. If it opens inside Mail or Messages, tap the compass icon so it opens in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (the square with an arrow pointing up).</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol><br><b>Android</b><ol><li>Tap the link. If it opens inside another app, open it in <b>Chrome</b>.</li><li>Tap the three dots in the top corner.</li><li>Tap <b>Add to Home screen</b>, then <b>Add</b>.</li></ol><br>You’ll get a Magic Manager icon on your home screen — tap it any time to open your app.<br><br><b>Keep that link private.</b> Anyone who has it can open your app, so don’t post it or share it with clients. To give a client something to open, send them their event portal link instead.<br><br><b>If the link doesn’t work:</b> in your Google Sheet, click <b>Magic Manager</b> in the top menu, then <b>Get my app link</b>, and use that link instead.' },
   { q:'Tasks and reminders',
@@ -11561,6 +11742,8 @@ var HELP_KNOW = [
     a:'Turn on the <b>Store page</b> in <b>Settings</b> to get a simple public checkout page for merch, gift cards, or downloads \u2014 separate from your event bookings.' }
 ];
 var HELP_FIXES = [
+  { q:'Times look wrong (time zones)',
+    a:'Magic Manager uses your Google time zone settings, so set all three to your own time zone:<ol><li><b>Your Google Sheet:</b> File \u2192 Settings \u2192 Time zone. This is the main one \u2014 it controls the contract, PDF and receipts.</li><li><b>Apps Script:</b> Extensions \u2192 Apps Script \u2192 the gear icon (Project Settings) \u2192 Time zone. Then Deploy \u2192 Manage deployments \u2192 the pencil \u2192 New version \u2192 Deploy.</li><li><b>Google Calendar:</b> Settings \u2192 Time zone.</li></ol>Times you entered before the change may need to be re-entered. If Settings shows a \u201cyour time zones don\u2019t match\u201d note, that\u2019s step 2.' },
   { q:'I applied an update, but nothing looks different',
     a:'Fully close and reopen the app — on a phone, swipe it away and open it again; on a computer, refresh the page. Magic Manager only checks for a new version about once a day, so the change usually appears right after a refresh. If the "Update available" banner keeps showing even after you’ve applied the update, it’s safe to ignore until the next daily check clears it.' },
   { q:'I see a "version limit reached" / "200 versions" error',
@@ -11608,6 +11791,8 @@ function toggleHelpHistory(){
 // live on their own About screen (Settings → About Magic Manager), not in Help.
 // Words people would type that the title doesn't contain, so the search on Settings finds the topic anyway.
 var HELP_KW_ = [
+  { m:/^Double-booking warnings/, kw:'conflict double booked double-booked same day overlap time clash drive travel distance miles gap between shows' },
+  { m:/^Times look wrong/, kw:'time zone timezone clock hour contract pdf calendar wrong off shifted' },
   { m:/^Putting the app on your phone/, kw:'iphone android mobile cell home screen install safari chrome link bookmark app icon' },
   { m:/^How Magic Manager works/, kw:'overview start basics tour intro' },
   { m:/^Tasks and reminders/, kw:'to-do todo task notification' },

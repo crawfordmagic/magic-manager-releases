@@ -1,17 +1,15 @@
 What's new in this update:
 
-• NEW — Referral fees. When a partner pays you a fee for a lead you referred, record it right on that lead (the Referral fees box under "Referred to"): the amount, the date, and whether it's received or still expected. Each partner's record lists their fees with totals. Fees you mark received count as income in Insights and appear in your tax prep package.
+• NEW — Double-booking warnings now look at time, not just the date. Two shows on the same day only conflict if their times overlap, or leave less than the gap you set between them, so a noon show and a 9 PM show no longer clash. Set the gap in Settings → Services & event portal → "Time needed between shows" (60 minutes unless you change it). If a show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours. Add start and end times to your leads to get the most out of it.
 
-• NEW — A note for one contract. The new "Contract note" field on a lead prints a line in that contract's terms and shows it on the event portal right beside the amounts (for example, "Travel to be confirmed and added to the final balance"). Your client sees this text, and if you add or change a note after a contract was made, the app reminds you to regenerate it.
+• NEW — "Can you make it?" When two booked shows are on the same day without overlapping, the lead page checks the typical drive between the two event locations and tells you whether you have plenty of time, it's tight, or you're short. It needs an Event Location on both shows (full street addresses work best) and it uses a typical drive, not live traffic.
 
-• NEW — The Oracle can answer "Where is my money going?" (your biggest expense categories for the period you're viewing), and it will mention a referral fee that has been waiting more than two weeks.
+• NEW — Settings now tells you if your Google Sheet and your Apps Script project are set to different time zones, which can make saved times shift, and shows the steps to fix it. The note goes away on its own once they match.
 
-• CHANGED — Settings opens instantly instead of loading every time.
+• NEW — Tap through from the Oracle. After "What's coming up?", "Overdue follow-ups?" or "Why am I losing leads?", a "See the …" link opens the list of leads behind the answer.
 
-• CHANGED — Emailing or texting a partner: new referrals come first, then your latest referred leads, with "Show older" for the rest. The Oracle's question buttons also line up in even rows now.
+• CHANGED — In your Today list, items at the same time are now ordered by the event type that has earned you the most (for example, a 9 AM Corporate show above a 9 AM Wedding), based on your own booked leads.
 
-• CHANGED — Bottom bar: the icon of the tab you tap pops slightly, and tapping Leads while you're already on it takes you home. It closes anything open, clears the search, returns to the Follow up list and scrolls to the top.
+• Also new: Help topics "Times look wrong (time zones)" and "Double-booking warnings and travel time".
 
-• FIXED — The Send Feedback form showed a white background instead of dark on some phones. It now matches the rest of the app.
-
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. A "Referral Fees" sheet and a "Contract Note" column are added to your Google Sheet automatically the first time you use them.
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

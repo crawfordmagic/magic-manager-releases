@@ -28,6 +28,7 @@ var CONFIG_DEFAULTS_ = {
   TAGLINE: 'Professional Services',
   ADDRESS: '',
   HOME_ADDRESS: '',
+  SHOW_GAP_MINUTES: '60',
   ACCOUNTANT_NAME: '',
   ACCOUNTANT_EMAIL: '',
   SERVICE_MESSAGES: '',
@@ -168,6 +169,7 @@ var CONFIG_FIELDS_ = [
   { key: 'AUDIENCES', label: 'Who you perform for', help: 'Tick the audiences and events you take — this tailors the app to your act. If you do children\'s or family shows, it stops flagging kids leads as "refer out." Leave everything unticked and the app assumes nothing.', editor: 'audiences', section: 'services' },
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
+  { key: 'SHOW_GAP_MINUTES', label: 'Time needed between shows (minutes)', help: 'Used to flag a double-booking by time instead of by date. Two shows on the same day only conflict if they overlap, or leave less than this long between them for packing up and setting up (not counting the drive). Blank means 60.', input: 'numeric', section: 'services' },
   { key: 'PORTAL_THEME', label: 'Event portal & email look', help: 'Optional. Match your brand on your event portal and your branded Gmail drafts — accent color, background, and fonts. (Emails use the closest font every mail app has, since mail apps can\u2019t load web fonts.) Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
@@ -523,7 +525,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.69';
+var APP_VERSION = '1.5.70';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1101,6 +1103,7 @@ function publicCfg_() {
   out.HAS_WIRE = !!(src.WIRE_ACCOUNT && src.WIRE_ROUTING);
   PRIVATE_PAY_KEYS_.forEach(function (k) { delete out[k]; });
   delete out.SIGNATURE_FILE_ID; // the owner's signature image is private to documents
+  delete out.SHOW_GAP_MINUTES;
   delete out.HOME_ADDRESS;      // the owner's starting address for drive times — never shown to clients
   delete out.ACCOUNTANT_EMAIL;  // the owner's accountant — never shown to clients
   delete out.ACCOUNTANT_NAME;   // ...nor their name
@@ -1145,7 +1148,7 @@ var API_ = {
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
   addTask: addTask_, toggleTask: toggleTask_, deleteTask: deleteTask_, updateTask: updateTask_,
   duplicateLeadAsNewBooking: duplicateLeadAsNewBooking_, updateLead: updateLead_, clearStaleFollowups: clearStaleFollowups_,
-  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_,
+  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_, driveBetween: driveBetween_,
 };
 
 function api(key, name, args) {
@@ -3366,6 +3369,21 @@ function sheet_() {
 // the script project is configured to — so anything read back out has to
 // be formatted using that same spreadsheet timezone, or it can silently
 // drift by however much the two settings happen to disagree.
+/**
+ * Do the spreadsheet's time zone and the Apps Script project's time zone agree? The app reads and formats times in the sheet's zone,
+ * but the code that saves a time runs in the project's zone -- if they differ, a time can shift by the difference. Google does not let
+ * an app change its own project time zone, so this only DETECTS it (Settings shows a note with the fix). Compared by clock offset in
+ * winter and summer, so two names for the same rules (US/Eastern vs America/New_York) do not raise a false alarm.
+ */
+function timezoneCheck_() {
+  try {
+    var sheetTz = SpreadsheetApp.getActive().getSpreadsheetTimeZone(), scriptTz = Session.getScriptTimeZone();
+    var y = new Date().getFullYear(), probes = [new Date(Date.UTC(y, 0, 1, 12)), new Date(Date.UTC(y, 6, 1, 12))];
+    var differ = probes.some(function (d) { return Utilities.formatDate(d, sheetTz, 'Z') !== Utilities.formatDate(d, scriptTz, 'Z'); });
+    return { ok: !differ, sheetTz: String(sheetTz), scriptTz: String(scriptTz) };
+  } catch (e) { return { ok: true }; }
+}
+
 function tz_() {
   return SpreadsheetApp.getActive().getSpreadsheetTimeZone();
 }
@@ -4840,6 +4858,7 @@ function getLeads_() {
     vendorCategoryMemory: getVendorCategoryMemory_(),
     storeSales: getStoreSales_(),
     referralFees: getReferralFees_(),
+    tzCheck: timezoneCheck_(),
     storeProducts: getStoreProducts_(),
     sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
     referralInbox: getReferralInbox_()
@@ -5892,6 +5911,19 @@ function driveSeconds_(origin, destination) {
   } catch (e) { return { error: String(e && e.message || e) }; }
   try { if (cache) cache.put(key, JSON.stringify(out), 21600); } catch (e) {} // 6 hours, so repeated saves don't re-ask Maps
   return out;
+}
+
+// Owner-only (API_). Typical drive time between two event locations, for the "can you make it between two shows" check on a lead.
+// Reuses driveSeconds_ (Google Maps, cached 6 hours). Never throws.
+function driveBetween_(from, to) {
+  try {
+    from = String(from || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
+    to = String(to || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
+    if (!from || !to) return JSON.stringify({ ok: false, error: 'both shows need an event location' });
+    var d = driveSeconds_(from, to);
+    if (!d || d.error || !(d.seconds >= 0)) return JSON.stringify({ ok: false, error: 'no route found' });
+    return JSON.stringify({ ok: true, minutes: Math.round(d.seconds / 60), miles: Math.round((Number(d.meters || 0) / 1609.34) * 10) / 10 });
+  } catch (e) { return JSON.stringify({ ok: false, error: 'drive time unavailable right now' }); }
 }
 
 // Returns null (feature off: no starting address saved), {line} (a note for the booked event only), or
