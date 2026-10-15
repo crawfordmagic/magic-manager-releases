@@ -1893,6 +1893,8 @@ function configDepositPct(){
 // the full total (price + travel fee), rounded to the cent — mirrors the server.
 function defaultDeposit(price, travelFee){ return Math.round((money(price)+money(travelFee))*configDepositPct())/100; }
 function depositBase(L){ return money(L[C.deposit]); }
+// A Deposit Amount typed on the lead counts as SET even when it is 0 ("no deposit for this booking"); only blank / no digits means "use the default".
+function depositIsSet_(L){ var v=String((L && L[C.deposit]) == null ? '' : L[C.deposit]).trim(); return v!=='' && /[0-9]/.test(v); }
 // Balance = the full total (price + travel fee) minus the deposit, matching the
 // server so the balance shown here equals what the contract/portal/charge bill.
 function balanceBase(L){ return Math.max(0, money(L[C.price]) + money(L[C.travelFee]) - depositBase(L)); }
@@ -4721,7 +4723,7 @@ var KVF=[
   {label:'Audience Age Range', col:C.audienceAge, type:'text'},
   {label:'Entertainment budget', col:C.entertainmentBudget, type:'text', money:true},
   {label:'Quoted', col:C.price, type:'text', money:true},
-  {label:'Deposit', col:C.deposit, type:'text', money:true},
+  {label:'Deposit (type 0 for none)', col:C.deposit, type:'text', money:true},
   {label:'Payment method', col:C.paymentMethod, type:'select', opts:ownerPayMethods()},
   {label:'Deposit received?', col:C.depositReceived, type:'select', opts:['Yes','No']},
   {label:'Deposit received date', col:C.depositReceivedDate, type:'date'},
@@ -4752,6 +4754,7 @@ function kvDisplay(F){
   var v=CURRENT? CURRENT[F.col] : '';
   if(F.type==='date') return fmtDateY(v);
   if(F.type==='time') return fmtTime(v)||'\u2014';
+  if(F.col===C.deposit && depositIsSet_(CURRENT) && !money(v)) return 'None required';
   if(F.money) return v? fmtMoney(v) : '\u2014';
   return (v!=null && String(v)!=='') ? esc(String(v)) : '\u2014';
 }
@@ -4989,7 +4992,7 @@ function commitKV_(i, nv){
   // the same rule as the server, so what you see here is exactly what the
   // contract, client portal, and Stripe charge will use. (0% -> left blank ->
   // no deposit, whole amount becomes the balance.)
-  if(F.col===C.price && !money(CURRENT[C.deposit])){
+  if(F.col===C.price && !depositIsSet_(CURRENT)){
     var dep=defaultDeposit(nv, CURRENT[C.travelFee]);
     if(dep){
       CURRENT[C.deposit]=String(dep);
@@ -5051,9 +5054,9 @@ function extraOk_(L){ return !!L && isBookedLike(L) && money(L[C.price])>0; }
 function extraAmount_(){ var el=$('d_extra_amt'); return Math.round(money(el?el.value:'')*100)/100; }
 function extraPlan_(L, extra){
   var price=money(L[C.price]), travel=money(L[C.travelFee]);
-  var dep=depositBase(L) || defaultDeposit(price, travel);
+  var dep=depositIsSet_(L) ? depositBase(L) : defaultDeposit(price, travel);
   var newPrice=Math.round((price+extra)*100)/100;
-  return {dep:dep, freezeDeposit:!depositBase(L) && dep>0, price:price, newPrice:newPrice,
+  return {dep:dep, freezeDeposit:!depositIsSet_(L) && dep>0, price:price, newPrice:newPrice,
           oldBalance:Math.max(0, price+travel-dep), balance:Math.max(0, newPrice+travel-dep)};
 }
 function extraDisarm_(){
@@ -11555,6 +11558,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.72', d:'Oct 2026', notes:[
+    'New — No deposit for a booking: type 0 in a lead’s Deposit field and that booking has no deposit (blank still means your usual percent). The contract then reads “Deposit: None required” and the whole price is the balance. Regenerate the contract after changing it.',
+    'Changed — The leave alert is now a single reminder on the show’s own calendar entry, set to go off when it is time to leave (start time minus 60 minutes early minus the typical drive time). There is no separate “Leave for…” calendar entry any more, and old ones are removed automatically.'
+  ]},
   { v:'1.5.71', d:'Oct 2026', notes:[
     'New — Event time zone: for a show in a different time zone, pick the zone on the lead (the new \u201cEvent time zone\u201d field, right after End). Enter the start and end times as the clock at the venue, and the contract states them with the zone, for example \u201c6:00 PM Pacific (PDT)\u201d, and your emails say \u201c6:00 PM Pacific time\u201d. Leave it blank to keep things exactly as before. Regenerate a contract after setting a zone. Your calendar entry and \u201cLeave for\u201d alert still use your own time zone for now.',
     'New — Type a time instead of scrolling: the time picker now has a box where you can type \u201c5:30 PM\u201d (or 5:30pm, 530p, 17:30). On a computer the cursor goes straight into it; on a phone the wheels are still the quick way in.'

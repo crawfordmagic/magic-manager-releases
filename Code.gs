@@ -525,7 +525,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.71';
+var APP_VERSION = '1.5.72';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1197,7 +1197,11 @@ function computeBaseAmounts_(get) {
   const price = Number(String(get('Quoted Price') || '').replace(/[^0-9.]/g, '')) || 0;
   const travelFee = Number(String(get('Travel Fee') || '').replace(/[^0-9.]/g, '')) || 0;
   const totalDue = price + travelFee;
-  const depositRaw = Number(String(get('Deposit Amount') || '').replace(/[^0-9.]/g, '')) || 0;
+  // A Deposit Amount typed on the lead always wins -- INCLUDING 0 / 0.00, which means "no deposit for this booking" (Joe, 2026-10-14).
+  // Only a blank (or something with no digits at all) falls back to the configured percent, so a garbage value never waives a deposit.
+  const depositText = String(get('Deposit Amount') == null ? '' : get('Deposit Amount')).trim();
+  const depositSet = depositText !== '' && /[0-9]/.test(depositText);
+  const depositRaw = Number(depositText.replace(/[^0-9.]/g, '')) || 0;
   // Deposit = the configured percent of the total (default 50%), unless a specific
   // Deposit Amount is set on the lead (that always wins). A percent of 0 means no
   // deposit: the balance becomes the whole total and the client's booking page
@@ -1209,7 +1213,7 @@ function computeBaseAmounts_(get) {
   var pct = (rawPct === '') ? 50 : Number(rawPct);
   if (isNaN(pct)) pct = 50;
   pct = Math.max(0, Math.min(100, pct));
-  const deposit = depositRaw || (Math.round(totalDue * pct) / 100);
+  const deposit = depositSet ? depositRaw : (Math.round(totalDue * pct) / 100);
   const balance = Math.max(0, totalDue - deposit);
   return { price: price, travelFee: travelFee, totalDue: totalDue, deposit: deposit, balance: balance };
 }
@@ -2345,7 +2349,8 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
   // is due today to lock the date, since it plainly isn't anymore.
   const depositReceived = String(get('Deposit Received') || '') === 'Yes';
   const depositReceivedDateRaw = get('Deposit Received Date');
-  const depositLabel = depositReceived
+  const noDeposit = !(deposit > 0);
+  const depositLabel = noDeposit ? 'Deposit' : depositReceived
     ? 'Deposit (Received' + (depositReceivedDateRaw ? ' ' + Utilities.formatDate(new Date(depositReceivedDateRaw), tz_(), 'M/d/yyyy') : '') + ')'
     : 'Deposit Required (Due Today to Lock Date)';
 
@@ -2362,7 +2367,7 @@ function buildMergedContract_(get, fileNameSuffix, overridePaymentMethod, signed
   body.replaceText('\\{\\{eventdate\\}\\}', eventDateFmt);
   body.replaceText('\\{\\{performancetime\\}\\}', startFmt);
   body.replaceText('\\{\\{price\\}\\}', fmtMoney_(price));
-  body.replaceText('\\{\\{deposit\\}\\}', fmtMoney_(depositFinal));
+  body.replaceText('\\{\\{deposit\\}\\}', noDeposit ? 'None required' : fmtMoney_(depositFinal));
   body.replaceText('\\{\\{balance\\}\\}', fmtMoney_(balanceFinal));
   body.replaceText('\\{\\{paymentmethod\\}\\}', paymentMethod || 'Not yet selected');
   body.replaceText('\\{\\{clientsignature\\}\\}', signedName ? (signedName + ' (signed electronically)') : '________________________');
@@ -5969,44 +5974,21 @@ function leavePlan_(start, location) {
       + ', arriving ' + ARRIVE_EARLY_MIN_ + ' min before the ' + fmt(start) + ' start.' };
 }
 
-function ensureLeaveEventCol_(sh) {
-  const heads = headers_(sh);
-  var col = heads.indexOf('Leave Alert Event ID') + 1;
-  if (!col) {
-    col = heads.length + 1;
-    sh.getRange(1, col).setValue('Leave Alert Event ID');
-  }
-  return col;
+// The leave alert is ONE popup reminder on the booked show itself (no separate "Leave for" event, 2026-10-15):
+// it fires at the leave time, i.e. (arrive-early + drive time) before the start. No plan = the event's normal reminders stay.
+function leaveReminderMinutes_(start, plan) {
+  if (!plan || !plan.leaveAt) return 0;
+  var m = Math.round((start.getTime() - plan.leaveAt.getTime()) / 60000);
+  return m > 0 && m <= 40320 ? m : 0;
+}
+function applyLeaveReminder_(ev, start, plan) {
+  var m = leaveReminderMinutes_(start, plan);
+  if (!m) return;
+  ev.removeAllReminders();
+  ev.addPopupReminder(m);
 }
 
-// Create / move / remove the "Leave for…" event so it matches the plan. No usable plan, or a leave time that
-// has already passed, means no event (and any old one is removed).
-function syncLeaveEvent_(sh, rowNum, plan, who) {
-  const col = ensureLeaveEventCol_(sh);
-  const cal = CalendarApp.getDefaultCalendar();
-  const existingId = sh.getRange(rowNum, col).getValue();
-  var ev = null;
-  if (existingId) { try { ev = cal.getEventById(existingId); } catch (e) { ev = null; } }
-  if (!plan || !plan.leaveAt || plan.leaveAt.getTime() <= Date.now()) {
-    if (ev) { try { ev.deleteEvent(); } catch (e) {} }
-    if (existingId) sh.getRange(rowNum, col).setValue('');
-    return;
-  }
-  const title = 'Leave for ' + (who || 'the show');
-  const end = new Date(plan.leaveAt.getTime() + 10 * 60000);
-  if (ev) {
-    ev.setTitle(title);
-    ev.setTime(plan.leaveAt, end);
-    ev.setDescription(plan.line);
-  } else {
-    ev = cal.createEvent(title, plan.leaveAt, end, { description: plan.line });
-    ev.removeAllReminders();
-    ev.addPopupReminder(0);
-    sh.getRange(rowNum, col).setValue(ev.getId());
-  }
-}
-
-// A booking that is no longer Booked (or was trashed) must not keep buzzing the owner to leave for it.
+// Removes the old separate "Leave for…" event (from before the single-reminder design), and one that a no-longer-Booked/trashed booking left behind.
 function removeLeaveEvent_(sh, rowNum) {
   const heads = headers_(sh);
   const col = heads.indexOf('Leave Alert Event ID') + 1;
@@ -6024,7 +6006,7 @@ function refreshLeaveAlerts_() {
     if (!String(getConfig_().HOME_ADDRESS || '').trim()) return;
     const sh = sheet_();
     const heads = headers_(sh);
-    const si = heads.indexOf('Status'), di = heads.indexOf('Date of Event'), ei = heads.indexOf('Booking Calendar Event ID');
+    const si = heads.indexOf('Status'), di = heads.indexOf('Date of Event'), ei = heads.indexOf('Booking Calendar Event ID'), li = heads.indexOf('Leave Alert Event ID');
     if (si < 0 || di < 0 || ei < 0) return;
     const last = sh.getLastRow();
     if (last < 2) return;
@@ -6036,7 +6018,8 @@ function refreshLeaveAlerts_() {
       const d = new Date(r[di]);
       if (isNaN(d.getTime())) return;
       d.setHours(0, 0, 0, 0);
-      if (d < today || d >= horizon) return;
+      const legacy = li > -1 && r[li];   // an old separate "Leave for" event still to clean up
+      if (!legacy && (d < today || d >= horizon)) return;
       try { syncBookedCalendarEvent_(sh, i + 2, true); } catch (e) {}
     });
   } catch (e) {}
@@ -6098,7 +6081,8 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
     ev = cal.createEvent(title, start, end, { description: description, location: location });
     sh.getRange(rowNum, idCol).setValue(ev.getId());
   }
-  try { syncLeaveEvent_(sh, rowNum, plan, who); } catch (e) { /* the leave alert never blocks a save */ }
+  try { applyLeaveReminder_(ev, start, plan); } catch (e) { /* the leave reminder never blocks a save */ }
+  try { removeLeaveEvent_(sh, rowNum); } catch (e) {} // tidy up the old separate "Leave for" event
 }
 
 /* ---------- Tax prep package ----------
