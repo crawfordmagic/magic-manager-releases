@@ -29,6 +29,7 @@ var CONFIG_DEFAULTS_ = {
   ADDRESS: '',
   HOME_ADDRESS: '',
   SHOW_GAP_MINUTES: '60',
+  CALENDAR_EVENT_NAME: '{service}',
   ACCOUNTANT_NAME: '',
   ACCOUNTANT_EMAIL: '',
   SERVICE_MESSAGES: '',
@@ -170,6 +171,7 @@ var CONFIG_FIELDS_ = [
   { key: 'SERVICES', label: 'Services offered', help: 'One per line — the choices in the Service dropdown.', multiline: true, section: 'services' },
   { key: 'EVENT_TYPES', label: 'Event types', help: 'One per line — the choices in the Event Type dropdown.', multiline: true, section: 'services' },
   { key: 'SHOW_GAP_MINUTES', label: 'Time needed between shows (minutes)', help: 'Used to flag a double-booking by time instead of by date. Two shows on the same day only conflict if they overlap, or leave less than this long between them for packing up and setting up (not counting the drive). Blank means 60.', input: 'numeric', section: 'services' },
+  { key: 'CALENDAR_EVENT_NAME', label: 'Calendar event name', help: 'What a booked show is called in your Google Calendar: this name, then "for" and the client. The default, {service}, uses each lead\'s Service, so a booking with the Service "Piano - Wedding" shows as "Piano - Wedding for Pat Client". A lead with no Service shows as "Show". To use fixed wording instead, type it here, for example Magic Show. Events already on your calendar change the next time that lead is saved.', section: 'services' },
   { key: 'PORTAL_THEME', label: 'Event portal & email look', help: 'Optional. Match your brand on your event portal and your branded Gmail drafts — accent color, background, and fonts. (Emails use the closest font every mail app has, since mail apps can\u2019t load web fonts.) Leave everything on Default to keep the classic dark-and-gold look.', editor: 'portaltheme', section: 'services' },
   { key: 'LEAD_SOURCES', label: 'Lead sources', help: 'One per line — how a client first found you.', multiline: true, section: 'services' },
   { key: 'AD_SOURCES', label: 'Advertising sources', help: 'One per line — paid channels tracked in Insights ROI (e.g. Bark, Gigsalad).', multiline: true, section: 'services' },
@@ -525,7 +527,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.73';
+var APP_VERSION = '1.5.74';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1148,7 +1150,7 @@ var API_ = {
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
   addTask: addTask_, toggleTask: toggleTask_, deleteTask: deleteTask_, updateTask: updateTask_,
   duplicateLeadAsNewBooking: duplicateLeadAsNewBooking_, updateLead: updateLead_, clearStaleFollowups: clearStaleFollowups_,
-  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_, driveBetween: driveBetween_,
+  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_, driveBetween: driveBetween_, leaveForShow: leaveForShow_,
 };
 
 function api(key, name, args) {
@@ -5942,6 +5944,20 @@ function driveSeconds_(origin, destination) {
   return out;
 }
 
+// Owner-only (API_). When to leave for a show that starts at startMs (epoch ms), for the "Showtime Today" card's leave countdown.
+// Same plan as the calendar reminder (leavePlan_: start − arrive-early − Maps typical drive from the starting address), so the card and
+// the buzz always agree. The starting address never leaves the server; the page only gets the leave time. Never throws.
+function leaveForShow_(location, startMs) {
+  try {
+    var start = new Date(Number(startMs));
+    if (isNaN(start.getTime())) return JSON.stringify({ ok: false });
+    var loc = String(location || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
+    var plan = loc ? leavePlan_(start, loc) : null;
+    if (!plan || !plan.leaveAt) return JSON.stringify({ ok: false });
+    return JSON.stringify({ ok: true, leaveAtMs: plan.leaveAt.getTime(), minutes: plan.minutes, early: ARRIVE_EARLY_MIN_ });
+  } catch (e) { return JSON.stringify({ ok: false }); }
+}
+
 // Owner-only (API_). Typical drive time between two event locations, for the "can you make it between two shows" check on a lead.
 // Reuses driveSeconds_ (Google Maps, cached 6 hours). Never throws.
 function driveBetween_(from, to) {
@@ -6025,6 +6041,16 @@ function refreshLeaveAlerts_() {
   } catch (e) {}
 }
 
+// The name a booked show gets in the calendar (before " for <client>"): the Settings "Calendar event name", where {service}
+// stands for the lead's Service. Default (and blank) = the lead's Service, so "Stage Magic for Pat Client"; a lead with no
+// Service falls back to the neutral "Show". Anyone who wants the old look types "Magic Show".
+function calendarEventName_(service) {
+  var name = String(getConfig_().CALENDAR_EVENT_NAME || '').replace(/[\r\n]+/g, ' ').trim();
+  if (!name) name = '{service}';
+  name = name.replace(/\{service\}/gi, function () { return String(service || '').replace(/[\r\n]+/g, ' ').trim(); }).replace(/\s+/g, ' ').trim();
+  return name.slice(0, 80) || 'Show';
+}
+
 function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   const heads = headers_(sh);
   const row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
@@ -6051,7 +6077,8 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   const name = String(get('Customer Name') || '').trim();
   const company = String(get('Company or Organization') || '').trim();
   const who = company ? (company + (name ? ', ' + name : '')) : name;
-  const title = who ? ('Magic Show for ' + who) : 'Magic Show';
+  const baseName = calendarEventName_(get('Service'));
+  const title = who ? (baseName + ' for ' + who) : baseName;
 
   const lines = [];
   if (name) lines.push('Client: ' + name);

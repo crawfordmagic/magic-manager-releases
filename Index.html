@@ -244,6 +244,11 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   margin-top:10px; font-size:17px; font-weight:700; letter-spacing:.03em;
   color:var(--gold-bright); font-variant-numeric:tabular-nums;
 }
+.todayshow-leave{margin-top:10px;font-size:17px;font-weight:700;letter-spacing:.03em;color:var(--gold-bright);font-variant-numeric:tabular-nums}
+.todayshow-leave.go{color:var(--crimson)}
+.todayshow-leave:empty{display:none}
+.todayshow-note{margin-top:6px;font-size:13px;line-height:1.4;color:var(--cream)}
+.todayshow-note.warn{color:var(--crimson)}
 .td-card{border:1px solid var(--line);border-radius:14px;margin-bottom:14px;padding:4px 4px 6px;
   background:linear-gradient(180deg,rgba(201,160,80,.05),transparent)}
 .td-head{display:flex;align-items:center;gap:8px;padding:11px 12px 7px}
@@ -1486,6 +1491,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
     </select>
       </div>
     </div>
+    <p class="note" id="d_postpone_hint" style="display:none;text-align:left;margin:8px 0 0">Show moved? Tap Follow-up, then “Postpone — follow up later”.</p>
     <div id="d_followwrap">
       <div id="d_followbody" style="display:none;margin-top:10px">
         <div class="grid2">
@@ -3263,16 +3269,61 @@ function leadRow_Show(L){
   var d=pd(L[C.eventDate]);
   return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, d?fmtDateY(L[C.eventDate]):'', 'gold', 'openSheet('+L._row+')');
 }
+// Past shows grouped by the month of the event date, newest month first (rows arrive newest first and keep that order);
+// a lead with no readable date goes in a "No date" group at the end so it is never dropped.
+var PAST_MONTHS_ = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function pastShowGroups_(rows){
+  var map={}, order=[], nodate=[];
+  rows.forEach(function(L){
+    var d=pd(L[C.eventDate]);
+    if(!d){ nodate.push(L); return; }
+    var key=d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1);
+    if(!map[key]){ map[key]={key:key, label:PAST_MONTHS_[d.getMonth()]+' '+d.getFullYear(), rows:[]}; order.push(key); }
+    map[key].rows.push(L);
+  });
+  var out=order.map(function(k){ return map[k]; });
+  if(nodate.length) out.push({key:'nodate', label:'No date', rows:nodate});
+  return out;
+}
 function leadRow_Lost(L){
   var meta=[(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
-  var reason=String(L[C.lostReason]||'').trim()||'Not specified';
-  return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, reason, 'red', 'openSheet('+L._row+')');
+  return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, '', 'red', 'openSheet('+L._row+')');   // the reason is the group header above it
+}
+// Groups leads by a free-text label. The key ignores case and extra spaces ("Price" and "price " are one group, like sourceKey_);
+// the label shown is the first spelling seen. Rows keep their incoming order inside a group.
+function groupLeadsBy_(rows, labelOf, blankLabel){
+  var map={}, order=[];
+  rows.forEach(function(L){
+    var raw=String(labelOf(L)||'').replace(/\s+/g,' ').trim();
+    var key=(raw||blankLabel).toLowerCase();
+    if(!map[key]){ map[key]={key:key, label:raw||blankLabel, blank:!raw, rows:[]}; order.push(key); }
+    map[key].rows.push(L);
+  });
+  return order.map(function(k){ return map[k]; });
+}
+// Lost leads, grouped by reason: biggest reason first, "Not specified" last; each reason is a collapsed row with its count.
+function lostGroups_(rows){
+  return groupLeadsBy_(rows, function(L){ return L[C.lostReason]; }, 'Not specified').sort(function(a,b){
+    if(a.blank!==b.blank) return a.blank?1:-1;
+    if(a.rows.length!==b.rows.length) return b.rows.length-a.rows.length;
+    return a.label.toLowerCase()<b.label.toLowerCase()?-1:1;
+  });
+}
+// Referred leads: "not sent yet" (status Referral) first, then one group per partner (A-Z, "Unassigned" last).
+function referredGroups_(rows){
+  var unsent=rows.filter(function(L){ return String(L[C.status])==='Referral'; });
+  var sent=rows.filter(function(L){ return String(L[C.status])!=='Referral'; });
+  var groups=groupLeadsBy_(sent, function(L){ return L[C.referral]; }, 'Unassigned').sort(function(a,b){
+    if(a.blank!==b.blank) return a.blank?1:-1;
+    return a.label.toLowerCase()<b.label.toLowerCase()?-1:1;
+  });
+  return {unsent:unsent, groups:groups};
 }
 function leadRow_Referred(L){
   var meta=[(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
   var s=String(L[C.status]||'');
-  var partner=String(L[C.referral]||'').trim()||'Unassigned';
-  var right = s==='Referral' ? partner+' \u00b7 not sent yet' : partner;
+  var partner=String(L[C.referral]||'').trim();
+  var right = s==='Referral' ? (partner||'No partner yet') : '';   // sent leads sit under their partner's header, so no partner on the row
   return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, right, s==='Referral'?'dim':'gold', 'openSheet('+L._row+')');
 }
 function staleFuHTML(stale){
@@ -3499,15 +3550,64 @@ function renderTodayShow(){
       +'<div class="todayshow-badge">\u2728 Showtime Today \u2728</div>'
       +'<div class="todayshow-name">'+esc(L[C.name]||'Lead')+'</div>'
       +meta
+      +'<div class="todayshow-leave" id="todayshow_lv_'+i+'" data-row="'+L._row+'" data-leave="" data-start="'+(startD?startD.getTime():'')+'"></div>'
       +'<div class="todayshow-countdown" id="todayshow_cd_'+i+'" data-start="'+(startD?startD.getTime():'')+'" data-end="'+(endD?endD.getTime():'')+'">&nbsp;</div>'
+      +todayShowNotesHtml_(L)
       +actions
       +'</div>';
   }).join('');
+  shows.forEach(function(L,i){ loadTodayLeave_(L,i); });
   updateTodayShowCountdowns();
   if(TODAY_SHOW_TIMER) clearInterval(TODAY_SHOW_TIMER);
   TODAY_SHOW_TIMER=setInterval(updateTodayShowCountdowns, 1000);
 }
+// What is still owed / unsigned for a show happening today, as one or two quiet lines on the "Showtime Today" card.
+// Balance: only while it is not received (the same balance the lead page and event portal use). Contract: only when one was
+// SENT but is not signed yet — a booking with no contract at all is never flagged (it may be on purpose).
+function todayShowNotesHtml_(L){
+  var out='';
+  if(balanceBase(L)>0 && String(L[C.balancePaid]||'')!=='Yes'){
+    out+='<div class="todayshow-note">'+(String(L[C.balanceReported]||'')==='Yes' ? 'Balance reported paid — confirm it' : 'Balance due: '+esc(fmtMoney(balanceFinal(L))))+'</div>';
+  }
+  if(String(L[C.contractSignUrl]||'').trim() && String(L[C.contractSigned]||'')!=='Yes'){
+    out+='<div class="todayshow-note warn">Contract sent, not signed yet</div>';
+  }
+  return out;
+}
+// "Leave in 1h 12m · 4:15 PM", then "Time to go!" once the leave time passes, nothing once the show has started.
+function leaveCountdownText_(leaveMs, startMs, now){
+  if(!leaveMs) return {text:'', go:false};
+  if(startMs && now>=startMs) return {text:'', go:false};
+  if(now>=leaveMs) return {text:'Time to go! Leave now', go:true};
+  var diff=leaveMs-now;
+  var h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
+  return {text:'Leave in '+(h>0?h+'h ':'')+m+'m '+s+'s · '+hm12(new Date(leaveMs)), go:false};
+}
+// Asks the server (once per show/place/time, then remembered) when to leave; the card is already on screen, so this only
+// fills in the leave line when it arrives. No starting address / location / route = no leave line, no error.
+var TODAY_LEAVE_={};
+function loadTodayLeave_(L, i){
+  var startD=timeToday(L[C.start]), loc=String(L[C.location]||'').trim();
+  if(!startD || !loc) return;
+  var key=L._row+'|'+loc+'|'+startD.getTime();
+  var show=function(ms){
+    var el=$('todayshow_lv_'+i);
+    if(!el || el.getAttribute('data-row')!==String(L._row)) return;
+    el.setAttribute('data-leave', ms); updateTodayShowCountdowns();
+  };
+  if(TODAY_LEAVE_[key]){ show(TODAY_LEAVE_[key]); return; }
+  GS.withSuccessHandler(function(r){
+    var o=null; try{ o=JSON.parse(r); }catch(e){}
+    if(!o || !o.ok || !o.leaveAtMs) return;
+    TODAY_LEAVE_[key]=o.leaveAtMs; show(o.leaveAtMs);
+  }).withFailureHandler(function(){}).leaveForShow(loc, startD.getTime());
+}
 function updateTodayShowCountdowns(){
+  document.querySelectorAll('.todayshow-leave').forEach(function(el){
+    var lv=Number(el.getAttribute('data-leave'))||0, st=Number(el.getAttribute('data-start'))||0;
+    var r=leaveCountdownText_(lv, st, Date.now());
+    el.textContent=r.text; el.classList.toggle('go', r.go);
+  });
   var els=document.querySelectorAll('.todayshow-countdown');
   if(!els.length){ if(TODAY_SHOW_TIMER){ clearInterval(TODAY_SHOW_TIMER); TODAY_SHOW_TIMER=null; } return; }
   els.forEach(function(el){
@@ -3963,12 +4063,26 @@ function renderLeads(){
 
   } else if(FILTER==='Past Shows'){
     rows.sort(function(a,b){ return (pd(b[C.eventDate])||0)-(pd(a[C.eventDate])||0); });
-    h+=compactLeadSection('Past shows', rows, false, leadRow_Show);
+    if(rows.length){
+      h+='<div class="sec-title"><span class="t">Past shows · '+rows.length+'</span><span class="rule"></span></div>'
+        +'<div class="more-list" style="margin-bottom:16px">'
+        +pastShowGroups_(rows).map(function(g, i){
+          return collapsibleSec_('past_'+g.key, esc(g.label), g.rows.length, g.rows.map(leadRow_Show).join(''), {noun:['show','shows'], defaultOpen:i===0});
+        }).join('')
+        +'</div>';
+    }
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No past shows yet \u2014 they land here after the event date passes.</div>';
 
   } else if(FILTER==='Lost'){
     rows.sort(function(a,b){ return String(a[C.name]||'').localeCompare(String(b[C.name]||'')); });
-    h+=compactLeadSection('Lost', rows, true, leadRow_Lost);
+    if(rows.length){
+      h+='<div class="sec-title danger"><span class="t">Lost · '+rows.length+'</span><span class="rule"></span></div>'
+        +'<div class="more-list" style="margin-bottom:16px">'
+        +lostGroups_(rows).map(function(g){
+          return collapsibleSec_('lost_'+g.key.replace(/[^a-z0-9]+/g,'-'), esc(g.label), g.rows.length, g.rows.map(leadRow_Lost).join(''), {noun:['lead','leads']});
+        }).join('')
+        +'</div>';
+    }
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No lost leads \u2014 long may that continue.</div>';
 
   } else if(FILTER==='Referred'){
@@ -3977,7 +4091,17 @@ function renderLeads(){
       if(sa!==sb) return sa-sb;
       return String(a[C.name]||'').localeCompare(String(b[C.name]||''));
     });
-    h+=compactLeadSection('Referred', rows, false, leadRow_Referred);
+    var rg=referredGroups_(rows);
+    h+=compactLeadSection('Not sent yet', rg.unsent, false, leadRow_Referred);
+    if(rg.groups.length){
+      var sentN=rg.groups.reduce(function(n,g){ return n+g.rows.length; },0);
+      h+='<div class="sec-title"><span class="t">Sent to partners · '+sentN+'</span><span class="rule"></span></div>'
+        +'<div class="more-list" style="margin-bottom:16px">'
+        +rg.groups.map(function(g){
+          return collapsibleSec_('ref_'+g.key.replace(/[^a-z0-9]+/g,'-'), esc(g.label), g.rows.length, g.rows.map(leadRow_Referred).join(''), {noun:['lead','leads']});
+        }).join('')
+        +'</div>';
+    }
     if(!rows.length) h='<div class="empty"><span class="star">&#10038;</span>No referred leads right now.</div>';
 
   } else if(FILTER==='References'){
@@ -5152,7 +5276,13 @@ function postponeReset_(){
   var d=$('d_post_date'), n=$('d_post_note'), pv=$('d_post_prev');
   if(d) d.value=''; if(n) n.value=''; if(pv) pv.textContent='';
 }
+// A quiet pointer for the one place people look first (Status): shown only while the lead is Booked.
+function renderPostponeHint_(){
+  var el=$('d_postpone_hint'), s=$('d_status'); if(!el||!s) return;
+  el.style.display = s.value==='Booked' ? 'block' : 'none';
+}
 function renderPostponeBtn_(){            // no standing button: the panel is reached from the Follow-up date picker
+  renderPostponeHint_();
   var w=$('d_postwrap'); if(!w) return;
   var L=CURRENT ? (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT) : null;
   if(!postponeOk_(L)){ postponeReset_(); w.style.display='none'; }
@@ -5652,6 +5782,7 @@ function queueAutoSave(){
 }
 function refToggle(userInitiated){
   var s=$('d_status').value;
+  renderPostponeHint_();
   $('d_refwrap').style.display = (s==='Referral'||s==='Referred') ? '' : 'none';
   if($('d_refwrap').style.display!=='none') fillReferralOptions($('d_referral').value);
   renderLeadFeeBox_();
@@ -11560,6 +11691,12 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.74', d:'Oct 2026', notes:[
+    'Changed — Calendar titles now use the lead’s Service. A booked show appears on your Google Calendar as, for example, “Piano - Wedding for Pat Client”. A lead with no Service shows as “Show for Pat Client”. Your existing calendar entries change the next time each lead is saved. If you prefer fixed wording, type it in the new Settings → Services & event portal → Calendar event name box (for example, Magic Show brings back the old look).',
+    'New — Showtime Today card: a live “Leave in 1h 15m” countdown (then “Time to go!”), the balance still due, and a warning if a contract was sent but not signed. The leave countdown uses the starting address in Settings → Reminders & taxes, the same as your calendar alert.',
+    'New — Postponing a show is easier to find: a one-line reminder under Status on Booked leads, and a new Help topic. (Open the lead, tap Follow-up, then “Postpone — follow up later”.)',
+    'Changed — Tidier archive lists: Lost is grouped by reason, Referred is grouped by partner, and Past Shows is grouped by month. Each group shows a count and opens with a tap.'
+  ]},
   { v:'1.5.73', d:'Oct 2026', notes:[
     'Changed — The contract section no longer has an “Edit in Google Docs” link. The contract is rebuilt from the lead’s details every time you regenerate it (and when it is signed), so changes typed into the document were being lost. To change the date, place or price, edit the lead and tap Regenerate contract; extra wording goes in Contract note.'
   ]},
@@ -11788,6 +11925,8 @@ var CHANGELOG_ = [
 ];
 // Features that are easy to miss. Opt-in reference only (Help) — never pushed at anyone.
 var HELP_KNOW = [
+  { q:'A client needs to move their date (postponing a show)',
+    a:'Open the lead and tap <b>Follow-up</b>, then tap <b>Postpone — follow up later</b> under the calendar. Pick the date you want to follow up and, if you like, add a note. The lead moves from Booked back to Pending, the old event date and times are cleared, and the old event portal link is turned off. A note with the original date is saved in the lead’s history. When the new date is set, enter it on the lead and tap <b>Regenerate contract</b> so your client signs the new one. A deposit they already paid is not touched — you decide whether to refund it or keep it as credit.' },
   { q:'Double-booking warnings and travel time',
     a:'A lead is flagged when another show on the same date <b>overlaps</b> its times, or leaves less than your set gap between them (<b>Settings \u2192 Services &amp; event portal \u2192 Time needed between shows</b>, 60 minutes unless you change it). If either show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours.<br><br>When two <b>Booked</b> shows are on the same day without overlapping, the lead page also checks the <b>typical drive</b> between the two event locations and tells you whether you can make it. It needs an Event Location on both shows (full street addresses work best) and it is a typical drive, not live traffic.' },
   { q:'Putting the app on your phone',

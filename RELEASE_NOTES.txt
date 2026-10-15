@@ -1,5 +1,11 @@
 What's new in this update:
 
-• CHANGED — The contract section no longer has an "Edit in Google Docs" link. The contract is rebuilt from the lead's details every time you regenerate it (and when it is signed), so changes typed into the document were being lost. To change the date, place or price, edit the lead and tap Regenerate contract; extra wording goes in Contract note.
+• CHANGED — Calendar titles now use the lead's Service. A booked show appears on your Google Calendar as, for example, “Piano - Wedding for Pat Client”. A lead with no Service shows as “Show for Pat Client”. Your existing calendar entries change the next time each lead is saved. If you prefer fixed wording, type it in the new Settings → Services & event portal → Calendar event name box (for example, Magic Show brings back the old look).
+
+• NEW — Showtime Today card: a live “Leave in 1h 15m” countdown (then “Time to go!”), the balance still due, and a warning if a contract was sent but not signed. The leave countdown uses the starting address in Settings → Reminders & taxes, the same as your calendar alert.
+
+• NEW — Postponing a show is easier to find: a one-line reminder under Status on Booked leads, and a new Help topic. (Open the lead, tap Follow-up, then “Postpone — follow up later”.)
+
+• CHANGED — Tidier archive lists: Lost is grouped by reason, Referred is grouped by partner, and Past Shows is grouped by month. Each group shows a count and opens with a tap.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
