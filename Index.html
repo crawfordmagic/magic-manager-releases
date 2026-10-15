@@ -6315,6 +6315,8 @@ function deleteTplUI(){
 /* ---------- Delete lead (two-tap confirm) ---------- */
 var DELARM=false;
 /* ---------- Contract generation ---------- */
+// No "Edit in Google Docs" link on purpose: the contract is rebuilt from the lead's fields, so hand edits to the doc are lost
+// on regenerate and at signing (two buyers edited the address there). docUrl is still passed in but not shown.
 function renderContractResultPanel(signUrl, pdfUrl, docUrl){
   var out=$('d_contract_result'); if(!out) return;
   out.style.display='';
@@ -6323,7 +6325,7 @@ function renderContractResultPanel(signUrl, pdfUrl, docUrl){
     +'<p class="note" style="text-align:left;margin:0 0 8px">Contract created. Send the event portal link to your client, or open the document directly.</p>'
     +'<button class="bump" style="width:100%;border-radius:8px;margin-bottom:6px" onclick="copyToClipboard(\''+esc(signUrl)+'\');toast(\'Event portal link copied\')">Copy Event Portal Link</button>'
     +'<a class="act" href="'+esc(pdfUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">View PDF</a>'
-    +'<a class="act" href="'+esc(docUrl)+'" target="_blank" style="display:block;text-align:center;margin-top:6px">Edit in Google Docs</a>'
+    +'<p class="note" style="text-align:left;margin:10px 0 0">To change the date, place or price, edit the lead and tap Regenerate contract. Extra wording goes in Contract note.</p>'
     +(seen('portalPreview') ? '' :
       '<div id="portalPreviewTip" style="margin-top:10px;padding:10px 12px;background:rgba(201,160,80,.08);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.5;color:var(--cream);text-align:left">'
       +'<b style="color:var(--gold-bright)">Tip:</b> <a href="'+esc(signUrl)+'" target="_blank" rel="noopener" onclick="dismissPortalPreviewTip()" style="color:var(--gold-bright)">open the event portal yourself</a> to see exactly what your client sees &mdash; opening it won&rsquo;t sign or pay anything.'
@@ -11558,6 +11560,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.73', d:'Oct 2026', notes:[
+    'Changed — The contract section no longer has an “Edit in Google Docs” link. The contract is rebuilt from the lead’s details every time you regenerate it (and when it is signed), so changes typed into the document were being lost. To change the date, place or price, edit the lead and tap Regenerate contract; extra wording goes in Contract note.'
+  ]},
   { v:'1.5.72', d:'Oct 2026', notes:[
     'New — No deposit for a booking: type 0 in a lead’s Deposit field and that booking has no deposit (blank still means your usual percent). The contract then reads “Deposit: None required” and the whole price is the balance. Regenerate the contract after changing it.',
     'Changed — The leave alert is now a single reminder on the show’s own calendar entry, set to go off when it is time to leave (start time minus 60 minutes early minus the typical drive time). There is no separate “Leave for…” calendar entry any more, and old ones are removed automatically.'

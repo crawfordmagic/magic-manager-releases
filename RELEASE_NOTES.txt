@@ -1,7 +1,5 @@
 What's new in this update:
 
-• NEW — No deposit for a booking. Type 0 in a lead's Deposit field and that booking has no deposit (leave it blank to use your usual percent). The contract then says "Deposit: None required" and the whole price is the balance. Regenerate the contract after changing it.
-
-• CHANGED — The leave alert is now one reminder on the show's own calendar entry, set to go off when it is time to leave (start time minus 60 minutes early minus the typical drive time). There is no separate "Leave for..." calendar entry any more; old ones are removed automatically. It still needs your starting address in Settings.
+• CHANGED — The contract section no longer has an "Edit in Google Docs" link. The contract is rebuilt from the lead's details every time you regenerate it (and when it is signed), so changes typed into the document were being lost. To change the date, place or price, edit the lead and tap Regenerate contract; extra wording goes in Contract note.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
