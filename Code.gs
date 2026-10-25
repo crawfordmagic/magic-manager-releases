@@ -28,6 +28,8 @@ var CONFIG_DEFAULTS_ = {
   TAGLINE: 'Professional Services',
   ADDRESS: '',
   HOME_ADDRESS: '',
+  ARRIVE_EARLY_MINUTES: '60',
+  ARRIVE_EARLY_BY_SERVICE: '',
   SHOW_GAP_MINUTES: '60',
   CALENDAR_EVENT_NAME: '{service}',
   ACCOUNTANT_NAME: '',
@@ -163,7 +165,9 @@ var CONFIG_FIELDS_ = [
   { key: 'CASH_INSTRUCTIONS', label: 'Cash instructions', help: 'Enables Cash on your event portal. What clients see when they choose it — e.g. "Pay in cash in person before the event." Blank hides Cash from the event portal (you can still record a cash payment yourself on a lead).', group: 'Cash', collapse: true, section: 'payments' },
   // Reminders & taxes (optional, private — only the owner ever sees these)
   { key: 'REMIND_30_DAYS', label: 'Check-in 30 days before a show', help: 'Optional. When on, a newly booked show gets a "30 days out \u2014 touch base" reminder in your Today list, ahead of the 1-week check-in. A show booked less than 30 days ahead skips it, and shows you have already booked are left exactly as they are. Off by default.', editor: 'toggle', toggleLabel: 'Remind me 30 days before each show', defaultOff: true, group: 'Reminders', section: 'reminders' },
-  { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a "Leave for…" alert set for the drive time plus an hour early. Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
+  { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a reminder set for the drive time plus your arrive-early time (an hour unless you change it below). Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
+  { key: 'ARRIVE_EARLY_MINUTES', label: 'Arrive this many minutes early', help: 'Optional. How long before the start time you want to be at the show. Your leave reminder and the countdown on the show-day card use it: start time, minus this, minus the drive. Blank means 60. Use 0 to arrive right at the start.', input: 'numeric', section: 'reminders' },
+  { key: 'ARRIVE_EARLY_BY_SERVICE', label: 'Arrive early by service', help: 'Optional. A different arrive-early time for a kind of show, for example 90 minutes for a stage show and 30 for strolling. A box appears for each of your Services; leave any blank to use the number above.', editor: 'servicearrive', section: 'reminders' },
   { key: 'ACCOUNTANT_NAME', label: 'Accountant\'s name', help: 'Optional. The email draft in Expenses → Tax prep starts with this name (first name only if you give a full name). Only you ever see this — it is not shown to clients.', group: 'Taxes', section: 'reminders' },
   { key: 'ACCOUNTANT_EMAIL', label: 'Accountant\'s email', help: 'Optional. Used only to address the draft email in Expenses → Tax prep. Only you ever see this — it is not shown to clients.', group: 'Taxes', input: 'email', section: 'reminders' },
   // Services & client page
@@ -527,7 +531,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.74';
+var APP_VERSION = '1.5.75';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -5922,7 +5926,33 @@ function combineDateTime_(dateVal, timeVal, fallbackHour) {
  * traffic. The booked event's description says which place Maps actually found, so a wrong match
  * (a venue name that Maps resolves to a different place) is visible instead of silent. Nothing here
  * can block a save; every call is wrapped by the caller. */
-var ARRIVE_EARLY_MIN_ = 60;
+var ARRIVE_EARLY_MIN_ = 60;   // the fallback when Settings has nothing usable
+// Minutes to arrive before the start for a booking with this Service: that service's own number (Settings -> Arrive early by
+// service, matched ignoring case/extra spaces) if it has one, else the general "Arrive this many minutes early", else 60.
+// A number counts only if it is a whole 0-240; anything else (blank, text, negative, huge) is ignored.
+function arriveEarlyMinutes_(service) {
+  var ok = function (v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!/^\d{1,3}$/.test(s)) return null;
+    var n = Number(s);
+    return n >= 0 && n <= 240 ? n : null;
+  };
+  var cfg = getConfig_();
+  var key = String(service || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (key) {
+    try {
+      var map = JSON.parse(String(cfg.ARRIVE_EARLY_BY_SERVICE || '') || '{}') || {};
+      for (var name in map) {
+        if (Object.prototype.hasOwnProperty.call(map, name) && String(name).replace(/\s+/g, ' ').trim().toLowerCase() === key) {
+          var per = ok(map[name]);
+          if (per !== null) return per;
+        }
+      }
+    } catch (e) { /* a damaged value is ignored */ }
+  }
+  var general = ok(cfg.ARRIVE_EARLY_MINUTES);
+  return general !== null ? general : ARRIVE_EARLY_MIN_;
+}
 
 function driveSeconds_(origin, destination) {
   var cache = null, key = '';
@@ -5947,14 +5977,14 @@ function driveSeconds_(origin, destination) {
 // Owner-only (API_). When to leave for a show that starts at startMs (epoch ms), for the "Showtime Today" card's leave countdown.
 // Same plan as the calendar reminder (leavePlan_: start − arrive-early − Maps typical drive from the starting address), so the card and
 // the buzz always agree. The starting address never leaves the server; the page only gets the leave time. Never throws.
-function leaveForShow_(location, startMs) {
+function leaveForShow_(location, startMs, service) {
   try {
     var start = new Date(Number(startMs));
     if (isNaN(start.getTime())) return JSON.stringify({ ok: false });
     var loc = String(location || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
-    var plan = loc ? leavePlan_(start, loc) : null;
+    var plan = loc ? leavePlan_(start, loc, String(service || '').slice(0, 200)) : null;
     if (!plan || !plan.leaveAt) return JSON.stringify({ ok: false });
-    return JSON.stringify({ ok: true, leaveAtMs: plan.leaveAt.getTime(), minutes: plan.minutes, early: ARRIVE_EARLY_MIN_ });
+    return JSON.stringify({ ok: true, leaveAtMs: plan.leaveAt.getTime(), minutes: plan.minutes, early: plan.early });
   } catch (e) { return JSON.stringify({ ok: false }); }
 }
 
@@ -5972,8 +6002,8 @@ function driveBetween_(from, to) {
 }
 
 // Returns null (feature off: no starting address saved), {line} (a note for the booked event only), or
-// {leaveAt, minutes, resolved, line} (the full plan).
-function leavePlan_(start, location) {
+// {leaveAt, minutes, early, resolved, line} (the full plan).
+function leavePlan_(start, location, service) {
   var origin = String(getConfig_().HOME_ADDRESS || '').trim();
   if (!origin) return null;
   var dest = String(location || '').trim();
@@ -5983,11 +6013,12 @@ function leavePlan_(start, location) {
     return { line: 'Leave alert: could not find the drive time to "' + dest + '" — try a street address in Event Location.' };
   }
   var mins = Math.round(d.seconds / 60);
-  var leaveAt = new Date(Math.floor((start.getTime() - (ARRIVE_EARLY_MIN_ + mins) * 60000) / 300000) * 300000); // down to 5 min: earlier is safer
+  var early = arriveEarlyMinutes_(service);
+  var leaveAt = new Date(Math.floor((start.getTime() - (early + mins) * 60000) / 300000) * 300000); // down to 5 min: earlier is safer
   var fmt = function (dt) { return Utilities.formatDate(dt, tz_(), 'h:mm a'); };
-  return { leaveAt: leaveAt, minutes: mins, resolved: d.resolved,
+  return { leaveAt: leaveAt, minutes: mins, early: early, resolved: d.resolved,
     line: 'Leave by ' + fmt(leaveAt) + ': about ' + mins + ' min drive (typical, no live traffic) to ' + (d.resolved || dest)
-      + ', arriving ' + ARRIVE_EARLY_MIN_ + ' min before the ' + fmt(start) + ' start.' };
+      + (early > 0 ? ', arriving ' + early + ' min before the ' + fmt(start) + ' start.' : ', arriving at the ' + fmt(start) + ' start.') };
 }
 
 // The leave alert is ONE popup reminder on the booked show itself (no separate "Leave for" event, 2026-10-15):
@@ -6089,7 +6120,7 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   if (get('Phone number')) lines.push('Phone: ' + get('Phone number'));
   if (get('E-mail')) lines.push('Email: ' + get('E-mail'));
   var plan = null;
-  try { plan = leavePlan_(start, get('Event Location')); } catch (e) { plan = null; }
+  try { plan = leavePlan_(start, get('Event Location'), get('Service')); } catch (e) { plan = null; }
   if (plan && plan.line) lines.push(plan.line);
   const description = lines.join('\n');
   const location = String(get('Event Location') || '');

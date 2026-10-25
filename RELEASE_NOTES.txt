@@ -1,11 +1,9 @@
 What's new in this update:
 
-• CHANGED — Calendar titles now use the lead's Service. A booked show appears on your Google Calendar as, for example, “Piano - Wedding for Pat Client”. A lead with no Service shows as “Show for Pat Client”. Your existing calendar entries change the next time each lead is saved. If you prefer fixed wording, type it in the new Settings → Services & event portal → Calendar event name box (for example, Magic Show brings back the old look).
+• NEW — Arrive early, your way. Settings → Reminders & taxes now has “Arrive this many minutes early” (60 unless you change it) and “Arrive early by service”, a small box for each of your Services, for example 90 for a stage show and 30 for strolling. Your calendar reminder, the “Leave by” line and the show-day countdown all follow it. Leave everything blank and nothing changes.
 
-• NEW — Showtime Today card: a live “Leave in 1h 15m” countdown (then “Time to go!”), the balance still due, and a warning if a contract was sent but not signed. The leave countdown uses the starting address in Settings → Reminders & taxes, the same as your calendar alert.
+• CHANGED — Expenses: “Export to a spreadsheet” now follows the Month you are viewing. Pick a year and a month and the file holds just that month (named like expenses-2026-10.csv). A year alone, or All time, works as before.
 
-• NEW — Postponing a show is easier to find: a one-line reminder under Status on Booked leads, and a new Help topic. (Open the lead, tap Follow-up, then “Postpone — follow up later”.)
-
-• CHANGED — Tidier archive lists: Lost is grouped by reason, Referred is grouped by partner, and Past Shows is grouped by month. Each group shows a count and opens with a tap.
+• CHANGED — Overdue follow-ups and search results now use the same compact one-line rows as the rest of the Leads page. Each row shows the name, price, status, event details and the follow-up date (red when overdue).
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
