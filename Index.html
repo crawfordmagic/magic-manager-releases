@@ -673,6 +673,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
     <div id="followupDueCard" style="display:none"></div>
     <div id="taskDueCard" style="display:none"></div>
     <div id="genFollowupCard" style="display:none"></div>
+    <div id="referralFeeCard" style="display:none"></div>
     <div id="partnerCheckInCard" style="display:none"></div>
     <div id="decRebookCard" style="display:none"></div>
     </div>
@@ -1528,6 +1529,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
       </div>
     </div>
   <div id="d_feebox" data-feebox="ldfee" style="display:none"></div>
+  <p class="note" id="d_partnerline" style="display:none;text-align:left;margin:8px 0 0"></p>
   <div class="field" id="d_refwrap" style="display:none"><label>Referred to</label>
     <select id="d_referral" onchange="onReferralChange()">
       <option value="">Choose a partner&#8230;</option>
@@ -1649,7 +1651,9 @@ var C = {
   email:'E-mail', audience:'Audience Size', service:'Service', eventType:'Event Type',
   notes:'Notes about interaction', source:'Lead Source', location:'Event Location',
   price:'Quoted Price', start:'Start Time', end:'End Time', status:'Status',
-  followup:'Followup', eventDate:'Date of Event', referral:'Referred To', timestamp:'Timestamp', lostReason:'Lost Reason',
+  followup:'Followup', eventDate:'Date of Event', referral:'Referred To', referredBy:'Referred By', referralFeeSent:'Referral Fee Sent',
+  partnerResponse:'Partner Response', partnerResponseDate:'Partner Response Date', partnerEventDate:'Partner Event Date', partnerUpdateSeen:'Partner Update Seen',
+  partnerFeeSentDate:'Partner Fee Sent Date', partnerFeeSeen:'Partner Fee Seen', partnerAskSnooze:'Partner Ask Snoozed Until', referralToken:'Referral Token', timestamp:'Timestamp', lostReason:'Lost Reason',
   audienceAge:'Audience Age Range',
   deposit:'Deposit Amount', paymentMethod:'Payment Method',
   depositReceived:'Deposit Received', depositReceivedDate:'Deposit Received Date',
@@ -2385,6 +2389,7 @@ function confirmReferModal(){
   var noteText = $('refm_notes').value.trim();
 
   var updates={}; updates[C.status]='Referral'; updates[C.referral]=partnerName;
+  if(String(L[C.partnerResponse]||'')){ [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze].forEach(function(k){ updates[k]=''; }); }
   var existingNotes=String(L[C.notes]||'').trim();
   if(noteText){
     updates[C.notes] = existingNotes
@@ -2395,6 +2400,7 @@ function confirmReferModal(){
   // Optimistic — instant everywhere, no navigation, whether this came from
   // the main list or the lead's own detail page.
   L[C.status]='Referral'; L[C.referral]=partnerName;
+  [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze].forEach(function(k){ if(k in updates) L[k]=''; });
   if(updates[C.notes]!==undefined) L[C.notes]=updates[C.notes];
   renderChips(); renderLeads();
   if(CURRENT && CURRENT._row===row) openSheet(row);
@@ -2609,110 +2615,202 @@ function snoozeUnpaidBalance(row, days){
 }
 var PT_CHECKIN_LEAD_ROW=null; // which check-in-card lead row most recently opened a partner picker — lets the post-send log prompt know which card row to show itself on, since the partner sheet itself isn't open in this flow
 var PT_INLINE_PROMPT_ROW=null, PT_INLINE_PROMPT_TYPE=null;
-function renderPartnerCheckInCard(){
-  var box=$('partnerCheckInCard'); if(!box) return;
-  var today=today0();
-  var due=LEADS.filter(function(L){
-    if(String(L[C.status])!=='Referred') return false;
-    var partnerName=String(L[C.referral]||'').trim();
-    if(!partnerName) return false;
-    if(String(L[C.partnerCheckInDismissed]||'')==='Yes') return false;
-    var rd=pd(L[C.referredDate]);
-    if(!rd) return false;
-    var days=Math.round((today-rd)/86400000);
-    return days>=7;
-  });
-  due.sort(function(a,b){ return (pd(a[C.referredDate])||0)-(pd(b[C.referredDate])||0); });
-  if(!due.length){ box.style.display='none'; box.innerHTML=''; PT_INLINE_PROMPT_ROW=null; return; }
+/* ---------- Referral fee due (the person who received a lead owes the referrer) ----------
+   A lead another Magic Manager user sent you ("Referred by") that is Booked/Completed and whose show date has passed shows a RED card
+   until you tap Mark sent. It is derived from the lead's own dates, so it moves if the show moves. The app only reminds; it never
+   sends money. */
+function referralFeeDue_(L){
+  if(!referrerName_(L)) return false;
+  if(String(L[C.referralFeeSent]||'').trim()) return false;
+  if(!isBookedLike(L)) return false;
+  var ed=pd(L[C.eventDate]); if(!ed) return false;
+  var d=new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
+  return d.getTime()<today0().getTime();          // the day after the show, and every day until it is marked sent
+}
+function renderReferralFeeCard(){
+  var box=$('referralFeeCard'); if(!box) return;
+  var due=LEADS.filter(referralFeeDue_);
+  due.sort(function(a,b){ return pd(a[C.eventDate])-pd(b[C.eventDate]); });
+  if(!due.length){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='';
-  box.innerHTML='<div class="gfu-card">'
-    +'<div class="gfu-title td-chrome">Check In With Partner</div>'
+  box.innerHTML='<div class="gfu-card" style="border-color:var(--crimson);background:rgba(192,82,54,.07)">'
+    +'<div class="gfu-title td-chrome" style="color:#E9927B">Referral Fee Due</div>'
     + due.map(function(L){
-        var partnerName=String(L[C.referral]||'').trim();
-        var p=PARTNERS.find(function(x){ return String(x.name||'').trim()===partnerName; });
-        var rd=pd(L[C.referredDate]);
-        var daysAgo=Math.round((today-rd)/86400000);
-        var meta='Referred '+(daysAgo===7?'a week ago':daysAgo+' days ago')+' \u00b7 no update yet';
-        // Company and event date help pin down exactly who's being
-        // referenced — a partner may have referred more than one lead, and
-        // a name alone isn't always enough to place who this is.
-        var company=String(L[C.company]||'').trim();
-        var ed=pd(L[C.eventDate]);
-        var leadLine = esc(L[C.name]||'a lead') + (company ? ' \u00b7 '+esc(company) : '');
-        var eventLine = ed ? (' \u00b7 Event '+esc(fmtDateY(ed))) : '';
-        var actions='';
-        if(p){
-          var phone=String(p.phone||'').trim(), email=String(p.email||'').trim();
-          if(phone) actions+='<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="dialNumber(\''+esc(phone).replace(/'/g,'')+'\')">Call</a>'
-            +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="PT_CHECKIN_LEAD_ROW='+L._row+';openPartnerTextPicker(\''+esc(p.id).replace(/'/g,"\\'")+'\')">Text</button>';
-          if(email) actions+='<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="PT_CHECKIN_LEAD_ROW='+L._row+';openPartnerEmailPicker(\''+esc(p.id).replace(/'/g,"\\'")+'\')">Email</button>';
-        }
-        actions+='<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="checkInWithPartnerDone('+L._row+')">Checked in \u2713</button>'
-          +'<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="dismissPartnerCheckIn('+L._row+')">Stop asking</button>';
-        // Same "you just reached out — what happened?" prompt used
-        // elsewhere, shown right on this card rather than the (closed)
-        // partner detail sheet, since that's where the action was actually
-        // taken from.
-        var promptHtml='';
-        if(PT_INLINE_PROMPT_ROW===L._row){
-          promptHtml='<div style="margin-top:10px;padding:10px;background:rgba(201,160,80,.08);border-radius:8px">'
-            +'<p class="note" style="text-align:left;margin:0 0 6px">You just reached out by '+esc(PT_INLINE_PROMPT_TYPE.toLowerCase())+' \u2014 what happened?</p>'
-            +'<input id="pt_inline_prompt_note" placeholder="Optional note\u2026">'
-            +'<div class="grid2" style="margin-top:8px">'
-              +'<button class="bump" style="border-radius:8px" onclick="ptInlinePromptSkip()">Skip</button>'
-              +'<button class="bump" style="border-radius:8px" onclick="ptInlinePromptSave()">Log it \u2726</button>'
-            +'</div></div>';
-        }
-        return '<div class="gfu-item"'+tdItem('pt:'+L._row, {name:partnerName, tag:'Partner check-in', note:'About '+String(L[C.name]||'a lead'), when:'Referred '+daysAgo+' days ago', late:daysAgo-7, rank:4})+'>'
-          +'<div class="gfu-name" onclick="'+(p?'openPartner(\''+esc(p.id).replace(/'/g,"\\'")+'\')':'')+'">'+esc(partnerName)+'</div>'
-          +'<div class="gfu-meta">Following up on <b>'+leadLine+'</b>'+eventLine+' \u00b7 '+meta+'</div>'
-          +'<div class="gfu-actions">'+actions+'</div>'
-          +promptHtml
+        var who=referrerName_(L), ed=pd(L[C.eventDate]);
+        var late=Math.max(0, Math.round((today0()-new Date(ed.getFullYear(), ed.getMonth(), ed.getDate()))/86400000)-1);
+        return '<div class="gfu-item"'+tdItem('rf:'+L._row, {name:who, tag:'Referral fee due', note:referralFeeNote_(L), when:'Show was '+fmtDateY(ed), late:late+1, rank:0})+'>'
+          +'<div class="gfu-name" onclick="openSheet('+L._row+')">'+esc(referralFeeNote_(L))+'</div>'
+          +'<div class="gfu-meta">For <b>'+esc(L[C.name]||'a lead')+'</b> \u00b7 show was '+esc(fmtDateY(ed))+'</div>'
+          +'<div class="gfu-actions"><button class="followupdue-btn" style="background:var(--crimson);color:#fff" onclick="event.stopPropagation();referralFeeSent('+L._row+')">Mark sent</button></div>'
           +'</div>';
       }).join('')
     +'</div>';
 }
-function ptInlinePromptSkip(){
-  PT_INLINE_PROMPT_ROW=null; PT_INLINE_PROMPT_TYPE=null;
-  renderPartnerCheckInCard();
-}
-function ptInlinePromptSave(){
-  var inp=$('pt_inline_prompt_note');
-  ptInlinePromptLog(inp? inp.value.trim() : '');
-}
-function ptInlinePromptLog(note){
-  if(!PT_INLINE_PROMPT_ROW || !PT_INLINE_PROMPT_TYPE) return;
-  var row=PT_INLINE_PROMPT_ROW, type=PT_INLINE_PROMPT_TYPE;
-  var L=LEADS.find(function(x){ return x._row===row; });
-  PT_INLINE_PROMPT_ROW=null; PT_INLINE_PROMPT_TYPE=null;
-  renderPartnerCheckInCard();
-  if(!L) return;
-  var partnerName=String(L[C.referral]||'').trim();
-  var p=PARTNERS.find(function(x){ return String(x.name||'').trim()===partnerName; });
-  if(!p) return;
-  GS.withSuccessHandler(function(json){ ingest(json); refreshQuiet(); toast('Logged \u2726'); })
-    .withFailureHandler(function(){ toast('Could not log \u2014 try again'); })
-    .logPartnerContact(p.id, String(p.name||''), type, note||'');
-}
-function dismissPartnerCheckIn(row){
+// Instant: the card clears at once, the save happens in the background, and a failure puts it back.
+function referralFeeSent(row){
   var L=LEADS.find(function(x){ return x._row===row; });
   if(!L) return;
-  L[C.partnerCheckInDismissed]='Yes';
-  renderPartnerCheckInCard();
-  var updates={}; updates[C.partnerCheckInDismissed]='Yes';
-  GS.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
+  var was=L[C.referralFeeSent]||'', todayStr=ymd(new Date());
+  L[C.referralFeeSent]=todayStr;
+  renderReferralFeeCard();
+  toast('Marked sent');
+  var updates={}; updates[C.referralFeeSent]=todayStr;
+  GS.withSuccessHandler(function(json){
+    ingest(json);
+    logContactNow_({ key:String(L._tsKey||''), name:String(L[C.name]||''), type:'Note', note:'Referral fee sent to '+referrerName_(L)+'.' });
+  }).withFailureHandler(function(){
+    L[C.referralFeeSent]=was; renderReferralFeeCard(); toast('Could not save \u2014 nothing was changed');
+  }).updateLead(row, updates);
 }
-function checkInWithPartnerDone(row){
-  var L=LEADS.find(function(x){ return x._row===row; });
-  if(!L) return;
-  // Resets the countdown rather than clearing it outright — "I checked in,
-  // still no update" should mean "ask me again in another week," not
-  // "never ask again," since the lead is still sitting there unresolved.
-  var todayStr=ymd(new Date());
-  L[C.referredDate]=todayStr+'T00:00:00';
-  renderPartnerCheckInCard();
-  var updates={}; updates[C.referredDate]=todayStr;
-  GS.withSuccessHandler(function(json){ ingest(json); }).withFailureHandler(function(){ toast('Could not update \u2014 try again'); }).updateLead(row, updates);
+/* ---------- Leads you referred to a partner ----------
+   Referring a lead starts NO timers and nags nobody. The app speaks up only when something real happens:
+   1. The partner tells you (automatically, if they use Magic Manager): added / booked / passed.
+   2. The show date you know has passed and you still have no answer -> ONE question to YOU (never to the partner):
+      "Did <partner> book it?"  They booked it / Didn't book / Ask again in 2 weeks.
+   3. A booked referral's show has passed and no fee is marked received -> "Did <partner> send your fee?".
+   All of it is derived from the lead's own columns. */
+var PT_BOOK_ROW=null;                                   // the lead whose "They booked it" date box is open
+function isReferredOut_(L){ return String(L[C.status]||'')==='Referred' && !!String(L[C.referral]||'').trim(); }
+function dayStart_(d){ return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : null; }
+function partnerAskDue_(L){
+  if(!isReferredOut_(L)) return false;
+  var r=String(L[C.partnerResponse]||'');
+  if(r==='booked' || r==='declined' || r==='passed') return false;
+  var snooze=dayStart_(pd(L[C.partnerAskSnooze]));
+  if(snooze && snooze.getTime()>today0().getTime()) return false;
+  var ed=dayStart_(pd(L[C.eventDate])), trigger=null;
+  if(ed){ trigger=new Date(ed); trigger.setDate(trigger.getDate()+1); }                 // the day after the show you were told about
+  else { var rd=dayStart_(pd(L[C.referredDate])); if(rd){ trigger=new Date(rd); trigger.setDate(trigger.getDate()+30); } }   // no date: 30 days after referring
+  return !!trigger && trigger.getTime()<=today0().getTime();
+}
+function partnerNotice_(L){
+  if(!isReferredOut_(L)) return '';
+  var r=String(L[C.partnerResponse]||'');
+  return ((r==='booked' || r==='passed') && String(L[C.partnerUpdateSeen]||'')!==r) ? r : '';
+}
+function partnerFeeCheckDue_(L){
+  if(!isReferredOut_(L) || String(L[C.partnerResponse]||'')!=='booked') return false;
+  if(String(L[C.partnerFeeSeen]||'')==='Yes') return false;
+  var ed=dayStart_(pd(L[C.partnerEventDate]));
+  if(!ed || ed.getTime()>=today0().getTime()) return false;
+  return !feesFor_({leadKey:L._tsKey}).some(feeReceived_);
+}
+function partnerLineText_(L){
+  var p=String(L[C.referral]||'').trim(), r=String(L[C.partnerResponse]||'');
+  if(!p || !r) return '';
+  var d=pd(L[C.partnerResponseDate]), ev=pd(L[C.partnerEventDate]);
+  if(r==='added') return p+' added this lead'+(d?' on '+fmtDateY(d):'')+'.';
+  if(r==='booked') return p+' booked it'+(ev?' for '+fmtDateY(ev):'')+'.';
+  if(r==='passed') return p+' passed on this lead.';
+  if(r==='declined') return 'You marked this lead as not booked.';
+  return '';
+}
+function renderPartnerLine_(L){
+  var el=$('d_partnerline'); if(!el) return;
+  var t=L ? partnerLineText_(L) : '';
+  el.textContent=t; el.style.display=t?'block':'none';
+}
+// Instant: change the lead on screen first, save in the background, put it back if the server says no.
+function partnerSave_(row, updates, after){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var prev={}; Object.keys(updates).forEach(function(k){ prev[k]=L[k]; L[k]=updates[k]; });
+  renderPartnerCheckInCard(); if(CURRENT && CURRENT._row===row){ CURRENT[C.partnerResponse]=L[C.partnerResponse]; renderPartnerLine_(L); }
+  GS.withSuccessHandler(function(json){ ingest(json); if(after) after(L); renderPartnerCheckInCard(); })
+    .withFailureHandler(function(){
+      Object.keys(prev).forEach(function(k){ L[k]=prev[k]; });
+      renderPartnerCheckInCard(); toast('Could not save \u2014 nothing was changed');
+    }).updateLead(row, updates);
+}
+function partnerBooked(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  if(PT_BOOK_ROW!==row){ PT_BOOK_ROW=row; renderPartnerCheckInCard(); return; }       // first tap: ask for the show date
+  var el=$('pt_book_date'), v=el ? String(el.value||'').trim() : '';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast('Pick the show date first'); return; }
+  PT_BOOK_ROW=null;
+  var u={}; u[C.partnerResponse]='booked'; u[C.partnerResponseDate]=ymd(new Date()); u[C.partnerEventDate]=v; u[C.partnerUpdateSeen]='booked';
+  toast('Marked as booked');
+  partnerSave_(row, u, function(){ logContactNow_({ key:String(L._tsKey||''), name:String(L[C.name]||''), type:'Note', note:'Marked as booked with '+String(L[C.referral]||'')+' for '+fmtDateY(v)+'.' }); });
+}
+function partnerBookedCancel(){ PT_BOOK_ROW=null; renderPartnerCheckInCard(); }
+function partnerDeclined(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var u={}; u[C.partnerResponse]='declined'; u[C.partnerResponseDate]=ymd(new Date());
+  toast('Marked as not booked');
+  partnerSave_(row, u, function(){ logContactNow_({ key:String(L._tsKey||''), name:String(L[C.name]||''), type:'Note', note:String(L[C.referral]||'')+' did not book this lead.' }); });
+}
+function partnerAskLater(row){
+  var d=new Date(); d.setDate(d.getDate()+14);
+  var u={}; u[C.partnerAskSnooze]=ymd(d);
+  toast('I\u2019ll ask again in 2 weeks');
+  partnerSave_(row, u);
+}
+function partnerGotIt(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var u={}; u[C.partnerUpdateSeen]=String(L[C.partnerResponse]||'');
+  partnerSave_(row, u);
+}
+function partnerFeeDismiss(row){
+  var u={}; u[C.partnerFeeSeen]='Yes';
+  partnerSave_(row, u);
+}
+function partnerReferAgain(row){
+  var u={}; u[C.partnerUpdateSeen]='passed';
+  partnerSave_(row, u);
+  openReferModal(row);
+}
+// The fee card's main button: mark an expected fee received, or open the lead to record one.
+function partnerFeeAct(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var open=feesFor_({leadKey:L._tsKey}).filter(function(f){ return !feeReceived_(f); });
+  if(open.length){ feeToggle_(feeId_(open[0])); renderPartnerCheckInCard(); return; }
+  openSheet(row);
+}
+function partnerItemHead_(L){
+  var p=String(L[C.referral]||'').trim();
+  return '<div class="gfu-name" onclick="openSheet('+L._row+')">'+esc(p)+'</div>';
+}
+function renderPartnerCheckInCard(){
+  renderReferralFeeCard();
+  var box=$('partnerCheckInCard'); if(!box) return;
+  var asks=LEADS.filter(partnerAskDue_), news=LEADS.filter(function(L){ return !!partnerNotice_(L); }), fees=LEADS.filter(partnerFeeCheckDue_);
+  if(!asks.length && !news.length && !fees.length){ box.style.display='none'; box.innerHTML=''; PT_BOOK_ROW=null; return; }
+  var btn=function(label, fn, row, solid){ return '<button class="followupdue-btn"'+(solid?'':' style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)"')+' onclick="event.stopPropagation();'+fn+'('+row+')">'+label+'</button>'; };
+  var quiet=function(label, fn, row){ return '<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="event.stopPropagation();'+fn+'('+row+')">'+label+'</button>'; };
+  var items=[];
+  news.forEach(function(L){
+    var p=String(L[C.referral]||'').trim(), r=partnerNotice_(L), ev=pd(L[C.partnerEventDate]);
+    var text = r==='booked' ? '<b>'+esc(p)+'</b> booked <b>'+esc(L[C.name]||'your lead')+'</b>'+(ev?' for '+esc(fmtDateY(ev)):'')+'.'
+                            : '<b>'+esc(p)+'</b> passed on <b>'+esc(L[C.name]||'your lead')+'</b>.';
+    items.push('<div class="gfu-item"'+tdItem('pn:'+L._row, {name:p, tag:r==='booked'?'Partner booked it':'Partner passed', note:'About '+String(L[C.name]||'a lead'), when:'New', late:0, rank:4})+'>'
+      +partnerItemHead_(L)+'<div class="gfu-meta">'+text+'</div>'
+      +'<div class="gfu-actions">'+(r==='passed'?btn('Refer to someone else','partnerReferAgain',L._row,true):'')+quiet('Got it','partnerGotIt',L._row)+'</div></div>');
+  });
+  asks.forEach(function(L){
+    var p=String(L[C.referral]||'').trim(), ed=pd(L[C.eventDate]);
+    var date='';
+    if(PT_BOOK_ROW===L._row){
+      var def=ed ? ymd(ed) : ymd(new Date());
+      date='<div style="margin-top:10px;padding:10px;background:rgba(201,160,80,.08);border-radius:8px"><label>When is the show?</label>'
+        +'<div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Show date" onclick="dpOpen_(\'pt_book_date\',this,\'date\')"><input type="date" id="pt_book_date" min="2000-01-01" max="2100-12-31" tabindex="-1" value="'+esc(def)+'"></div>'
+        +'<div class="grid2" style="margin-top:8px"><button class="bump" style="border-radius:8px" onclick="partnerBookedCancel()">Cancel</button><button class="bump" style="border-radius:8px" onclick="partnerBooked('+L._row+')">Save \u2726</button></div></div>';
+    }
+    items.push('<div class="gfu-item"'+tdItem('pa:'+L._row, {name:p, tag:'Did they book it?', note:'About '+String(L[C.name]||'a lead'), when:'Your call', late:0, rank:4})+'>'
+      +partnerItemHead_(L)
+      +'<div class="gfu-meta">Did <b>'+esc(p)+'</b> book <b>'+esc(L[C.name]||'your lead')+'</b>?'+(ed?' The date you had was '+esc(fmtDateY(ed))+'.':'')+'</div>'
+      +'<div class="gfu-actions">'+btn('They booked it','partnerBooked',L._row,true)+btn('Didn\u2019t book','partnerDeclined',L._row)+quiet('Ask again in 2 weeks','partnerAskLater',L._row)+'</div>'
+      +date+'</div>');
+  });
+  fees.forEach(function(L){
+    var p=String(L[C.referral]||'').trim(), ev=pd(L[C.partnerEventDate]), sent=!!String(L[C.partnerFeeSentDate]||'').trim();
+    var open=feesFor_({leadKey:L._tsKey}).filter(function(f){ return !feeReceived_(f); });
+    items.push('<div class="gfu-item"'+tdItem('pf:'+L._row, {name:p, tag:'Referral fee', note:'About '+String(L[C.name]||'a lead'), when:'Show was '+fmtDateY(ev), late:0, rank:0})+'>'
+      +partnerItemHead_(L)
+      +'<div class="gfu-meta">'+(sent ? '<b>'+esc(p)+'</b> says the referral fee for <b>'+esc(L[C.name]||'your lead')+'</b> was sent. Confirm when it arrives.'
+                                      : 'Did <b>'+esc(p)+'</b> send your referral fee for <b>'+esc(L[C.name]||'your lead')+'</b>?')+'</div>'
+      +'<div class="gfu-actions">'+btn(open.length?'Mark received':'Record the fee','partnerFeeAct',L._row,true)+quiet('Stop asking','partnerFeeDismiss',L._row)+'</div></div>');
+  });
+  box.style.display='';
+  box.innerHTML='<div class="gfu-card"><div class="gfu-title td-chrome">Leads You Referred</div>'+items.join('')+'</div>';
 }
 function renderGenFollowupDue(){
   var box=$('genFollowupCard'); if(!box) return;
@@ -3823,7 +3921,7 @@ function visible(){
    Each card still computes its own set and buttons; its item roots carry data-td-* attributes
    (tdItem) and this list reads them straight from the card, so the filters live in ONE place.
    Tapping a row slots that card under the row, showing only the tapped item (CSS below). ---------- */
-var TD_CARDS=['paymentsToConfirm','unpaidBalanceCard','followupDueCard','taskDueCard','genFollowupCard','partnerCheckInCard','decRebookCard'];
+var TD_CARDS=['paymentsToConfirm','unpaidBalanceCard','referralFeeCard','followupDueCard','taskDueCard','genFollowupCard','partnerCheckInCard','decRebookCard'];
 var TD_OPEN_KEY=null, TD_SIG='', TD_OBS=null;
 function tdKey_(k){ return String(k).replace(/[^A-Za-z0-9:_-]/g,'_'); }
 // Attributes for a due item's root element. o = {name, tag, note, when, late (days), rank (0 = most urgent group)}.
@@ -3843,7 +3941,7 @@ function tdIcon(id){
   var dollar='<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>';
   var bell='<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
   var P={
-    paymentsToConfirm:dollar, unpaidBalanceCard:dollar,
+    paymentsToConfirm:dollar, unpaidBalanceCard:dollar, referralFeeCard:dollar,
     followupDueCard:bell, genFollowupCard:bell,
     taskDueCard:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
     partnerCheckInCard:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -4475,6 +4573,30 @@ function stageDefs_(){
   return on ? {offsets:[STAGE_30_OFFSET].concat(STAGE_OFFSETS), labels:[STAGE_30_LABEL].concat(STAGE_LABELS), hints:[STAGE_30_HINT].concat(STAGE_HINTS)}
             : {offsets:STAGE_OFFSETS, labels:STAGE_LABELS, hints:STAGE_HINTS};
 }
+// A lead another Magic Manager user sent you carries "Referred by Rich Crawford · Crawford Magic". The reminder uses the person's name
+// (the part before the dot), falling back to the whole text. Blank = not a referral.
+function referrerName_(L){
+  var by=String((L && L[C.referredBy])||'').replace(/\s+/g,' ').trim();
+  if(!by) return '';
+  return (by.split(' \u00b7 ')[0]||'').trim() || by;
+}
+// The percent from Settings -> Referral fee percent: a whole number 1-100, else '' (then the reminder has no amount).
+function referralFeePct_(){
+  var s=String((typeof CFG!=='undefined'&&CFG&&CFG.REFERRAL_FEE_PERCENT)||'').trim();
+  if(!/^\d{1,3}$/.test(s)) return 0;
+  var n=Number(s); return (n>=1 && n<=100) ? n : 0;
+}
+// "Send Rich Crawford their referral fee: $500 (10% of $5,000)". The fee is a percent of the QUOTED price only -- no travel fee.
+function referralFeeNote_(L){
+  var who=referrerName_(L); if(!who) return '';
+  var pct=referralFeePct_(), price=money(L[C.price]);
+  var base='Send '+who+' their referral fee';
+  if(!pct || !(price>0)) return base;
+  var cents=Math.round(price*pct);               // price x pct / 100, in cents
+  var fee=cents/100;
+  var fmt=function(n){ return '$'+(Math.round(n)===n ? n.toLocaleString('en-US') : n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})); };
+  return base+': '+fmt(fee)+' ('+pct+'% of '+fmt(price)+')';
+}
 function followupStageIndex(L){
   if(!isBookedLike(L)) return -1;
   var ed=pd(L[C.eventDate]); if(!ed) return -1;
@@ -4593,6 +4715,7 @@ function renderLeadTop_(){
   renderExtraBtn_();
   renderPostponeBtn_();
   renderLeadFeeBox_();
+  renderPartnerLine_(L);
 }
 // The follow-up collapses to one row ("Follow-up  Oct 4, 9 AM  Change"); the date/time controls
 // and quick-bump buttons open on tap. Reads the inputs, which always hold the latest value.
@@ -4839,6 +4962,7 @@ var KVF=[
   {label:'Contract note (optional) \u2014 printed in the contract and shown on the event portal', col:C.contractNote, type:'text'},
   {label:'Balance due \u2014 days before event (default: due on event date)', col:C.balanceDueDays, type:'text'},
   {label:'Source', col:C.source, type:'select', opts:cfgList('LEAD_SOURCES', FALLBACK_LEAD_SOURCES), addKey:'LEAD_SOURCES', addLabel:'lead source'},
+  {label:'Referred by', col:C.referredBy, type:'text'},
   {label:'Company', col:C.company, type:'text'},
   {label:'Company address (billing/mailing)', col:C.companyAddress, type:'text'},
   {label:'Location', col:C.location, type:'text'},
@@ -5855,6 +5979,23 @@ var MERGE_FIELDS=[
    When a partner has a saved referral link, referral emails to them get a link that drops
    the lead into THEIR Magic Manager's Referral Inbox (they review it and tap Add). The
    payload rides in the link itself, so no client details pass through any third party. */
+// The way back for automatic partner updates: a private per-lead token (made once, saved on the lead) plus this app's own address.
+// Nothing about the client rides along -- the partner's app only ever sends the token back with a date. Skipped when this app's address
+// is not a normal web-app (/exec) address, or for a lead that is not saved yet.
+function ensureReferralToken_(L){
+  if(!L || !L._row) return '';
+  var t=String(L[C.referralToken]||'').trim();
+  if(t) return t;
+  var self=String((typeof CFG!=='undefined'&&CFG&&CFG.SELF_URL)||'');
+  if(!/\/exec$/.test(self)) return '';
+  var hex='';
+  try{ var a=new Uint8Array(16); crypto.getRandomValues(a); for(var i=0;i<a.length;i++) hex+=('0'+a[i].toString(16)).slice(-2); }
+  catch(e){ for(var j=0;j<32;j++) hex+=Math.floor(Math.random()*16).toString(16); }
+  L[C.referralToken]=hex;
+  var u={}; u[C.referralToken]=hex;
+  GS.withSuccessHandler(function(){}).withFailureHandler(function(){}).updateLead(L._row, u);
+  return hex;
+}
 function referralPayload_(L){
   var o={}, put=function(k,v){ v=String(v==null?'':v).trim(); if(v && v!=='—') o[k]=v; };
   var ed=pd(L[C.eventDate]), edStr=ed?ymd(ed):'';
@@ -5866,6 +6007,7 @@ function referralPayload_(L){
   put('a',L[C.audience]); put('ag',L[C.audienceAge]);
   var q=money(L[C.price]); if(q) o.q=String(q);
   put('nt',L[C.notes]);
+  var tk=ensureReferralToken_(L); if(tk){ put('tk',tk); put('cb',CFG.SELF_URL); }
   var who=[(CFG&&CFG.OWNER_NAME)||'',(CFG&&CFG.BUSINESS_NAME)||''].filter(Boolean);
   put('f', who.length===2 && who[0]!==who[1] ? who[0]+' · '+who[1] : who.join(''));
   return o;
@@ -11727,6 +11869,11 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.76', d:'Oct 2026', notes:[
+    'New — Referrals now keep each other posted, hands-off. When you refer a lead to a partner who also uses Magic Manager (with their Magic Manager link saved on their partner record), their app tells yours by itself when they add the lead, pass on it, book it, or send your referral fee. Your lead updates on its own, and you get an email when they book or pass (switch either off under Settings → Reminders & taxes). You both need this update for the automatic part.',
+    'Changed — No more weekly “Check In With Partner” reminder. You are asked just one question, only when the show date has passed and you still have not heard: “Did they book it?” (They booked it / Didn’t book / Ask again in 2 weeks). After a booked show you also get “Did your partner send your referral fee?”. Nobody is chased.',
+    'New — When a lead reaches you through a Magic Manager referral, it shows who referred it (a new “Referred by” field), and the day after the show a red Referral Fee Due card reminds you to send them their fee, for example “Send Rich Crawford their referral fee: $500 (10% of $5,000)”. The percent is 10 unless you change it under Settings → Reminders & taxes → Referral fee percent; travel fees are not counted.'
+  ]},
   { v:'1.5.75', d:'Oct 2026', notes:[
     'New — Arrive early, your way. Settings → Reminders & taxes now has “Arrive this many minutes early” (60 unless you change it) and “Arrive early by service”, a small box for each of your Services, for example 90 for a stage show and 30 for strolling. Your calendar reminder, the “Leave by” line and the show-day countdown all follow it. Leave everything blank and nothing changes.',
     'Changed — Expenses: “Export to a spreadsheet” now follows the Month you are viewing. Pick a year and a month and the file holds just that month (named like expenses-2026-10.csv). A year alone, or All time, works as before.',
@@ -11975,7 +12122,7 @@ var HELP_KNOW = [
   { q:'Tasks and reminders',
     a:'Tap the <b>Tasks</b> chip on the Leads screen to add a to-do. Dated tasks pop up on your phone at 9 AM (or at the time you pick), and repeating ones schedule the next one when you check them off.' },
   { q:'Referral partners',
-    a:'The <b>Partners</b> chip keeps the people you trade work with. When you mark a lead <b>Referred</b> to a partner, the app reminds you to check in with them a week later.' },
+    a:'The <b>Partners</b> chip keeps the people you trade work with. When you refer a lead to a partner who also uses Magic Manager, their app tells yours by itself when they add it, pass on it, book it, or send your referral fee (turn that off under <b>Settings \u2192 Reminders &amp; taxes</b>). You are never asked to chase them. If the show date passes and you have not heard, you get <b>one</b> question \u2014 \u201cDid they book it?\u201d \u2014 and a reminder to check on your referral fee after the show. Save the partner\u2019s Magic Manager link on their record so your links carry the tap-to-add button.' },
   { q:'Receipts for expenses',
     a:'When you add an expense, take a photo of the receipt or attach a file. Receipts are saved to your Google Drive, filed by year.' },
   { q:'Seeing what your client sees',

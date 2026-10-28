@@ -1,9 +1,9 @@
 What's new in this update:
 
-• NEW — Arrive early, your way. Settings → Reminders & taxes now has “Arrive this many minutes early” (60 unless you change it) and “Arrive early by service”, a small box for each of your Services, for example 90 for a stage show and 30 for strolling. Your calendar reminder, the “Leave by” line and the show-day countdown all follow it. Leave everything blank and nothing changes.
+• NEW — Referrals now keep each other posted, hands-off. When you refer a lead to a partner who also uses Magic Manager (with their Magic Manager link saved on their partner record), their app tells yours by itself when they add the lead, pass on it, book it, or send your referral fee. Your lead updates on its own, and you get an email when they book or pass (switch either off under Settings → Reminders & taxes). You both need this update for the automatic part.
 
-• CHANGED — Expenses: “Export to a spreadsheet” now follows the Month you are viewing. Pick a year and a month and the file holds just that month (named like expenses-2026-10.csv). A year alone, or All time, works as before.
+• CHANGED — No more weekly “Check In With Partner” reminder. You are asked just one question, only when the show date has passed and you still have not heard: “Did they book it?” (They booked it / Didn't book / Ask again in 2 weeks). After a booked show you also get “Did your partner send your referral fee?”. Nobody is chased.
 
-• CHANGED — Overdue follow-ups and search results now use the same compact one-line rows as the rest of the Leads page. Each row shows the name, price, status, event details and the follow-up date (red when overdue).
+• NEW — When a lead reaches you through a Magic Manager referral, it shows who referred it (a new “Referred by” field), and the day after the show a red Referral Fee Due card reminds you to send them their fee, for example “Send Rich Crawford their referral fee: $500 (10% of $5,000)”. The percent is 10 unless you change it under Settings → Reminders & taxes → Referral fee percent; travel fees are not counted.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

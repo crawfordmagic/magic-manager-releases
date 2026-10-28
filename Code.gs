@@ -30,6 +30,9 @@ var CONFIG_DEFAULTS_ = {
   HOME_ADDRESS: '',
   ARRIVE_EARLY_MINUTES: '60',
   ARRIVE_EARLY_BY_SERVICE: '',
+  REFERRAL_FEE_PERCENT: '10',
+  TELL_REFERRER_UPDATES: 'yes',
+  PARTNER_UPDATE_EMAIL: 'yes',
   SHOW_GAP_MINUTES: '60',
   CALENDAR_EVENT_NAME: '{service}',
   ACCOUNTANT_NAME: '',
@@ -168,6 +171,9 @@ var CONFIG_FIELDS_ = [
   { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a reminder set for the drive time plus your arrive-early time (an hour unless you change it below). Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
   { key: 'ARRIVE_EARLY_MINUTES', label: 'Arrive this many minutes early', help: 'Optional. How long before the start time you want to be at the show. Your leave reminder and the countdown on the show-day card use it: start time, minus this, minus the drive. Blank means 60. Use 0 to arrive right at the start.', input: 'numeric', section: 'reminders' },
   { key: 'ARRIVE_EARLY_BY_SERVICE', label: 'Arrive early by service', help: 'Optional. A different arrive-early time for a kind of show, for example 90 minutes for a stage show and 30 for strolling. A box appears for each of your Services; leave any blank to use the number above.', editor: 'servicearrive', section: 'reminders' },
+  { key: 'REFERRAL_FEE_PERCENT', label: 'Referral fee percent', help: 'Optional. For a lead another Magic Manager user sent you: the day after the show, your Today list reminds you to send them their referral fee, and shows this percent of the quoted price (travel fees are not counted). 10 is the default. Leave blank to see the reminder without an amount. Magic Manager only reminds you; it never sends money.', input: 'numeric', section: 'reminders' },
+  { key: 'TELL_REFERRER_UPDATES', label: 'Tell whoever referred a lead to me', help: '', editor: 'toggle', toggleLabel: 'Tell the person who referred a lead to me when I add it, pass on it, book it, or send their fee', section: 'reminders' },
+  { key: 'PARTNER_UPDATE_EMAIL', label: 'Partner update emails', help: '', editor: 'toggle', toggleLabel: 'Email me when a partner books or passes on a lead I referred', section: 'reminders' },
   { key: 'ACCOUNTANT_NAME', label: 'Accountant\'s name', help: 'Optional. The email draft in Expenses → Tax prep starts with this name (first name only if you give a full name). Only you ever see this — it is not shown to clients.', group: 'Taxes', section: 'reminders' },
   { key: 'ACCOUNTANT_EMAIL', label: 'Accountant\'s email', help: 'Optional. Used only to address the draft email in Expenses → Tax prep. Only you ever see this — it is not shown to clients.', group: 'Taxes', input: 'email', section: 'reminders' },
   // Services & client page
@@ -531,7 +537,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.75';
+var APP_VERSION = '1.5.76';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1036,6 +1042,9 @@ function doGet(e) {
   // design (the sender has no access to this app), so it is gated by the inbox code, only
   // ever writes to the Referral Inbox, and never exposes the app or its access key.
   if (e && e.parameter && e.parameter.ref) return referralReceivePage_(e.parameter);
+  // ?rcb=<added|passed|booked|feesent>&tk=<token> — a partner's Magic Manager reporting on a lead you referred. Same idea: public by
+  // design, writes ONE lead's partner columns, and only when the token matches a lead of yours.
+  if (e && e.parameter && e.parameter.rcb) return referralCallbackPage_(e.parameter);
 
   // The deployment itself has to be set to "Anyone" so clients without a
   // Google account can reach the sign page above — but that same setting
@@ -1072,7 +1081,7 @@ function doGet(e) {
       '<p style="color:#888;font-size:13px">Your data is safe and untouched.</p></div>'
     ).setTitle('Update not finished').addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
-  indexTpl.cfg = getConfig_();
+  indexTpl.cfg = (function () { var cfg = getConfig_(); try { cfg = JSON.parse(JSON.stringify(cfg)); cfg.SELF_URL = ScriptApp.getService().getUrl() || ''; } catch (e) {} return cfg; })();
   indexTpl.draftsReady = typeof Gmail !== 'undefined';   // Gmail service present (appsscript.json updated) -> show Branded Gmail draft
   indexTpl.appKey = providedKey;
   indexTpl.serverApi = PAGE_API_;
@@ -5311,6 +5320,14 @@ function clientText_(v, max, keepNewlines) {
   s = s.replace(keepNewlines ? /[\u0000-\u0009\u000B\u000C\u000E-\u001F]/g : /[\u0000-\u001F]/g, ' ');
   return neutralizeCell_(s.trim().slice(0, max));
 }
+// The way back to the referrer's app, carried in the referral link: their web-app address and a per-lead token. The address must be a real
+// Apps Script /exec URL (nothing else is ever contacted); the token must be plain letters and digits.
+var REFERRAL_BACK_URL_RE_ = /^https:\/\/script\.google\.com\/(?:macros|a\/macros\/[A-Za-z0-9.\-]+)\/s\/[A-Za-z0-9_\-]+\/exec$/;
+var REFERRAL_TOKEN_RE_ = /^[A-Za-z0-9]{16,64}$/;
+function parseReferralBack_(url, tk) {
+  url = String(url == null ? '' : url).trim(); tk = String(tk == null ? '' : tk).trim();
+  return (REFERRAL_BACK_URL_RE_.test(url) && REFERRAL_TOKEN_RE_.test(tk)) ? { url: url, tk: tk } : null;
+}
 function sanitizeReferral_(raw) {
   if (!raw || typeof raw !== 'object') return null;
   var lead = {};
@@ -5336,14 +5353,15 @@ function sanitizeReferral_(raw) {
     if (!tm || +tm[2] > 23 || +tm[3] > 59 || !(tm[1] === '1970-01-01' || validYmd(tm[1]))) delete lead[k];
   });
   if (lead.q) { lead.q = lead.q.replace(/[^\d.]/g, ''); if (!lead.q) delete lead.q; }
-  return { lead: lead, from: neutralizeCell_(String(raw.f == null ? '' : raw.f).replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 120)) };
+  var back = parseReferralBack_(raw.cb, raw.tk);
+  return { lead: lead, from: neutralizeCell_(String(raw.f == null ? '' : raw.f).replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 120)), back: back ? back.url + '|' + back.tk : '' };
 }
 function referralInboxSheet_(create) {
   const ss = SpreadsheetApp.getActive();
   var sh = ss.getSheetByName(REFERRAL_INBOX_SHEET);
   if (!sh && create) {
     sh = ss.insertSheet(REFERRAL_INBOX_SHEET);
-    sh.appendRow(['Received', 'From', 'Payload', 'Entry ID']);
+    sh.appendRow(['Received', 'From', 'Payload', 'Entry ID', 'Reply To']);
   }
   return sh;
 }
@@ -5364,7 +5382,7 @@ function addReferralToInbox_(clean) {
       }
     }
     if (pending >= REFERRAL_INBOX_MAX_) return { ok: false, full: true };
-    sh.appendRow([new Date(), clean.from, JSON.stringify(clean.lead), Utilities.getUuid()]);
+    sh.appendRow([new Date(), clean.from, JSON.stringify(clean.lead), Utilities.getUuid(), clean.back || '']);
     return { ok: true };
   } finally { try { lock.releaseLock(); } catch (e) {} }
 }
@@ -5393,11 +5411,164 @@ function findReferralRow_(sh, id) {
   return 0;
 }
 // The owner tapped "Add lead" on a received referral: create the lead, then clear it from the inbox.
+// Adds a header to the lead sheet if it is not there yet (new columns are created on first use, like Event Time Zone).
+function ensureLeadHeader_(sh, name) {
+  var heads = headers_(sh);
+  if (heads.indexOf(name) < 0) sh.getRange(1, heads.length + 1).setValue(name);
+}
+/* ---------- Automatic updates between partners' apps ----------
+ * When a lead came in through a Magic Manager referral link it carries a way back (the referrer's web-app address plus a private
+ * per-lead token). This app then tells the referrer, by itself: "added", "passed", "booked <date>", "fee sent". Nothing about the
+ * client travels -- only the token and a date. Messages go through a small queue so a hiccup is retried (every 5 minutes, 8 tries).
+ * The Settings toggle "Tell whoever referred a lead to me" turns the whole thing off. */
+var REFERRER_MSG_QUEUE_KEY_ = 'REFERRER_MSG_QUEUE';
+var REFERRER_MSG_MAX_TRIES_ = 8;
+function tellReferrerOn_() { return String(getConfig_().TELL_REFERRER_UPDATES || '').trim().toLowerCase() !== 'no'; }
+function referralBackFromCell_(v) {
+  var parts = String(v == null ? '' : v).split('|');
+  var b = parseReferralBack_(parts[0], parts[1]);
+  return b ? b.url + '|' + b.tk : '';
+}
+function referrerQueue_() {
+  try { var q = JSON.parse(PropertiesService.getScriptProperties().getProperty(REFERRER_MSG_QUEUE_KEY_) || '[]'); return Array.isArray(q) ? q : []; } catch (e) { return []; }
+}
+function editReferrerQueue_(fn) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return false;
+  try {
+    var q = referrerQueue_(); var r = fn(q);
+    var props = PropertiesService.getScriptProperties();
+    if (q.length) props.setProperty(REFERRER_MSG_QUEUE_KEY_, JSON.stringify(q)); else props.deleteProperty(REFERRER_MSG_QUEUE_KEY_);
+    return r;
+  } finally { lock.releaseLock(); }
+}
+// type: 'added' | 'passed' | 'booked' (with d = the show date, yyyy-mm-dd) | 'feesent'. A no-op when the setting is off or the way back is invalid.
+function queueReferrerMsg_(backStr, type, d) {
+  if (!tellReferrerOn_()) return false;
+  var parts = String(backStr || '').split('|'); var b = parseReferralBack_(parts[0], parts[1]);
+  if (!b || ['added', 'passed', 'booked', 'feesent'].indexOf(type) < 0) return false;
+  var u = b.url + '?rcb=' + type + '&tk=' + b.tk + (d && isRealYmd_(d) ? '&d=' + d : '');
+  editReferrerQueue_(function (q) { q.push({ u: u, tries: 0, at: Date.now() }); });
+  return true;
+}
+function flushReferrerMsgs_() {
+  var items = referrerQueue_(); if (!items.length) return;
+  var done = {}, failed = {};
+  items.forEach(function (it) {
+    try {
+      var res = UrlFetchApp.fetch(it.u, { muteHttpExceptions: true, followRedirects: true });
+      if (res.getResponseCode() === 200) done[it.u + '#' + it.at] = true; else failed[it.u + '#' + it.at] = true;
+    } catch (e) { failed[it.u + '#' + it.at] = true; }
+  });
+  editReferrerQueue_(function (q) {
+    for (var i = q.length - 1; i >= 0; i--) {
+      var k = q[i].u + '#' + q[i].at;
+      if (done[k]) q.splice(i, 1);
+      else if (failed[k]) { q[i].tries = (q[i].tries || 0) + 1; if (q[i].tries >= REFERRER_MSG_MAX_TRIES_) q.splice(i, 1); }
+    }
+  });
+}
+function isRealYmd_(s) {
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  var y = +m[1], mo = +m[2], d = +m[3], dt = new Date(y, mo - 1, d);
+  return y >= 2000 && y <= 2100 && dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d;
+}
+// Runs with the 5-minute automation: tells the referrer when a referred lead has been booked or its fee marked sent (derived from the
+// lead's own columns, so it also catches bookings made by signing and paying), then retries anything that has not gone through yet.
+function sweepReferrerNotices_() {
+  if (!tellReferrerOn_()) return;
+  var sh = sheet_(), heads = headers_(sh), last = sh.getLastRow();
+  var ci = heads.indexOf('Referrer Callback');
+  if (ci > -1 && last >= 2) {
+    var rows = sh.getRange(2, 1, last - 1, heads.length).getValues();
+    var si = heads.indexOf('Status'), di = heads.indexOf('Date of Event'), ni = heads.indexOf('Referrer Notified'), fi = heads.indexOf('Referral Fee Sent');
+    rows.forEach(function (r, i) {
+      var back = referralBackFromCell_(r[ci]); if (!back) return;
+      var notified = ni > -1 ? String(r[ni] || '') : '', toks = notified.split(';').filter(Boolean), changed = false;
+      var st = si > -1 ? String(r[si] || '') : '';
+      var evd = (di > -1 && r[di]) ? (Object.prototype.toString.call(r[di]) === '[object Date]' ? Utilities.formatDate(r[di], tz_(), 'yyyy-MM-dd') : String(r[di]).slice(0, 10)) : '';
+      if ((st === 'Booked' || st === 'Completed') && isRealYmd_(evd) && toks.indexOf('booked:' + evd) < 0) {
+        if (queueReferrerMsg_(back, 'booked', evd)) { toks = toks.filter(function (t) { return t.indexOf('booked:') !== 0; }); toks.push('booked:' + evd); changed = true; }
+      }
+      if (fi > -1 && String(r[fi] || '').trim() && toks.indexOf('fee') < 0) {
+        if (queueReferrerMsg_(back, 'feesent')) { toks.push('fee'); changed = true; }
+      }
+      if (changed) { ensureLeadHeader_(sh, 'Referrer Notified'); setLeadCell_(sh, i + 2, 'Referrer Notified', toks.join(';')); }
+    });
+  }
+  flushReferrerMsgs_();
+}
+function setLeadCell_(sh, rowNum, name, value) {
+  var heads = headers_(sh), col = heads.indexOf(name) + 1;
+  if (!col) { col = heads.length + 1; sh.getRange(1, col).setValue(name); }
+  sh.getRange(rowNum, col).setValue(value);
+}
+
+// The referrer's side: a partner's app reports on a lead you referred. Public route; answers the same to everything (no way to probe
+// which tokens exist) and only ever writes the partner columns of the one lead whose private token matches.
+function referralCallbackPage_(p) {
+  try { applyReferralCallback_(p); } catch (e) { console.error('Partner update failed: ' + e); }
+  return HtmlService.createHtmlOutput('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Magic Manager</title></head>'
+    + '<body style="margin:0;background:#0B0B10;color:#B9AE94;font-family:Arial,Helvetica,sans-serif;padding:32px;text-align:center">Recorded. You can close this page.</body></html>')
+    .setTitle('Magic Manager').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+function applyReferralCallback_(p) {
+  var type = String(p.rcb || ''), tk = String(p.tk || '');
+  if (['added', 'passed', 'booked', 'feesent'].indexOf(type) < 0 || !REFERRAL_TOKEN_RE_.test(tk)) return;
+  var d = isRealYmd_(String(p.d || '')) ? String(p.d) : '';
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return;
+  try {
+    var sh = sheet_(), heads = headers_(sh), tkCol = heads.indexOf('Referral Token') + 1, last = sh.getLastRow();
+    if (!tkCol || last < 2) return;
+    var toks = sh.getRange(2, tkCol, last - 1, 1).getValues(), rowNum = 0;
+    for (var i = 0; i < toks.length; i++) if (String(toks[i][0]) === tk) { rowNum = i + 2; break; }
+    if (!rowNum) return;
+    var get = function (name) { var ix = headers_(sh).indexOf(name); return ix > -1 ? sh.getRange(rowNum, ix + 1).getValue() : ''; };
+    var set = function (name, v) { setLeadCell_(sh, rowNum, name, v); };
+    var today = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+    var cur = String(get('Partner Response') || ''), status = String(get('Status') || '');
+    var markReferred = function () { if (status === 'Referral') { set('Status', 'Referred'); set('Referred Date', today); } };
+    if (type === 'added') {
+      if (!cur) { set('Partner Response', 'added'); set('Partner Response Date', today); }
+      markReferred();
+    } else if (type === 'passed') {
+      if (cur !== 'booked' && cur !== 'passed') { set('Partner Response', 'passed'); set('Partner Response Date', today); notifyOwnerPartnerNews_(sh, rowNum, 'passed', ''); }
+      markReferred();
+    } else if (type === 'booked') {
+      var oldEv = String(get('Partner Event Date') instanceof Date ? Utilities.formatDate(get('Partner Event Date'), tz_(), 'yyyy-MM-dd') : get('Partner Event Date') || '').slice(0, 10);
+      var changed = cur !== 'booked' || (d && d !== oldEv);
+      set('Partner Response', 'booked'); set('Partner Response Date', today); if (d) set('Partner Event Date', d);
+      if (changed) { set('Partner Update Seen', ''); notifyOwnerPartnerNews_(sh, rowNum, 'booked', d); }
+      markReferred();
+    } else if (type === 'feesent') {
+      set('Partner Fee Sent Date', today);
+    }
+  } finally { lock.releaseLock(); }
+}
+// A short email to the referrer (opt-out: Settings -> "Partner update emails"). Best-effort, never blocks.
+function notifyOwnerPartnerNews_(sh, rowNum, type, d) {
+  try {
+    var cfg = getConfig_();
+    if (String(cfg.PARTNER_UPDATE_EMAIL || '').trim().toLowerCase() === 'no') return;
+    var to = String(cfg.EMAIL || '').trim(); if (!to) return;
+    var heads = headers_(sh), row = sh.getRange(rowNum, 1, 1, heads.length).getValues()[0];
+    var get = function (n) { var ix = heads.indexOf(n); return ix > -1 ? row[ix] : ''; };
+    var partner = String(get('Referred To') || 'Your partner').trim(), lead = String(get('Customer Name') || 'your lead').trim();
+    var subj = type === 'booked' ? partner + ' booked ' + lead : partner + ' passed on ' + lead;
+    var body = type === 'booked'
+      ? partner + ' booked ' + lead + ', the lead you referred' + (d ? ', for ' + d : '') + '.\n\nYour lead has been updated for you. The day after the show, ' + (cfg.BUSINESS_NAME || 'your app') + ' will ask whether the referral fee arrived.'
+      : partner + ' passed on ' + lead + ', the lead you referred.\n\nOpen ' + (cfg.BUSINESS_NAME || 'your app') + ' if you want to refer it to someone else.';
+    MailApp.sendEmail(to, subj, body);
+  } catch (e) { console.error('Partner update email failed: ' + e); }
+}
 function acceptReferral_(id) {
   var sh = referralInboxSheet_(false);
   var row = findReferralRow_(sh, id);
   if (!row) return withReferralInbox_(getLeadsScoped_());
-  var r = sh.getRange(row, 1, 1, 4).getValues()[0];
+  var r = sh.getRange(row, 1, 1, 5).getValues()[0];
+  var backStr = referralBackFromCell_(r[4]);
   var parsed = null;
   try { var stored = JSON.parse(r[2]); stored.f = r[1]; parsed = sanitizeReferral_(stored); } catch (e) {}
   if (!parsed) { sh.deleteRow(row); return withReferralInbox_(getLeadsScoped_()); }
@@ -5406,16 +5577,22 @@ function acceptReferral_(id) {
   ['Start Time', 'End Time'].forEach(function (h) { if (fields[h]) fields[h] = parseYMD_(fields[h]); });
   var note = 'Referred by ' + (parsed.from || 'another Magic Manager user') + ' on ' + Utilities.formatDate(new Date(), tz_(), 'M/d/yyyy');
   fields['Notes about interaction'] = note + (fields['Notes about interaction'] ? '\n\n' + fields['Notes about interaction'] : '');
+  if (parsed.from) { fields['Referred By'] = parsed.from; ensureLeadHeader_(sheet_(), 'Referred By'); }
+  if (backStr) { fields['Referrer Callback'] = backStr; fields['Referrer Notified'] = 'added'; ensureLeadHeader_(sheet_(), 'Referrer Callback'); ensureLeadHeader_(sheet_(), 'Referrer Notified'); }
   fields['Status'] = 'New';
   fields['Lead Source'] = 'Referral';
   fields['Followup'] = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd'); // a warm lead — surface it for a same-day reply
   sh.deleteRow(row);
-  return withReferralInbox_(addLead_(fields));
+  var out = withReferralInbox_(addLead_(fields));
+  try { if (backStr) { queueReferrerMsg_(backStr, 'added'); flushReferrerMsgs_(); } } catch (e) { console.error('Referrer message failed: ' + e); }
+  return out;
 }
 function dismissReferral_(id) {
   var sh = referralInboxSheet_(false);
   var row = findReferralRow_(sh, id);
-  if (row) sh.deleteRow(row);
+  var backStr = '';
+  if (row) { try { backStr = referralBackFromCell_(sh.getRange(row, 5).getValue()); } catch (e) {} sh.deleteRow(row); }
+  try { if (backStr) { queueReferrerMsg_(backStr, 'passed'); flushReferrerMsgs_(); } } catch (e) { console.error('Referrer message failed: ' + e); }
   return JSON.stringify({ referralInbox: getReferralInbox_() });
 }
 function withReferralInbox_(json) {
@@ -7191,6 +7368,7 @@ function runFrequentAutomations(e) {
   triggerOnly_(e);
   runFrequentAutomations_();
   try { sweepSignedPdfs_(); } catch (err) { console.error('Signed PDF sweep failed: ' + err); }
+  try { sweepReferrerNotices_(); } catch (err) { console.error('Referrer notices failed: ' + err); }
 }
 
 function runFrequentAutomations_() {
