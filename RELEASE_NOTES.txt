@@ -1,5 +1,5 @@
 What's new in this update:
 
-• IMPROVED — On the Today list, each row now shows its follow-up time (for example 3:00 PM) where it used to say "Today". Tap the time to change it right there without opening the row; tap anywhere else to open the lead. Overdue rows read "2 days late · 9:00 AM".
+• IMPROVED — On the Today list, the follow-up time now has a little more room and a thin divider between it and the arrow, so tapping the time to change it and tapping the row to open the lead are easier to tell apart.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

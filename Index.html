@@ -267,7 +267,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .td-tag{color:var(--gold-bright);font-weight:600}
 .td-when{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--gold-bright);white-space:nowrap}
 .td-when.late{color:#E9927B}
-.td-time{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;cursor:pointer;display:inline-block;padding:10px 4px;margin:-10px -4px}
+.td-when.tm{padding-right:8px;border-right:1px solid var(--line);line-height:20px}
+.td-time{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;cursor:pointer;display:inline-block;padding:10px 0 10px 8px;margin:-10px 0 -10px -8px}
 .td-when.late .td-time{color:var(--gold-bright)}
 .td-count{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
 .td-slot{padding:0 12px}
@@ -4101,7 +4102,7 @@ function tdWhenHtml_(it){
   if(!it.tm || !it.ts) return it.when ? '<span class="td-when'+(it.late>0?' late':'')+'">'+esc(it.when)+'</span>' : '';
   var id='td_time_'+it.tm.replace(':','_');
   var time='<span class="td-time" id="'+id+'" onclick="event.stopPropagation();tdEditTime(\''+it.tm+'\')">'+esc(hm12(new Date(it.ts)))+'</span>';
-  return '<span class="td-when'+(it.late>0?' late':'')+'">'+(it.late>0?esc(it.when)+' · ':'')+time+'</span>';
+  return '<span class="td-when'+(it.late>0?' late':'')+' tm">'+(it.late>0?esc(it.when)+' · ':'')+time+'</span>';
 }
 function renderTodayDigest(){
   var sum=$('todaySummary'); if(!sum) return;
@@ -11981,6 +11982,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.80', d:'Oct 2026', notes:[
+    'Improved — On the Today list, the follow-up time now has a little more room and a thin divider between it and the arrow, so tapping the time to change it and tapping the row to open the lead are easier to tell apart.'
+  ]},
   { v:'1.5.79', d:'Oct 2026', notes:[
     'Improved — On the Today list, each row now shows its follow-up time (for example 3:00 PM) where it used to say “Today”. Tap the time to change it right there without opening the row; tap anywhere else to open the lead. Overdue rows read “2 days late · 9:00 AM”.'
   ]},
