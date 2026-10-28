@@ -537,7 +537,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.80';
+var APP_VERSION = '1.5.81';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1156,7 +1156,7 @@ var API_ = {
   deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_,
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
   startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_,
-  setTaxRate: setTaxRate_, getLeads: getLeads_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
+  setTaxRate: setTaxRate_, getLeads: getLeads_, getLeadsCore: getLeadsCore_, getLeadsLogs: getLeadsLogs_, getLeadsPeople: getLeadsPeople_, getLeadsExtras: getLeadsExtras_, getLeadsRest: getLeadsRest_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
   saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, markSeen: markSeen_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
   updatePartner: updatePartner_, deletePartner: deletePartner_, getReferralInboxLink: getReferralInboxLink_,
@@ -2478,7 +2478,7 @@ function generateContract_(rowNum) {
     sh.getRange(rowNum, cols.signedCol).setValue('No');
     sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
     sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
-    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, SpreadsheetApp.getActive().getSpreadsheetTimeZone()));
+    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, tzNow_()));
 
     const webAppUrl = ScriptApp.getService().getUrl();
     const signUrl = webAppUrl + '?sign=' + token;
@@ -2711,7 +2711,7 @@ function buildSignedContract_(token) {
     sh.getRange(rowNum, cols.docIdCol).setValue(result.copy.getId());
     sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
     sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
-    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, SpreadsheetApp.getActive().getSpreadsheetTimeZone()));
+    sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, tzNow_()));
     // Retire the earlier preview copy now that a final signed version exists.
     try { if (oldDocId) DriveApp.getFileById(String(oldDocId)).setTrashed(true); } catch (e) {}
     return;
@@ -3137,7 +3137,7 @@ function getStoreSales_() {
     var sh = storeSalesSheet_();
     var last = sh.getLastRow();
     if (last < 2) return [];
-    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+    var tz = tzNow_();
     var rows = sh.getRange(2, 1, last - 1, STORE_SALES_HEADERS.length).getValues();
     var out = [];
     for (var i = 0; i < rows.length; i++) {
@@ -3401,6 +3401,13 @@ function ensureLeadHeaders_(sh) {
   }
 }
 
+// Asked once per run: every call to the sheet is a slow trip, and the spreadsheet's time zone cannot change mid-run.
+var EXEC_TZ_ = null;
+function tzNow_() {
+  if (!EXEC_TZ_) EXEC_TZ_ = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  return EXEC_TZ_;
+}
+
 function sheet_() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
@@ -3429,7 +3436,7 @@ function timezoneCheck_() {
 }
 
 function tz_() {
-  return SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  return tzNow_();
 }
 
 function expensesSheet_() {
@@ -3528,7 +3535,7 @@ function migrateReceiptsToYearFolders_() {
 
 function getExpenses_() {
   const sh = expensesSheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const tz = tzNow_();
   const values = sh.getDataRange().getValues();
   const expenses = [];
   for (var i = 1; i < values.length; i++) {
@@ -3668,7 +3675,7 @@ function getRecurring_() {
   var sh = recurringSheet_();
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  var tz = tzNow_();
   var rows = sh.getRange(2, 1, last - 1, RECUR_HEADERS.length).getValues();
   var out = [];
   for (var i = 0; i < rows.length; i++) {
@@ -3815,9 +3822,10 @@ function tasksSheet_() {
 }
 
 function getTasks_() {
-  const sh = tasksSheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-  const values = sh.getDataRange().getValues();
+  const tz = tzNow_();
+  var sh = SpreadsheetApp.getActive().getSheetByName(TASKS_SHEET);
+  var values = sh ? sh.getDataRange().getValues() : null;
+  if (!values || String(values[0][4] || '') === '') values = tasksSheet_().getDataRange().getValues();   // missing sheet / header: repair, then read again
   const tasks = [];
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
@@ -3885,9 +3893,12 @@ function logSheet_() {
 }
 
 function getLog_() {
-  const sh = logSheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-  const values = sh.getDataRange().getValues();
+  const tz = tzNow_();
+  var sh = SpreadsheetApp.getActive().getSheetByName(LOG_SHEET);
+  var values = sh ? sh.getDataRange().getValues() : null;
+  var needsRepair = !values || String(values[0][5] || '') !== 'Entry ID';
+  for (var k = 1; !needsRepair && k < values.length; k++) if (!values[k][5]) needsRepair = true;
+  if (needsRepair) values = logSheet_().getDataRange().getValues();   // missing sheet / header / Entry IDs: the full repair, then read again
   const logs = [];
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
@@ -4447,7 +4458,7 @@ function deleteLead_(rowNum) {
 // Recycle Bin UI can render a lead card without any client-side parsing.
 function getTrash_() {
   const sh = trashSheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const tz = tzNow_();
   const last = sh.getLastRow();
   if (last < 2) return [];
   const rows = sh.getRange(2, 1, last - 1, 4).getValues();
@@ -4839,9 +4850,10 @@ function fmtCell_(v, tz) {
 }
 
 function buildLeadsArray_() {
-  const sh = sheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
-  const values = sh.getDataRange().getValues();
+  const tz = tzNow_();
+  const ss0 = SpreadsheetApp.getActive();
+  var values = (ss0.getSheetByName(SHEET_NAME) || ss0.getSheets()[0]).getDataRange().getValues();
+  if (values.length < 2 && !String(values[0][0] || '')) values = sheet_().getDataRange().getValues();   // empty sheet: write the headers first
   const heads = values[0].map(function (h) { return String(h).trim(); });
   const leads = [];
   for (var i = 1; i < values.length; i++) {
@@ -4884,29 +4896,71 @@ function setTaxRate_(rate) {
   return JSON.stringify({ taxRate: getTaxRate_() });
 }
 
+// Startup asks the server for FIVE groups at the same moment (each runs in its own server run, in parallel). Opening a tab costs about a second
+// no matter how small it is, so one long call that opened ~25 of them in a row was the slow part. The first screen waits only for the three
+// groups it draws from (core, logs, people); templates and the rest fill in behind it. getLeads_ (refreshes, a few server paths) is all five
+// together. ONE list of pieces per group, so the groups cannot drift apart (tests/check-load-split.js).
+var LOAD_GROUPS_ = {
+  core: ['leads', 'referralFees', 'referralInbox', 'tzCheck', 'sharingBlocked', 'topClientThreshold', 'kvfOrder', 'kvfHidden', 'oracleGate'],
+  logs: ['logs'],
+  people: ['tasks', 'partners'],
+  extras: ['templates', 'textTemplates', 'partnerTemplates', 'partnerTextTemplates', 'partnerLogs'],
+  rest: ['trash', 'recurring', 'expenses', 'customExpenseCategories', 'taxRate', 'vendorCategoryMemory', 'storeSales', 'storeProducts']
+};
+// Each piece is timed (ms) and counted (rows) and returned as _ms / _n, so a slow start can be traced (the About screen shows it).
+function timedPieces_(spec) {
+  var out = {}, ms = {};
+  Object.keys(spec).forEach(function (k) { var s = Date.now(); out[k] = spec[k](); ms[k] = Date.now() - s; });
+  out._ms = ms;
+  var n = {};
+  Object.keys(out).forEach(function (k) { if (Array.isArray(out[k])) n[k] = out[k].length; });
+  out._n = n;
+  return out;
+}
+function loadPieces_() {
+  var props = PropertiesService.getScriptProperties();
+  return {
+    leads: buildLeadsArray_, tasks: getTasks_, logs: getLog_, templates: getTemplates_,
+    partners: getPartners_, partnerLogs: getPartnerLog_,
+    textTemplates: getTextTemplates_, partnerTemplates: getPartnerTemplates_,
+    partnerTextTemplates: getPartnerTextTemplates_, oracleGate: oracleGateCheck_,
+    topClientThreshold: function () { return Number(props.getProperty('TOP_CLIENT_THRESHOLD')) || 2000; },
+    kvfOrder: getKvfOrder_,
+    kvfHidden: getKvfHidden_,
+    referralFees: getReferralFees_,
+    tzCheck: timezoneCheck_,
+    sharingBlocked: function () { return props.getProperty('SHARING_BLOCKED') === '1'; },
+    referralInbox: getReferralInbox_,
+    trash: getTrash_, recurring: getRecurring_,
+    expenses: getExpenses_,
+    customExpenseCategories: getCustomExpenseCategories_,
+    taxRate: getTaxRate_,
+    vendorCategoryMemory: getVendorCategoryMemory_,
+    storeSales: getStoreSales_,
+    storeProducts: getStoreProducts_
+  };
+}
+function loadGroupObj_(group) {
+  var s = Date.now(), all = loadPieces_(), spec = {};
+  if (group === 'rest') { migrateAdSpendToExpenses_(); migrateReceiptsToYearFolders_(); }   // one-time expense migrations, before expenses are read
+  var mig = Date.now() - s;
+  LOAD_GROUPS_[group].forEach(function (k) { spec[k] = all[k]; });
+  var o = timedPieces_(spec);
+  if (group === 'rest') o._ms.migrations = mig;
+  return o;
+}
+function getLeadsCore_() { return JSON.stringify(loadGroupObj_('core')); }
+function getLeadsLogs_() { return JSON.stringify(loadGroupObj_('logs')); }
+function getLeadsPeople_() { return JSON.stringify(loadGroupObj_('people')); }
+function getLeadsExtras_() { return JSON.stringify(loadGroupObj_('extras')); }
+function getLeadsRest_() { return JSON.stringify(loadGroupObj_('rest')); }
 function getLeads_() {
-  migrateAdSpendToExpenses_();
-  migrateReceiptsToYearFolders_();
-  return JSON.stringify({
-    leads: buildLeadsArray_(), tasks: getTasks_(), logs: getLog_(), templates: getTemplates_(),
-    partners: getPartners_(), partnerLogs: getPartnerLog_(),
-    textTemplates: getTextTemplates_(), partnerTemplates: getPartnerTemplates_(),
-    partnerTextTemplates: getPartnerTextTemplates_(), oracleGate: oracleGateCheck_(),
-    trash: getTrash_(), recurring: getRecurring_(),
-    topClientThreshold: Number(PropertiesService.getScriptProperties().getProperty('TOP_CLIENT_THRESHOLD')) || 2000,
-    kvfOrder: getKvfOrder_(),
-    kvfHidden: getKvfHidden_(),
-    expenses: getExpenses_(),
-    customExpenseCategories: getCustomExpenseCategories_(),
-    taxRate: getTaxRate_(),
-    vendorCategoryMemory: getVendorCategoryMemory_(),
-    storeSales: getStoreSales_(),
-    referralFees: getReferralFees_(),
-    tzCheck: timezoneCheck_(),
-    storeProducts: getStoreProducts_(),
-    sharingBlocked: (PropertiesService.getScriptProperties().getProperty('SHARING_BLOCKED') === '1'),
-    referralInbox: getReferralInbox_()
+  var o = {};
+  Object.keys(LOAD_GROUPS_).forEach(function (g) {
+    var part = loadGroupObj_(g);
+    Object.keys(part).forEach(function (k) { if (k[0] !== '_') o[k] = part[k]; });
   });
+  return JSON.stringify(o);
 }
 // Same Script Properties JSON pattern as KVF_ORDER/KVF_HIDDEN above — a
 // small app-wide list, not per-expense data. Deleting a category here only
@@ -5064,7 +5118,7 @@ function getReferralFees_() {
     if (!sh) return [];
     var last = sh.getLastRow();
     if (last < 2) return [];
-    var tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+    var tz = tzNow_();
     var rows = sh.getRange(2, 1, last - 1, REFERRAL_FEES_HEADERS.length).getValues();
     var out = [];
     for (var i = 0; i < rows.length; i++) {
@@ -5145,7 +5199,7 @@ function partnerLogSheet_() {
 
 function getPartnerLog_() {
   const sh = partnerLogSheet_();
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const tz = tzNow_();
   const values = sh.getDataRange().getValues();
   const out = [];
   for (var i = 1; i < values.length; i++) {
@@ -5210,8 +5264,9 @@ function partnersSheet_() {
 }
 
 function getPartners_() {
-  const sh = partnersSheet_();
-  const values = sh.getDataRange().getValues();
+  var sh = SpreadsheetApp.getActive().getSheetByName(PARTNERS_SHEET);
+  var values = sh ? sh.getDataRange().getValues() : null;
+  if (!values || !String(values[0][5] || '').trim()) values = partnersSheet_().getDataRange().getValues();   // missing sheet / header: repair, then read again
   const out = [];
   for (var i = 1; i < values.length; i++) {
     var r = values[i];
@@ -5652,7 +5707,7 @@ function adSpendSheet_() {
 function getAdSpend_() {
   const sh = adSpendSheet_();
   if (!sh) return [];
-  const tz = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  const tz = tzNow_();
   const values = sh.getDataRange().getValues();
   const out = [];
   for (var i = 1; i < values.length; i++) {

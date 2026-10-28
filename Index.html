@@ -2016,9 +2016,38 @@ function triggerOraclePreview(){
 // than the sum of all six sheet reads combined. Each piece is merged into
 // one combined object as it arrives; only once all three are in does the
 // rest of the normal startup sequence run, unchanged from before.
+var LOAD_TIMING=null;
+function loadTimingHtml_(){
+  var t=LOAD_TIMING; if(!t || t.firstMs==null) return '';
+  function s(v){ return v==null ? '?' : (v/1000).toFixed(1)+'s'; }
+  function sum(m){ if(!m) return null; var n=0; Object.keys(m).forEach(function(k){ n+=m[k]; }); return n; }
+  var all={}, calls=Object.keys(t.calls||{}).map(function(k){ var c=t.calls[k]; Object.assign(all, c.ms||{}); return k+' '+s(c.at)+' (server '+s(sum(c.ms))+')'; });
+  var top=Object.keys(all).sort(function(a,b){ return all[b]-all[a]; }).slice(0,3).map(function(k){ return k+' '+all[k]+'ms'; }).join(', ');
+  return '<div class="help-ver" style="font-size:11.5px;opacity:.75;margin-top:6px">Last start: first screen +'+s(t.firstMs)+' \u00b7 everything +'+s(t.restMs)
+    +'<br>Calls (arrived at, server time): '+esc(calls.join(', '))
+    +'<br>Slowest pieces: '+esc(top)
+    +'<br>Rows: '+esc(Object.keys(t.rows||{}).map(function(k){ return k+' '+t.rows[k]; }).join(', '))+'</div>';
+}
+// Startup sends five requests at the same moment. The first screen waits for the three it draws from (core, logs, people);
+// the other two (templates, the rest) fill in behind it, in either arrival order. A lazy request that fails -> one quiet full refresh.
+var LOAD_CRIT_=['getLeadsCore','getLeadsLogs','getLeadsPeople'], LOAD_LAZY_=['getLeadsExtras','getLeadsRest'];
 function load(){
-  GS.withSuccessHandler(function(json){
+  var T0=(window.performance&&performance.now)?performance.now():0;
+  LOAD_TIMING={firstMs:null, restMs:null, calls:{}, rows:{}};
+  function msSince_(){ return (window.performance&&performance.now) ? Math.round(performance.now()-T0) : null; }
+  function note_(name, json){
+    try{ var o=JSON.parse(json); LOAD_TIMING.calls[name]={at:msSince_(), ms:o._ms||null}; Object.assign(LOAD_TIMING.rows, o._n||{}); }catch(e){}
+  }
+  var critJson={}, critLeft=LOAD_CRIT_.length, coreDone=false, lazyQueue=[], lazyFailed=false, loadFailed=false;
+  function applyLazy_(json){
     ingest(json);
+    renderChips(); renderLeads(); renderInsights(); renderPaymentsToConfirm();
+    if(typeof renderExpenses==='function') renderExpenses();
+    LOAD_TIMING.restMs=msSince_();
+  }
+  function startup_(){
+    LOAD_CRIT_.forEach(function(n){ ingest(critJson[n]); });
+    LOAD_TIMING.firstMs=msSince_();
     ORACLE_TIP_ACTIVE=null;
     var oracleForcePreview=/[?&]oracle=preview\b/.test(window.location.search);
     if(ORACLE_GATE_DUE || oracleForcePreview){
@@ -2040,9 +2069,28 @@ function load(){
     GS.withSuccessHandler(function(r){
       if(r.status==='running') startSyncPolling();
     }).withFailureHandler(function(){}).getContactSyncStatus();
-  }).withFailureHandler(function(e){
-    $('loader').innerHTML = 'Could not reach the Sheet. Pull down to retry.<br><small>'+esc(e.message)+'</small>';
-  }).getLeads();
+    coreDone=true;
+    lazyQueue.forEach(applyLazy_); lazyQueue=[];
+    if(lazyFailed) refreshQuiet();
+  }
+  LOAD_LAZY_.forEach(function(name){
+    GS.withSuccessHandler(function(json){
+      note_(name, json);
+      if(coreDone) applyLazy_(json); else lazyQueue.push(json);
+    }).withFailureHandler(function(){
+      if(coreDone){ if(!lazyFailed){ lazyFailed=true; refreshQuiet(); } } else lazyFailed=true;
+    })[name]();
+  });
+  LOAD_CRIT_.forEach(function(name){
+    GS.withSuccessHandler(function(json){
+      note_(name, json);
+      critJson[name]=json;
+      if(--critLeft===0 && !loadFailed) startup_();
+    }).withFailureHandler(function(e){
+      loadFailed=true;
+      $('loader').innerHTML = 'Could not reach the Sheet. Pull down to retry.<br><small>'+esc(e.message)+'</small>';
+    })[name]();
+  });
 }
 var TODAY_SHOW_TIMER=null;
 function timeToday(v){
@@ -2730,10 +2778,55 @@ function partnerLineText_(L){
   if(r==='declined') return 'You marked this lead as not booked.';
   return '';
 }
+// "booked" / "declined" are answers YOU gave (or the partner's app gave for booked), so the lead page lets you change them:
+// a small Change link opens a box with the other answers. Partner-sent "added" / "passed" have no Change link.
+var PT_LINE_ROW=null;
+function partnerLineChangeable_(L){ var r=String(L[C.partnerResponse]||''); return isReferredOut_(L) && (r==='booked' || r==='declined'); }
 function renderPartnerLine_(L){
   var el=$('d_partnerline'); if(!el) return;
   var t=L ? partnerLineText_(L) : '';
-  el.textContent=t; el.style.display=t?'block':'none';
+  if(!L || PT_LINE_ROW!==L._row || !partnerLineChangeable_(L)) PT_LINE_ROW=null;
+  var html=esc(t);
+  if(t && L && partnerLineChangeable_(L)) html+=' <a href="javascript:void(0)" style="color:var(--gold-bright)" onclick="plineOpen('+L._row+')">Change</a>';
+  if(L && PT_LINE_ROW===L._row){
+    var r=String(L[C.partnerResponse]||''), ed=pd(L[C.partnerEventDate]||L[C.eventDate]), def=ed ? ymd(ed) : ymd(new Date());
+    html+='<div style="margin-top:10px;padding:10px;background:rgba(201,160,80,.08);border-radius:8px">';
+    if(r==='declined'){
+      html+='<label>They booked it \u2014 when is the show?</label>'
+        +'<div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Show date" onclick="dpOpen_(\'pl_book_date\',this,\'date\')"><input type="date" id="pl_book_date" min="2000-01-01" max="2100-12-31" tabindex="-1" value="'+esc(def)+'"></div>'
+        +'<div class="grid2" style="margin-top:8px"><button class="bump" style="border-radius:8px" onclick="plineBooked('+L._row+')">They booked it \u2726</button><button class="bump" style="border-radius:8px" onclick="plineReset('+L._row+')">Ask me again later</button></div>';
+    } else {
+      html+='<div class="grid2"><button class="bump" style="border-radius:8px" onclick="plineDeclined('+L._row+')">They didn\u2019t book</button><button class="bump" style="border-radius:8px" onclick="plineReset('+L._row+')">Ask me again later</button></div>';
+    }
+    html+='<div style="margin-top:8px"><button class="bump" style="border-radius:8px;width:100%" onclick="plineClose()">Cancel</button></div></div>';
+  }
+  el.innerHTML=html; el.style.display=t?'block':'none';
+}
+function plineOpen(row){ PT_LINE_ROW=row; var L=LEADS.find(function(x){ return x._row===row; }); if(L) renderPartnerLine_(L); }
+function plineClose(){ var L=LEADS.find(function(x){ return x._row===PT_LINE_ROW; }); PT_LINE_ROW=null; if(L) renderPartnerLine_(L); }
+function plineNote_(L, text){ logContactNow_({ key:String(L._tsKey||''), name:String(L[C.name]||''), type:'Note', note:text }); }
+function plineBooked(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var el=$('pl_book_date'), v=el ? String(el.value||'').trim() : '';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast('Pick the show date first'); return; }
+  PT_LINE_ROW=null;
+  var u={}; u[C.partnerResponse]='booked'; u[C.partnerResponseDate]=ymd(new Date()); u[C.partnerEventDate]=v; u[C.partnerUpdateSeen]='booked'; u[C.partnerFeeSeen]='';
+  toast('Changed to booked');
+  partnerSave_(row, u, function(){ plineNote_(L, 'Changed to booked with '+String(L[C.referral]||'')+' for '+fmtDateY(v)+'.'); });
+}
+function plineDeclined(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  PT_LINE_ROW=null;
+  var u={}; u[C.partnerResponse]='declined'; u[C.partnerResponseDate]=ymd(new Date()); u[C.partnerEventDate]=''; u[C.partnerUpdateSeen]=''; u[C.partnerFeeSeen]='';
+  toast('Changed to not booked');
+  partnerSave_(row, u, function(){ plineNote_(L, 'Changed to: '+String(L[C.referral]||'')+' did not book this lead.'); });
+}
+function plineReset(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  PT_LINE_ROW=null;
+  var u={}; [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze,C.partnerNudgeSnooze].forEach(function(k){ u[k]=''; });
+  toast('Answer cleared \u2014 I\u2019ll ask again after the show');
+  partnerSave_(row, u, function(){ plineNote_(L, 'Cleared the answer about whether '+String(L[C.referral]||'')+' booked this lead.'); });
 }
 // Instant: change the lead on screen first, save in the background, put it back if the server says no.
 function partnerSave_(row, updates, after){
@@ -2743,7 +2836,7 @@ function partnerSave_(row, updates, after){
   GS.withSuccessHandler(function(json){ ingest(json); if(after) after(L); renderPartnerCheckInCard(); })
     .withFailureHandler(function(){
       Object.keys(prev).forEach(function(k){ L[k]=prev[k]; });
-      renderPartnerCheckInCard(); toast('Could not save \u2014 nothing was changed');
+      renderPartnerCheckInCard(); if(CURRENT && CURRENT._row===row) renderPartnerLine_(L); toast('Could not save \u2014 nothing was changed');
     }).updateLead(row, updates);
 }
 function partnerBooked(row){
@@ -11982,6 +12075,10 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.81', d:'Oct 2026', notes:[
+    'Faster — Magic Manager now opens much quicker. The opening “Raising the curtain” screen asks for everything at the same moment instead of one piece after another, so it often lifts in about half the time. Settings → About Magic Manager shows how long each part took.',
+    'New — On a lead you referred to a partner, a “Change” link lets you switch the answer if you marked it wrong: from “didn’t book” to “they booked it” (with the event date), or from “booked” back to “didn’t book”, or ask again later.'
+  ]},
   { v:'1.5.80', d:'Oct 2026', notes:[
     'Improved — On the Today list, the follow-up time now has a little more room and a thin divider between it and the arrow, so tapping the time to change it and tapping the row to open the lead are easier to tell apart.'
   ]},
@@ -12375,7 +12472,7 @@ function renderAbout(info){
     }
   }
   html+='<div class="help-about">'
-    +   '<div class="help-ver">Magic Manager · <b>v'+esc(ver)+'</b></div>'
+    +   '<div class="help-ver">Magic Manager · <b>v'+esc(ver)+'</b></div>'+loadTimingHtml_()
     +   status
     +   '<button type="button" class="help-hist-btn" onclick="toggleHelpHistory()">What’s changed <span id="help_hist_chev">&#9662;</span></button>'
     +   '<div id="help_history" style="display:none">'
