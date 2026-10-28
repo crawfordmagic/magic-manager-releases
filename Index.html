@@ -267,6 +267,8 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .td-tag{color:var(--gold-bright);font-weight:600}
 .td-when{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--gold-bright);white-space:nowrap}
 .td-when.late{color:#E9927B}
+.td-time{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;cursor:pointer;display:inline-block;padding:10px 4px;margin:-10px -4px}
+.td-when.late .td-time{color:var(--gold-bright)}
 .td-count{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
 .td-slot{padding:0 12px}
 .td-slot:empty{display:none}
@@ -2082,7 +2084,7 @@ function renderTaskDue(){
         // .gfu-card layout) instead: name/date block on top, action button
         // stacked underneath it, left-aligned.
         var late=daysLate_(f);
-        return '<div class="followupdue-row" style="display:block"'+tdItem('task:'+T.id, {name:T.task||'Task', tag:'Task', note:T.repeat?('Repeats '+T.repeat):'', when:lateText_(late), late:late, rank:3, ts:tdTs_(f)})+'>'
+        return '<div class="followupdue-row" style="display:block"'+tdItem('task:'+T.id, {name:T.task||'Task', tag:'Task', note:T.repeat?('Repeats '+T.repeat):'', when:lateText_(late), late:late, rank:3, ts:tdTs_(f), tm:'task:'+T._row})+'>'
           +'<div class="followupdue-info" onclick="openTask(\''+esc(T.id)+'\')">'
             +'<div style="text-align:right">'
               +'<span id="taskdue_time_'+T._row+'" onclick="event.stopPropagation();editTaskDueTime('+T._row+')" style="color:var(--gold-bright);font-weight:600;font-size:11.5px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px">'+esc(timeLabel)+'</span>'
@@ -2107,7 +2109,9 @@ function editTaskDueTime(row){
 }
 function saveTaskDueTime(row){
   var inp=$('taskdue_time_inp_'+row);
-  var newTime=inp? inp.value : '';
+  commitTaskDueTime_(row, inp? inp.value : '');
+}
+function commitTaskDueTime_(row, newTime){
   var T=TASKS.find(function(x){ return x._row===row; });
   if(!T || !newTime){ renderTaskDue(); return; }
   var newVal=ymd(new Date())+' '+newTime;
@@ -2508,7 +2512,9 @@ function editGfuTime(row){
 }
 function saveGfuTime(row){
   var inp=$('gfu_time_inp_'+row);
-  var newTime=inp? inp.value : '';
+  commitGfuTime_(row, inp? inp.value : '');
+}
+function commitGfuTime_(row, newTime){
   var L=LEADS.find(function(x){ return x._row===row; });
   if(!L || !newTime){ renderGenFollowupDue(); renderUnpaidBalanceCard(); renderPartnerCheckInCard(); return; }
   var cur=pd(L[C.followup]);
@@ -2954,7 +2960,7 @@ function renderGenFollowupDue(){
         var conflictHtml = showKids ? '' : conflictBadgeHtml(L);
 
         var gNote=[L[C.eventDate]?('Event '+fmtDateY(L[C.eventDate])):'', L[C.eventType]||''].filter(Boolean).join(' \u00b7 ');
-        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3, ts:tdTs_(fuTime), etype:L[C.eventType]})+'>'
+        return '<div class="gfu-item"'+tdItem('lead:'+L._row, {name:L[C.name]||'Lead', tag:(String(L[C.status]||'New')==='New'?'New lead':'Lead follow-up'), note:gNote, when:lateText_(_late>0?_late:0), late:_late>0?_late:0, rank:3, ts:tdTs_(fuTime), etype:L[C.eventType], tm:'lead:'+L._row})+'>'
           +kidsHtml
           +conflictHtml
           +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
@@ -4006,7 +4012,25 @@ function tdKey_(k){ return String(k).replace(/[^A-Za-z0-9:_-]/g,'_'); }
 function tdItem(key, o){
   return ' data-td="'+tdKey_(key)+'" data-td-name="'+esc(o.name||'')+'" data-td-tag="'+esc(o.tag||'')+'" data-td-note="'+esc(o.note||'')
     +'" data-td-when="'+esc(o.when||'')+'" data-td-late="'+(Number(o.late)>0?Math.round(o.late):0)+'" data-td-rank="'+(Number(o.rank)||0)+'"'
-    +' data-td-ts="'+(o.ts?Math.round(o.ts):'')+'" data-td-etype="'+esc(o.etype||'')+'"';
+    +' data-td-ts="'+(o.ts?Math.round(o.ts):'')+'" data-td-etype="'+esc(o.etype||'')+'" data-td-tm="'+esc(o.tm||'')+'"';
+}
+// The collapsed row shows the follow-up time (tap it to change) instead of the word "Today"; tm = 'lead:<row>' or 'task:<row>'.
+function tdEditTime(tm){
+  var p=String(tm).split(':'), kind=p[0], row=+p[1];
+  var el=$('td_time_'+kind+'_'+row); if(!el || el.querySelector('input')) return;
+  var rec = kind==='lead' ? LEADS.find(function(x){ return x._row===row; }) : TASKS.find(function(x){ return x._row===row; });
+  if(!rec) return;
+  var f=pd(kind==='lead' ? rec[C.followup] : rec.due);
+  var iv = f && (f.getHours()||f.getMinutes()) ? hm(f) : '09:00', id='td_time_inp_'+kind+'_'+row;
+  el.innerHTML='<input type="time" id="'+id+'" value="'+iv+'" tabindex="-1" style="width:112px;padding:4px 8px;font-size:12px;pointer-events:none" onblur="tdSaveTime(\''+tm+'\')" onkeydown="if(event.key===\'Enter\')this.blur()">';
+  dpOpen_(id, el, 'time', function(){ tdSaveTime(tm); });
+}
+function tdSaveTime(tm){
+  var p=String(tm).split(':'), kind=p[0], row=+p[1], inp=$('td_time_inp_'+kind+'_'+row);
+  if(!inp) return;
+  var v=inp.value;
+  if(v){ if(kind==='lead') commitGfuTime_(row, v); else commitTaskDueTime_(row, v); }
+  TD_SIG=''; renderTodayDigest();   // put the label back (and re-sort) whether or not the time changed
 }
 // Sort time for a due item (ms). A date with no time set reads as 9:00 AM, same as the card labels show.
 function tdTs_(d){
@@ -4044,7 +4068,7 @@ function tdItems_(){
     Array.prototype.forEach.call(el.querySelectorAll('[data-td]'), function(n){
       items.push({card:id, key:n.getAttribute('data-td'), name:n.getAttribute('data-td-name'), tag:n.getAttribute('data-td-tag'),
         note:n.getAttribute('data-td-note'), when:n.getAttribute('data-td-when'), late:Number(n.getAttribute('data-td-late'))||0,
-        rank:Number(n.getAttribute('data-td-rank'))||0, ts:Number(n.getAttribute('data-td-ts'))||0, etype:n.getAttribute('data-td-etype')||''});
+        rank:Number(n.getAttribute('data-td-rank'))||0, ts:Number(n.getAttribute('data-td-ts'))||0, etype:n.getAttribute('data-td-etype')||'', tm:n.getAttribute('data-td-tm')||''});
     });
   });
   return tdSort_(items);
@@ -4073,6 +4097,12 @@ function tdSort_(items){
   });
   return items;
 }
+function tdWhenHtml_(it){
+  if(!it.tm || !it.ts) return it.when ? '<span class="td-when'+(it.late>0?' late':'')+'">'+esc(it.when)+'</span>' : '';
+  var id='td_time_'+it.tm.replace(':','_');
+  var time='<span class="td-time" id="'+id+'" onclick="event.stopPropagation();tdEditTime(\''+it.tm+'\')">'+esc(hm12(new Date(it.ts)))+'</span>';
+  return '<span class="td-when'+(it.late>0?' late':'')+'">'+(it.late>0?esc(it.when)+' · ':'')+time+'</span>';
+}
 function renderTodayDigest(){
   var sum=$('todaySummary'); if(!sum) return;
   tdWatch_();
@@ -4098,7 +4128,7 @@ function renderTodayDigest(){
       +'<span class="ic">'+tdIcon(it.card)+'</span>'
       +'<span class="t"><span class="a">'+esc(it.name)+'</span>'
         +'<span class="b"><span class="td-tag">'+esc(it.tag)+'</span>'+(it.note?' \u00b7 '+esc(it.note):'')+'</span></span>'
-      +(it.when?'<span class="td-when'+(it.late>0?' late':'')+'">'+esc(it.when)+'</span>':'')
+      +tdWhenHtml_(it)
       +'<span class="chev">&#8250;</span></button>'
       +'<div class="td-slot" id="tdslot_'+i+'"></div>';
   }).join('');
@@ -11951,6 +11981,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.79', d:'Oct 2026', notes:[
+    'Improved — On the Today list, each row now shows its follow-up time (for example 3:00 PM) where it used to say “Today”. Tap the time to change it right there without opening the row; tap anywhere else to open the lead. Overdue rows read “2 days late · 9:00 AM”.'
+  ]},
   { v:'1.5.78', d:'Oct 2026', notes:[
     'Fixed — The one-week check-in for a partner who is not on Magic Manager now has Call, Text and Email buttons that carry the lead along. A message you start from it fills in the lead’s name, event date and details (before, it could show the partner’s own name instead), it is saved on the partner as a check-in rather than a new referral, and the reminder rests for 2 weeks.'
   ]},
