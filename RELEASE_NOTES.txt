@@ -1,9 +1,5 @@
 What's new in this update:
 
-• NEW — Referrals now keep each other posted, hands-off. When you refer a lead to a partner who also uses Magic Manager (with their Magic Manager link saved on their partner record), their app tells yours by itself when they add the lead, pass on it, book it, or send your referral fee. Your lead updates on its own, and you get an email when they book or pass (switch either off under Settings → Reminders & taxes). You both need this update for the automatic part.
-
-• CHANGED — No more weekly “Check In With Partner” reminder. You are asked just one question, only when the show date has passed and you still have not heard: “Did they book it?” (They booked it / Didn't book / Ask again in 2 weeks). After a booked show you also get “Did your partner send your referral fee?”. Nobody is chased.
-
-• NEW — When a lead reaches you through a Magic Manager referral, it shows who referred it (a new “Referred by” field), and the day after the show a red Referral Fee Due card reminds you to send them their fee, for example “Send Rich Crawford their referral fee: $500 (10% of $5,000)”. The percent is 10 unless you change it under Settings → Reminders & taxes → Referral fee percent; travel fees are not counted.
+• NEW — A gentle check-in for partners who are not on Magic Manager. A week after you refer a lead to a partner who has no Magic Manager link saved, you get one reminder (to you, never to them) with Call and Message buttons, and the choices They booked it / Didn't book / Ask again in 2 weeks. Partners who use Magic Manager are never asked about: their app tells yours by itself.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

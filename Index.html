@@ -1653,7 +1653,7 @@ var C = {
   price:'Quoted Price', start:'Start Time', end:'End Time', status:'Status',
   followup:'Followup', eventDate:'Date of Event', referral:'Referred To', referredBy:'Referred By', referralFeeSent:'Referral Fee Sent',
   partnerResponse:'Partner Response', partnerResponseDate:'Partner Response Date', partnerEventDate:'Partner Event Date', partnerUpdateSeen:'Partner Update Seen',
-  partnerFeeSentDate:'Partner Fee Sent Date', partnerFeeSeen:'Partner Fee Seen', partnerAskSnooze:'Partner Ask Snoozed Until', referralToken:'Referral Token', timestamp:'Timestamp', lostReason:'Lost Reason',
+  partnerFeeSentDate:'Partner Fee Sent Date', partnerFeeSeen:'Partner Fee Seen', partnerAskSnooze:'Partner Ask Snoozed Until', partnerNudgeSnooze:'Partner Nudge Snoozed Until', referralToken:'Referral Token', timestamp:'Timestamp', lostReason:'Lost Reason',
   audienceAge:'Audience Age Range',
   deposit:'Deposit Amount', paymentMethod:'Payment Method',
   depositReceived:'Deposit Received', depositReceivedDate:'Deposit Received Date',
@@ -2389,7 +2389,7 @@ function confirmReferModal(){
   var noteText = $('refm_notes').value.trim();
 
   var updates={}; updates[C.status]='Referral'; updates[C.referral]=partnerName;
-  if(String(L[C.partnerResponse]||'')){ [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze].forEach(function(k){ updates[k]=''; }); }
+  if(String(L[C.partnerResponse]||'')){ [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze,C.partnerNudgeSnooze].forEach(function(k){ updates[k]=''; }); }
   var existingNotes=String(L[C.notes]||'').trim();
   if(noteText){
     updates[C.notes] = existingNotes
@@ -2400,7 +2400,7 @@ function confirmReferModal(){
   // Optimistic — instant everywhere, no navigation, whether this came from
   // the main list or the lead's own detail page.
   L[C.status]='Referral'; L[C.referral]=partnerName;
-  [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze].forEach(function(k){ if(k in updates) L[k]=''; });
+  [C.partnerResponse,C.partnerResponseDate,C.partnerEventDate,C.partnerUpdateSeen,C.partnerFeeSeen,C.partnerFeeSentDate,C.partnerAskSnooze,C.partnerNudgeSnooze].forEach(function(k){ if(k in updates) L[k]=''; });
   if(updates[C.notes]!==undefined) L[C.notes]=updates[C.notes];
   renderChips(); renderLeads();
   if(CURRENT && CURRENT._row===row) openSheet(row);
@@ -2683,6 +2683,24 @@ function partnerAskDue_(L){
   else { var rd=dayStart_(pd(L[C.referredDate])); if(rd){ trigger=new Date(rd); trigger.setDate(trigger.getDate()+30); } }   // no date: 30 days after referring
   return !!trigger && trigger.getTime()<=today0().getTime();
 }
+// A partner who is NOT on Magic Manager (no Magic Manager link saved on their record) can't tell the app anything, so you get ONE gentle
+// nudge about a week after referring, to ask them yourself. It is for YOU, never the partner. Snoozable; the after-show question
+// (partnerAskDue_) is separate and takes over once the show date has passed.
+function partnerOnMM_(L){
+  var n=String(L[C.referral]||'').trim().toLowerCase();
+  var p=PARTNERS.find(function(x){ return String(x.name||'').trim().toLowerCase()===n; });
+  return !!(p && String(p.appLink||'').trim());
+}
+function partnerNudgeDue_(L){
+  if(!isReferredOut_(L) || partnerAskDue_(L) || partnerOnMM_(L)) return false;
+  var r=String(L[C.partnerResponse]||'');
+  if(r==='booked' || r==='declined' || r==='passed') return false;
+  var rd=dayStart_(pd(L[C.referredDate])); if(!rd) return false;
+  var due=new Date(rd); due.setDate(due.getDate()+7);
+  if(due.getTime()>today0().getTime()) return false;
+  var sn=dayStart_(pd(L[C.partnerNudgeSnooze]));
+  return !(sn && sn.getTime()>today0().getTime());
+}
 function partnerNotice_(L){
   if(!isReferredOut_(L)) return '';
   var r=String(L[C.partnerResponse]||'');
@@ -2744,6 +2762,12 @@ function partnerAskLater(row){
   toast('I\u2019ll ask again in 2 weeks');
   partnerSave_(row, u);
 }
+function partnerNudgeLater(row){
+  var d=new Date(); d.setDate(d.getDate()+14);
+  var u={}; u[C.partnerNudgeSnooze]=ymd(d);
+  toast('I\u2019ll ask again in 2 weeks');
+  partnerSave_(row, u);
+}
 function partnerGotIt(row){
   var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
   var u={}; u[C.partnerUpdateSeen]=String(L[C.partnerResponse]||'');
@@ -2772,8 +2796,8 @@ function partnerItemHead_(L){
 function renderPartnerCheckInCard(){
   renderReferralFeeCard();
   var box=$('partnerCheckInCard'); if(!box) return;
-  var asks=LEADS.filter(partnerAskDue_), news=LEADS.filter(function(L){ return !!partnerNotice_(L); }), fees=LEADS.filter(partnerFeeCheckDue_);
-  if(!asks.length && !news.length && !fees.length){ box.style.display='none'; box.innerHTML=''; PT_BOOK_ROW=null; return; }
+  var nudges=LEADS.filter(partnerNudgeDue_), asks=LEADS.filter(partnerAskDue_), news=LEADS.filter(function(L){ return !!partnerNotice_(L); }), fees=LEADS.filter(partnerFeeCheckDue_);
+  if(!nudges.length && !asks.length && !news.length && !fees.length){ box.style.display='none'; box.innerHTML=''; PT_BOOK_ROW=null; return; }
   var btn=function(label, fn, row, solid){ return '<button class="followupdue-btn"'+(solid?'':' style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)"')+' onclick="event.stopPropagation();'+fn+'('+row+')">'+label+'</button>'; };
   var quiet=function(label, fn, row){ return '<button class="followupdue-btn" style="background:transparent;border:1px dotted var(--muted);color:var(--muted)" onclick="event.stopPropagation();'+fn+'('+row+')">'+label+'</button>'; };
   var items=[];
@@ -2798,6 +2822,25 @@ function renderPartnerCheckInCard(){
       +partnerItemHead_(L)
       +'<div class="gfu-meta">Did <b>'+esc(p)+'</b> book <b>'+esc(L[C.name]||'your lead')+'</b>?'+(ed?' The date you had was '+esc(fmtDateY(ed))+'.':'')+'</div>'
       +'<div class="gfu-actions">'+btn('They booked it','partnerBooked',L._row,true)+btn('Didn\u2019t book','partnerDeclined',L._row)+quiet('Ask again in 2 weeks','partnerAskLater',L._row)+'</div>'
+      +date+'</div>');
+  });
+  nudges.forEach(function(L){
+    var p=String(L[C.referral]||'').trim(), pr=PARTNERS.find(function(x){ return String(x.name||'').trim().toLowerCase()===p.toLowerCase(); });
+    var phone=pr ? String(pr.phone||'').trim() : '', rd=pd(L[C.referredDate]);
+    var days=rd ? Math.round((today0()-dayStart_(rd))/86400000) : 0;
+    var contact=(phone ? '<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="event.stopPropagation();dialNumber(\''+esc(phone).replace(/'/g,'')+'\')">Call</a>' : '')
+      +(pr ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="event.stopPropagation();openPartner(\''+esc(pr.id).replace(/'/g,"\\'")+'\')">Message</button>' : '');
+    var date='';
+    if(PT_BOOK_ROW===L._row){
+      var def=pd(L[C.eventDate]) ? ymd(pd(L[C.eventDate])) : ymd(new Date());
+      date='<div style="margin-top:10px;padding:10px;background:rgba(201,160,80,.08);border-radius:8px"><label>When is the show?</label>'
+        +'<div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Show date" onclick="dpOpen_(\'pt_book_date\',this,\'date\')"><input type="date" id="pt_book_date" min="2000-01-01" max="2100-12-31" tabindex="-1" value="'+esc(def)+'"></div>'
+        +'<div class="grid2" style="margin-top:8px"><button class="bump" style="border-radius:8px" onclick="partnerBookedCancel()">Cancel</button><button class="bump" style="border-radius:8px" onclick="partnerBooked('+L._row+')">Save \u2726</button></div></div>';
+    }
+    items.push('<div class="gfu-item"'+tdItem('pq:'+L._row, {name:p, tag:'Check in', note:'About '+String(L[C.name]||'a lead'), when:'Referred '+days+' days ago', late:0, rank:4})+'>'
+      +partnerItemHead_(L)
+      +'<div class="gfu-meta">It\u2019s been about a week \u2014 worth asking <b>'+esc(p)+'</b> whether they booked <b>'+esc(L[C.name]||'your lead')+'</b>?</div>'
+      +'<div class="gfu-actions">'+contact+btn('They booked it','partnerBooked',L._row,true)+btn('Didn\u2019t book','partnerDeclined',L._row)+quiet('Ask again in 2 weeks','partnerNudgeLater',L._row)+'</div>'
       +date+'</div>');
   });
   fees.forEach(function(L){
@@ -11869,6 +11912,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.77', d:'Oct 2026', notes:[
+    'New — A gentle check-in for partners who are not on Magic Manager. A week after you refer a lead to a partner who has no Magic Manager link saved, you get one reminder (to you, never to them) with Call and Message buttons, and the choices They booked it / Didn’t book / Ask again in 2 weeks. Partners who use Magic Manager are never asked about: their app tells yours by itself.'
+  ]},
   { v:'1.5.76', d:'Oct 2026', notes:[
     'New — Referrals now keep each other posted, hands-off. When you refer a lead to a partner who also uses Magic Manager (with their Magic Manager link saved on their partner record), their app tells yours by itself when they add the lead, pass on it, book it, or send your referral fee. Your lead updates on its own, and you get an email when they book or pass (switch either off under Settings → Reminders & taxes). You both need this update for the automatic part.',
     'Changed — No more weekly “Check In With Partner” reminder. You are asked just one question, only when the show date has passed and you still have not heard: “Did they book it?” (They booked it / Didn’t book / Ask again in 2 weeks). After a booked show you also get “Did your partner send your referral fee?”. Nobody is chased.',
