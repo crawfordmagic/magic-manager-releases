@@ -2762,6 +2762,39 @@ function partnerAskLater(row){
   toast('I\u2019ll ask again in 2 weeks');
   partnerSave_(row, u);
 }
+// Reaching out from the nudge card: the lead is attached to the message (so {lead_name} and the other "referred lead" fields in your partner
+// templates fill in with the LEAD, not the partner), and when it is sent it is logged as a check-in -- not as a new referral -- and the nudge
+// rests for 2 weeks. PT_CHECKIN_LEAD_ROW is what tells the partner pickers which lead to attach.
+function partnerOf_(L){
+  var n=String(L[C.referral]||'').trim().toLowerCase();
+  return PARTNERS.find(function(x){ return String(x.name||'').trim().toLowerCase()===n; }) || null;
+}
+function isNudgeSend_(lead){ return !!lead && PT_CHECKIN_LEAD_ROW===lead._row; }
+function nudgeSent_(p, lead, how){
+  PT_CHECKIN_LEAD_ROW=null;
+  var name=String(lead[C.name]||'a lead');
+  GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); }).withFailureHandler(function(){})
+    .logPartnerContact(p.id, String(p.name||''), how==='Call'?'Call':how, 'Checked in about '+name+' ('+how.toLowerCase()+')');
+  var d=new Date(); d.setDate(d.getDate()+14);
+  var u={}; u[C.partnerNudgeSnooze]=ymd(d);
+  partnerSave_(lead._row, u);
+}
+function partnerNudgeCall(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var p=partnerOf_(L); if(!p || !String(p.phone||'').trim()) return;
+  dialNumber(String(p.phone).trim());
+  nudgeSent_(p, L, 'Call');
+}
+function partnerNudgeText(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var p=partnerOf_(L); if(!p) return;
+  PT_CHECKIN_LEAD_ROW=row; openPartnerTextPicker(p.id);
+}
+function partnerNudgeEmail(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var p=partnerOf_(L); if(!p) return;
+  PT_CHECKIN_LEAD_ROW=row; openPartnerEmailPicker(p.id);
+}
 function partnerNudgeLater(row){
   var d=new Date(); d.setDate(d.getDate()+14);
   var u={}; u[C.partnerNudgeSnooze]=ymd(d);
@@ -2828,8 +2861,10 @@ function renderPartnerCheckInCard(){
     var p=String(L[C.referral]||'').trim(), pr=PARTNERS.find(function(x){ return String(x.name||'').trim().toLowerCase()===p.toLowerCase(); });
     var phone=pr ? String(pr.phone||'').trim() : '', rd=pd(L[C.referredDate]);
     var days=rd ? Math.round((today0()-dayStart_(rd))/86400000) : 0;
-    var contact=(phone ? '<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="event.stopPropagation();dialNumber(\''+esc(phone).replace(/'/g,'')+'\')">Call</a>' : '')
-      +(pr ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="event.stopPropagation();openPartner(\''+esc(pr.id).replace(/'/g,"\\'")+'\')">Message</button>' : '');
+    var email=pr ? String(pr.email||'').trim() : '';
+    var contact=(phone ? '<a href="javascript:void(0)" class="followupdue-btn" style="text-decoration:none" onclick="event.stopPropagation();partnerNudgeCall('+L._row+')">Call</a>'
+                         +'<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="event.stopPropagation();partnerNudgeText('+L._row+')">Text</button>' : '')
+      +(email ? '<button class="followupdue-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="event.stopPropagation();partnerNudgeEmail('+L._row+')">Email</button>' : '');
     var date='';
     if(PT_BOOK_ROW===L._row){
       var def=pd(L[C.eventDate]) ? ymd(pd(L[C.eventDate])) : ymd(new Date());
@@ -6210,7 +6245,9 @@ function onEmailSent(){
   if(EPICKER_MODE==='lead'){ autoLog('Email'); return; }
   if(EPICKER_MODE==='rebook'){ rebookLog(REBOOK_LOGKEY, REBOOK_NAME, 'Email'); return; }
   if(EPICKER_MODE==='partner' && PTCUR){
-    if(EPICKER_REFLEAD){
+    if(EPICKER_REFLEAD && isNudgeSend_(EPICKER_REFLEAD)){
+      nudgeSent_(PTCUR, EPICKER_REFLEAD, 'Email');
+    } else if(EPICKER_REFLEAD){
       var refName = String(EPICKER_REFLEAD[C.name]||'a lead');
       GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
         .withFailureHandler(function(){})
@@ -6307,7 +6344,9 @@ function ptOrLeadTextLog(){
   if(TXTPICKER_MODE==='lead'){ autoLog('Text'); return; }
   if(TXTPICKER_MODE==='rebook'){ rebookLog(REBOOK_LOGKEY, REBOOK_NAME, 'Text'); return; }
   if(TXTPICKER_MODE==='partner' && PTCUR){
-    if(TXTPICKER_REFLEAD){
+    if(TXTPICKER_REFLEAD && isNudgeSend_(TXTPICKER_REFLEAD)){
+      nudgeSent_(PTCUR, TXTPICKER_REFLEAD, 'Text');
+    } else if(TXTPICKER_REFLEAD){
       var refName=String(TXTPICKER_REFLEAD[C.name]||'a lead');
       GS.withSuccessHandler(function(json){ ingest(json); refreshPartnerHistory(); })
         .withFailureHandler(function(){})
@@ -11912,6 +11951,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.78', d:'Oct 2026', notes:[
+    'Fixed — The one-week check-in for a partner who is not on Magic Manager now has Call, Text and Email buttons that carry the lead along. A message you start from it fills in the lead’s name, event date and details (before, it could show the partner’s own name instead), it is saved on the partner as a check-in rather than a new referral, and the reminder rests for 2 weeks.'
+  ]},
   { v:'1.5.77', d:'Oct 2026', notes:[
     'New — A gentle check-in for partners who are not on Magic Manager. A week after you refer a lead to a partner who has no Magic Manager link saved, you get one reminder (to you, never to them) with Call and Message buttons, and the choices They booked it / Didn’t book / Ask again in 2 weeks. Partners who use Magic Manager are never asked about: their app tells yours by itself.'
   ]},

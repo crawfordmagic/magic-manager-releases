@@ -1,5 +1,5 @@
 What's new in this update:
 
-• NEW — A gentle check-in for partners who are not on Magic Manager. A week after you refer a lead to a partner who has no Magic Manager link saved, you get one reminder (to you, never to them) with Call and Message buttons, and the choices They booked it / Didn't book / Ask again in 2 weeks. Partners who use Magic Manager are never asked about: their app tells yours by itself.
+• FIXED — The one-week check-in for a partner who is not on Magic Manager now has Call, Text and Email buttons that carry the lead along. A message you start from it fills in the lead's name, event date and details (before, it could show the partner's own name instead), it is saved on the partner as a check-in rather than a new referral, and the reminder rests for 2 weeks.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
