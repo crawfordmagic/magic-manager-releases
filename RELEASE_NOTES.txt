@@ -1,7 +1,5 @@
 What's new in this update:
 
-• FASTER — Magic Manager now opens much quicker. The opening "Raising the curtain" screen asks for everything at the same moment instead of one piece after another, so it often lifts in about half the time. Settings → About Magic Manager shows how long each part took.
-
-• NEW — On a lead you referred to a partner, a "Change" link lets you switch the answer if you marked it wrong: from "didn't book" to "they booked it" (with the event date), or from "booked" back to "didn't book", or ask again later.
+• IMPROVED — Insights → Tax Estimate now works from your income. It takes the income you've received, subtracts your deductible expenses to get your estimated taxable profit, and applies the tax rate you enter to show how much to set aside. Your deductions' worth is still shown underneath. A highlighted note reminds you it is only an estimate, not tax or legal advice, and to check with a tax accountant.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
