@@ -1,5 +1,5 @@
 What's new in this update:
 
-• IMPROVED — Insights → Tax Estimate now works from your income. It takes the income you've received, subtracts your deductible expenses to get your estimated taxable profit, and applies the tax rate you enter to show how much to set aside. Your deductions' worth is still shown underneath. A highlighted note reminds you it is only an estimate, not tax or legal advice, and to check with a tax accountant.
+• IMPROVED — Tidier Tax Estimate: the note about what your deductions save and the Meals & Entertainment 50% note are now on separate lines, and the tax rate box is a little narrower.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.

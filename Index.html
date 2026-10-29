@@ -8901,10 +8901,11 @@ function renderTaxEstimate($m){
     +'</div>'
     +'<label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Your estimated tax rate</label>'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
-      +'<input type="number" id="taxRateInput" value="'+TAX_RATE+'" min="0" max="100" step="0.1" style="width:80px;flex:0 0 auto" onchange="saveTaxRate()">'
+      +'<input type="number" id="taxRateInput" value="'+TAX_RATE+'" min="0" max="100" step="0.1" style="width:64px;flex:0 0 auto" onchange="saveTaxRate()">'
       +'<span style="color:var(--muted);font-size:13px">%</span>'
     +'</div>'
-    +'<p class="note" style="text-align:left;margin:0 0 8px">Your deductions are saving you about '+$m(t.saved)+' at this rate. Meals &amp; Entertainment is counted at 50%, matching the IRS rule \u2014 every other category counts in full.</p>'
+    +'<p class="note" style="text-align:left;margin:0 0 8px">Your deductions are saving you about '+$m(t.saved)+' at this rate.</p>'
+    +'<p class="note" style="text-align:left;margin:0 0 8px">Meals &amp; Entertainment is counted at 50%, matching the IRS rule \u2014 every other category counts in full.</p>'
     +'<div style="margin-top:14px;padding:12px 14px;background:var(--panel2);border:1px solid var(--gold-deep);border-left:3px solid var(--gold);border-radius:6px">'
       +'<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:6px">Please note</div>'
       +'<div style="font-size:13px;line-height:1.5;color:var(--cream)">This is only an estimate based on the rate you entered. It doesn’t account for your full tax situation, and it is not tax or legal advice. Please consult a tax accountant for exact figures.</div>'
@@ -12091,6 +12092,9 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.83', d:'Oct 2026', notes:[
+    'Improved — Tidier Tax Estimate: the note about what your deductions save and the Meals & Entertainment 50% note are now on separate lines, and the tax rate box is a little narrower.'
+  ]},
   { v:'1.5.82', d:'Oct 2026', notes:[
     'Improved — Insights → Tax Estimate now works from your income. It takes the income you’ve received, subtracts your deductible expenses to get your estimated taxable profit, and applies the tax rate you enter to show how much to set aside. Your deductions’ worth is still shown underneath. A highlighted note reminds you it is only an estimate, not tax or legal advice, and to check with a tax accountant.'
   ]},
