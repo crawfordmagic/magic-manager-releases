@@ -134,7 +134,9 @@ function documentButtonsHtml(d, signed){
     fileText:'<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9h1"/><path d="M9 13h6"/><path d="M9 17h6"/>'
   };
   var docs=[];
-  if(signed && d.pdfPending) docs.push(['Signed agreement', '', IC.fileCheck]); // still being built — no link yet
+  // A client who signed their OWN contract has no agreement of ours to show — only the file the owner attached, if any.
+  if(d.ownContract){ if(d.clientContractUrl) docs.push(['Your contract', d.clientContractUrl, IC.fileCheck]); }
+  else if(signed && d.pdfPending) docs.push(['Signed agreement', '', IC.fileCheck]); // still being built — no link yet
   else if(signed && d.pdfUrl) docs.push(['Signed agreement', d.pdfUrl, IC.fileCheck]);
   if(d.depositReceiptUrl) docs.push(['Deposit receipt', d.depositReceiptUrl, IC.receipt]);
   if(d.balanceReceiptUrl) docs.push(['Balance receipt', d.balanceReceiptUrl, IC.receipt]);
@@ -183,8 +185,10 @@ function renderStatusPage(d){
   c.style.display='';
 
   var html = paidBannerHtml() + bookingIdHtml(d);
-  html += '<div class="signed"><div class="big">&#10038;</div><div>This agreement was signed'
-    +(d.signedName?' by <b>'+esc(d.signedName)+'</b>':'')+'. Thank you!</div></div>';
+  html += d.ownContract
+    ? '<div class="signed"><div class="big">&#10038;</div><div>'+(d.ownPending ? 'Your contract is pending signing.' : 'Your contract is on file. Thank you!')+'</div></div>'
+    : '<div class="signed"><div class="big">&#10038;</div><div>This agreement was signed'
+      +(d.signedName?' by <b>'+esc(d.signedName)+'</b>':'')+'. Thank you!</div></div>';
 
   var noDeposit = !(Number(d.depositBase) > 0); // deposit waived (0%) — skip straight to the balance
   var showDepositPrompt = !noDeposit && !d.depositPaid;
@@ -212,8 +216,8 @@ function renderStatusPage(d){
   if(showDepositPrompt){
     // Signed but no deposit yet: this is the one thing left, so it goes right here, first.
     html += '<div class="card" style="border-color:var(--gold);background:var(--tint)">'
-      +'<div class="paydetails-title">Last step: your deposit</div>'
-      +'<div style="font-size:13.5px">Your agreement is signed. Your date is held once your '+fmtMoney(Number(d.depositBase)||0)+' deposit is received.</div>'
+      +'<div class="paydetails-title">'+(d.ownPending ? 'Your deposit' : 'Last step: your deposit')+'</div>'
+      +'<div style="font-size:13.5px">'+(d.ownPending ? '' : (d.ownContract ? 'Your contract is on file. ' : 'Your agreement is signed. '))+'Your date is held once your '+fmtMoney(Number(d.depositBase)||0)+' deposit is received.</div>'
       +payHtml+'</div>';
     payHtml='';
   }
@@ -643,7 +647,7 @@ function bookingSummaryHtml(d){
 // Signed \u00b7 Deposit \u00b7 Balance, so a returning client sees at a glance what's done and what's next.
 function progressHtml(d){
   var noDeposit = !(Number(d.depositBase) > 0);
-  var steps=[['Signed', true, '\u2713']];
+  var steps=[d.ownContract ? ['Contract', !d.ownPending, d.ownPending ? 'Pending' : '\u2713 On file'] : ['Signed', true, '\u2713']];
   if(!noDeposit) steps.push(['Deposit', !!d.depositPaid, d.depositPaid ? '\u2713 Paid' : 'Due now']);
   steps.push(['Balance', !!d.balancePaid, d.balancePaid ? '\u2713 Paid' : 'Due '+(Number(d.balanceDueDays)>0 && d.balanceDueDateFmt ? d.balanceDueDateFmt.replace(/, \d{4}$/,'') : 'at event')]);
   var firstOpen=-1; for(var i=0;i<steps.length;i++){ if(!steps[i][1]){ firstOpen=i; break; } }
@@ -731,7 +735,7 @@ function doSign(){
 function showBooking_(d){
   applyBank(d);
   if(!d || !d.ok) renderError();
-  else if(d.alreadySigned) renderStatusPage(d);
+  else if(d.alreadySigned || d.ownContract) renderStatusPage(d); // own contract, even unsigned: never show our signing form
   else renderForm(d);
 }
 function renderSuccess(name){

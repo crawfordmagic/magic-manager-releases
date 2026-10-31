@@ -1008,6 +1008,15 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
         <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
         <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
         <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="gcauto_on" style="width:auto;flex:0 0 auto;margin:0" onchange="saveContactAuto()"><span>Add new leads automatically every evening</span></label>
+          <div id="gcauto_timerow" style="display:none;margin:10px 0 0 28px;align-items:center;gap:8px">
+            <label for="gcauto_hour" style="margin:0">Around</label>
+            <select id="gcauto_hour" aria-label="Time of the nightly sync" style="width:auto;font-size:13px;padding:6px 28px 6px 12px" onchange="saveContactAuto()"></select>
+          </div>
+          <p class="note" id="gcauto_note" style="text-align:left;margin:8px 0 0">Only new leads are added. People already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick.</p>
+          <p class="note" id="gcauto_last" style="text-align:left;margin:6px 0 0;display:none"></p>
+        </div>
       </div>
 
       <button type="button" class="more-row" data-kw="import csv upload spreadsheet bring clients" onclick="openLeadImport()">
@@ -1588,11 +1597,16 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
   <p class="note" style="text-align:left;margin:14px 0 0">Lead created <span id="d_created" style="color:var(--cream)">&#8212;</span></p>
   <div class="field"><label>Notes</label><textarea id="d_notes" rows="3" oninput="queueAutoSave()"></textarea></div>
   <p class="note" id="d_savestat">Changes save automatically &#10038;</p>
-  <div id="d_contractwrap" style="display:none">
+  <div id="d_contractwrap" style="display:none;margin-bottom:18px">
     <div class="dlab">Contract</div>
+    <div id="d_ownrows" style="display:none"></div>
     <p class="note" id="d_contract_stale" style="display:none;text-align:left;margin:6px 0 0;color:var(--gold-bright)"></p>
     <div id="d_contract_result" style="display:none"></div>
     <button type="button" class="act" id="d_contractbtn" style="width:100%;margin-top:10px" onclick="generateContractUI()">Generate contract</button>
+    <p class="note" id="d_ownentry" style="display:none;text-align:left;margin:8px 0 0;font-size:12.5px"><a href="javascript:void(0)" onclick="markOwnContractUI('pending')" style="color:var(--gold);text-decoration:underline dotted;text-underline-offset:3px">Client has their own contract?</a></p>
+    <input type="file" id="d_ownfile_in" accept="application/pdf,image/*,.pdf,.doc,.docx" style="display:none" onchange="attachClientContractUI(this)">
+    <p class="note" id="d_ownnote" style="display:none;text-align:left;margin:8px 0 0"></p>
+    <p class="note" id="d_ownback" style="display:none;text-align:left;margin:10px 0 0;font-size:12.5px"><a href="javascript:void(0)" onclick="markOwnContractUI('')" style="color:var(--gold);text-decoration:underline dotted;text-underline-offset:3px">Use our contract instead</a></p>
   </div>
   <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10038;</a>
   <button class="save" id="d_delbtn" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteLeadUI()">Delete this lead &#10005;</button>
@@ -3966,6 +3980,9 @@ function dismissShowtime(){
 
 /* ---------- Leads list ---------- */
 function isBookedLike(L){ var s=String(L[C.status]); return s==='Booked'||s==='Completed'; }
+// What a Booked/Completed lead counts for in booked value and source ROI: the quoted price PLUS the travel fee (Rich, 2026-10-30) — travel is paid revenue.
+// Referral fees stay on the quoted price only.
+function bookedAmt_(L){ return money(L[C.price])+money(L[C.travelFee]); }
 // The lead statuses, locked to this fixed set. Booked/Completed count as income (isBookedLike)
 // and Lost/Referral/Referred drive automations, so the whole set is intentionally not editable.
 var LEAD_STATUSES_FIXED = ['New','Pending','Booked','Completed','Lost','Referral','Referred'];
@@ -4887,7 +4904,7 @@ function leadTrackerHtml_(L){
   var out=[];
   // a show that has already happened with no contract shows a dash, not a to-do
   var ed0=pd(L[C.eventDate]), showOver=!!ed0 && new Date(ed0.getFullYear(), ed0.getMonth(), ed0.getDate())<today0();
-  out.push(signed ? box('done','Signed','\u2713') : (L[C.contractSignUrl] ? box('now','Signed','Awaiting') : box('','Signed', showOver ? '\u2014' : 'Not sent')));
+  out.push(signed ? box('done','Signed','\u2713') : (L[C.contractSignUrl] || ownContractState_(L)==='pending' ? box('now','Signed','Awaiting') : box('','Signed', showOver ? '\u2014' : 'Not sent')));
   if(depositBase(L)>0){
     var depRep=String(L[C.depositReported]||'')==='Yes';
     out.push(depIn ? box('done','Deposit',fmtMoney(depositFinal(L))+' \u2713')
@@ -4962,8 +4979,10 @@ function nextStepFor_(L){
   // Then an unsigned agreement comes before money - even on a Booked lead (a client can pay
   // the deposit before signing). Skipped once the show has happened, so clients booked before
   // you used contracts don't nag.
+  if(ownContractState_(L)==='pending' && (!booked || daysSince==null || daysSince<0)) return {kind:'own-signed', label:'Mark their contract signed',
+    why:'Waiting for the client to sign their own contract \u2014 tap once they have.'};
   if(!signed && (!booked || daysSince==null || daysSince<0)){
-    if(!L[C.contractSignUrl]){
+    if(!L[C.contractSignUrl] || !L[C.contractPdfUrl]){
       if(!hasPrice(L)) return {kind:'set-price', label:'Add quoted price',
         why: booked ? 'Booked \u2014 enter the quoted price so you can send the agreement.' : 'Enter what you\u2019re charging, then send the agreement.'};
       return {kind:'contract', label:'Generate contract',
@@ -5016,6 +5035,7 @@ function doNextStep(kind){
     var genWrap=$('d_contractwrap'); if(genWrap) genWrap.scrollIntoView({behavior:'smooth', block:'center'});
     generateContractUI(); return;
   }
+  if(kind==='own-signed'){ markOwnContractUI('signed'); return; }
   if(kind==='link'){ copyToClipboard(L[C.contractSignUrl]); toast('Event portal link copied'); return; }
   if(kind==='review'){ if(L[C.email]) openEmailPicker(); else openTextPicker(); return; }
   // Money steps: arm-then-confirm, auto-revert after 3.5s (same safety pattern as delete/regenerate).
@@ -6811,15 +6831,163 @@ function renderContractSection_(L, step){
   var nextStepGenerates=!!(step && step.kind==='contract');
   var showBtn = has || !nextStepGenerates || CONTRACT_SHOW;
   var panel = !!(out && out.style.display!=='none' && out.innerHTML!=='');
-  var st=$('d_contract_stale'), stale=has && !!L._contractStale && String(L[C.status])!=='Lost';
+  // A client who signs their own contract: two steps (markOwnContractUI) — "pending" while they have not signed yet,
+  // then "signed". Offered on any lead that is not signed and not Lost; once marked, a note with Undo replaces the button.
+  var signed=String(L[C.contractSigned]||'')==='Yes';
+  var ownSt=ownContractState_(L);
+  var own=!!ownSt;
+  var st=$('d_contract_stale'), stale=has && !own && !!L._contractStale && String(L[C.status])!=='Lost';
   if(st){
     st.style.display = stale ? 'block' : 'none';
     st.textContent = stale ? 'The event date, time or place changed after this contract was made. Regenerate it so '+(String(L[C.contractSigned])==='Yes' ? 'your client can sign the new one (they will need to sign again).' : 'your client signs the right details.') : '';
   }
-  wrap.style.display = (showBtn || panel || stale) ? 'block' : 'none';
-  if(stale) btn.style.display='block';
-  btn.style.display = showBtn ? 'block' : 'none';
-  if(!btn.disabled && !CONTRACT_ARM) btn.textContent=contractBtnLabel_(has);
+  var st0=String(L[C.status]||'New');
+  // A rare case, so a normal lead only gets one quiet line ("Client has their own contract?"). Once a lead IS on their own
+  // contract the block is one list of three rows — the contract's state, the event portal link, their contract file —
+  // each with its current state in words and one verb. A lead the client really signed through our portal, and a Lost lead,
+  // get neither.
+  var offerEntry=!signed && !own && st0!=='Lost' && st0!=='Referral' && st0!=='Referred';
+  var ent=$('d_ownentry'); if(ent) ent.style.display = offerEntry ? 'block' : 'none';
+  var rw=$('d_ownrows');
+  if(rw){ rw.style.display = own ? 'block' : 'none'; rw.innerHTML = own ? ownRowsHtml_(L, ownSt, has) : ''; }
+  var on=$('d_ownnote');
+  if(on){
+    on.style.display = own ? 'block' : 'none';
+    on.textContent = ownSt==='pending' ? 'Your client sees \u201cYour contract is pending signing\u201d and can still pay their deposit.'
+      : (ownSt==='signed' ? 'Your client sees \u201cYour contract is on file\u201d.' : '');
+  }
+  var bk=$('d_ownback'); if(bk) bk.style.display = own ? 'block' : 'none';
+  // Our own contract's pieces (result panel, Generate button) stay out of the way while the client uses theirs.
+  if(out){
+    if(own && out.style.display!=='none'){ out._ownHid=true; out.style.display='none'; }
+    else if(!own && out._ownHid){ out._ownHid=false; out.style.display=''; }
+  }
+  wrap.style.display = (showBtn || panel || stale || offerEntry || own) ? 'block' : 'none';
+  btn.style.display = (showBtn && !own) ? 'block' : 'none';
+  if(!btn.disabled && !CONTRACT_ARM) btn.textContent = contractBtnLabel_(has && !!L[C.contractPdfUrl]);
+}
+var OWN_CONTRACT_NAME='Client\u2019s own contract';
+// '' = a normal lead, 'pending' = they have their own contract but have not signed it yet, 'signed' = they have.
+function ownContractState_(L){
+  if(String(L['Contract Signed Name']||'')!==OWN_CONTRACT_NAME) return '';
+  return String(L[C.contractSigned]||'')==='Yes' ? 'signed' : 'pending';
+}
+// The own-contract block: three rows with the same shape — a small label, the current state in words, one verb on the right.
+// (Every action here is optional except marking the contract signed; nothing is highlighted, the rows just read done / not done.)
+function ownRowsHtml_(L, st, hasLink){
+  var GRN='#8FA876', RED='#E9927B', GRY='#8d8a80';
+  var url=String(L['Client Contract URL']||'');
+  var tap=function(act, onclick){ return '<a href="javascript:void(0)" onclick="'+onclick+'" style="color:var(--gold-bright);font-weight:600;white-space:nowrap;text-decoration:none">'+act+' \u203a</a>'; };
+  var date=pd(L['Contract Signed Date']) ? ' '+esc(fmtDateY(L['Contract Signed Date'])) : '';
+  var rows=[];
+  rows.push(['Their own contract',
+    st==='signed' ? '<span style="color:'+GRN+'">Signed'+date+' \u2713</span>' : '<span style="color:'+RED+'">Waiting for it to be signed</span>',
+    st==='signed' ? tap('Undo',"markOwnContractUI('pending')") : tap('Mark signed',"markOwnContractUI('signed')")]);
+  rows.push(['Event portal link',
+    OWN_LINK_BUSY ? 'Creating\u2026' : (hasLink ? '<span style="color:'+GRN+'">Ready \u2713</span> \u00b7 <a href="'+esc(L[C.contractSignUrl])+'" target="_blank" rel="noopener" style="color:var(--cream)">Open</a>' : 'Not created'),
+    OWN_LINK_BUSY ? '' : tap(hasLink ? 'Copy' : 'Create','ownPortalLinkUI()')]);
+  rows.push(['Their contract file',
+    OWN_FILE_BUSY ? 'Uploading\u2026' : (url
+      ? '<a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:var(--cream)">'+esc(L['Client Contract Name']||'View file')+'</a> <span style="color:'+GRN+'">\u2713</span>'
+        +' \u00b7 <a href="javascript:void(0)" onclick="removeClientContractUI()" style="color:'+GRY+'">'+(OWN_FILE_ARM?'Tap again to remove':'Remove')+'</a>'
+      : 'Not attached'),
+    OWN_FILE_BUSY ? '' : tap(url ? 'Replace' : 'Attach',"$('d_ownfile_in').click()")]);
+  return '<div style="border:1px solid var(--line);border-radius:8px;margin-top:8px">'
+    + rows.map(function(r, i){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px'+(i?';border-top:1px solid var(--line)':'')+'">'
+        +'<div style="min-width:0"><div style="font-size:12px;color:'+GRY+'">'+r[0]+'</div><div style="overflow-wrap:anywhere">'+r[1]+'</div></div>'+r[2]+'</div>';
+    }).join('')+'</div>';
+}
+// "Create / Copy event portal link" for a lead on their own contract. The portal hangs off a generated contract record, so
+// the first tap quietly generates one (the client never sees it — their portal shows only their own contract); after that
+// the same button copies the link.
+function ownPortalLinkUI(){
+  if(!CURRENT || OWN_LINK_BUSY) return;
+  var row=CURRENT._row, L=CURRENT;
+  if(L[C.contractSignUrl]){ copyToClipboard(L[C.contractSignUrl]); toast('Event portal link copied'); return; }
+  if(!hasPrice(L)){ toast('Add the quoted price first'); openPriceField_(); return; }
+  OWN_LINK_BUSY=true; renderContractSection_(CURRENT, null);
+  var done=function(){ OWN_LINK_BUSY=false; if(CURRENT && CURRENT._row===row) renderContractSection_(CURRENT, null); };
+  GS.withSuccessHandler(function(json){
+    var r; try{ r=JSON.parse(json); }catch(e){ r=null; }
+    if(!r || !r.ok){ done(); toast((r&&r.error)||'Could not create the link \u2014 try again'); return; }
+    [CURRENT, LEADS.find(function(x){ return x._row===row; })].forEach(function(X){ if(X && X._row===row){ X[C.contractSignUrl]=r.signUrl; } });
+    OWN_LINK_BUSY=false;
+    if(CURRENT && CURRENT._row===row){ renderNextStep(); renderContractSection_(CURRENT, null); }
+    toast('Link ready \u2014 tap Copy to copy it');
+  }).withFailureHandler(function(){ done(); toast('Could not create the link \u2014 try again'); }).createOwnPortal(row);
+}
+// Their contract file lives in the same Drive folder as ours (server side) and shows in the event portal as "Your contract".
+var OWN_FILE_ARM=false, OWN_FILE_BUSY=false, OWN_LINK_BUSY=false;
+function setOwnFile_(row, url, name){
+  [CURRENT, LEADS.find(function(x){ return x._row===row; })].forEach(function(L){ if(L && L._row===row){ L['Client Contract URL']=url; L['Client Contract Name']=name; } });
+  if(CURRENT && CURRENT._row===row) renderContractSection_(CURRENT, null);
+}
+function attachClientContractUI(input){
+  var f=input.files && input.files[0]; if(!f || !CURRENT) return;
+  var row=CURRENT._row;
+  var type=(f.type||'').toLowerCase(), nm=(f.name||'').toLowerCase();
+  var okType = type==='application/pdf' || /^image\//.test(type) || /\.(pdf|png|jpe?g|gif|webp|heic|heif|docx?)$/.test(nm);
+  if(!okType){ toast('Please upload a PDF, photo or Word file'); input.value=''; return; }
+  if(f.size > 10*1024*1024){ toast('That file is over 10 MB \u2014 please use a smaller one'); input.value=''; return; }
+  var reader=new FileReader();
+  reader.onload=function(){
+    var base64=String(reader.result).split(',')[1];
+    OWN_FILE_BUSY=true; renderContractSection_(CURRENT, null);
+    GS.withSuccessHandler(function(json){
+      OWN_FILE_BUSY=false;
+      var r; try{ r=JSON.parse(json); }catch(err){ r=null; }
+      if(r && r.ok){ setOwnFile_(row, r.url, r.name); toast('Their contract is filed'); }
+      else { if(CURRENT && CURRENT._row===row) renderContractSection_(CURRENT, null); toast((r&&r.error)||'Could not upload \u2014 try again'); }
+    }).withFailureHandler(function(){ OWN_FILE_BUSY=false; if(CURRENT && CURRENT._row===row) renderContractSection_(CURRENT, null); toast('Could not upload \u2014 try again'); })
+      .attachClientContract(row, base64, f.type||'application/octet-stream', f.name||'contract');
+  };
+  reader.onerror=function(){ toast('Could not read that file'); };
+  reader.readAsDataURL(f);
+  input.value='';
+}
+function removeClientContractUI(){
+  if(!CURRENT) return;
+  var row=CURRENT._row;
+  if(!OWN_FILE_ARM){
+    OWN_FILE_ARM=true; renderContractSection_(CURRENT, null);
+    setTimeout(function(){ if(OWN_FILE_ARM){ OWN_FILE_ARM=false; if(CURRENT && CURRENT._row===row) renderContractSection_(CURRENT, null); } }, 3500);
+    return;
+  }
+  OWN_FILE_ARM=false;
+  var url=CURRENT['Client Contract URL'], nm=CURRENT['Client Contract Name'];
+  setOwnFile_(row, '', '');
+  GS.withSuccessHandler(function(json){
+    var r; try{ r=JSON.parse(json); }catch(err){ r=null; }
+    if(!r || !r.ok){ setOwnFile_(row, url, nm); toast('Could not remove \u2014 try again'); }
+  }).withFailureHandler(function(){ setOwnFile_(row, url, nm); toast('Could not remove \u2014 try again'); }).removeClientContract(row);
+}
+// Instant: the screen changes at once, the sheet is written in the background, and a failure rolls it back.
+function markOwnContractUI(state){
+  if(!CURRENT) return;
+  var row=CURRENT._row;
+  var targets=[CURRENT, LEADS.find(function(x){ return x._row===row; })].filter(function(x,i,a){ return x && a.indexOf(x)===i; });
+  var keys=[C.contractSigned,'Contract Signed Name','Contract Signed Date'];
+  var before=targets.map(function(L){ return keys.map(function(k){ return L[k]; }); });
+  var vals = state==='signed' ? ['Yes', OWN_CONTRACT_NAME, ymd(new Date())] : (state==='pending' ? ['', OWN_CONTRACT_NAME, ''] : ['', '', '']);
+  targets.forEach(function(L){ keys.forEach(function(k,i){ L[k]=vals[i]; }); });
+  renderContractSection_(CURRENT, null); renderNextStep(); renderLeads();
+  toast(state==='signed' ? 'Marked as signed' : (state==='pending' ? 'Marked as pending signing' : 'Contract no longer marked as the client\u2019s own'));
+  GS.withSuccessHandler(function(json){
+    var r=JSON.parse(json);
+    if(!r.ok){ rollback(r.error); return; }
+    if(r.status && String(CURRENT && CURRENT._row===row ? CURRENT[C.status] : '')!==r.status){
+      targets.forEach(function(L){ L[C.status]=r.status; });
+      if(CURRENT && CURRENT._row===row && $('d_status')) $('d_status').value=r.status;
+      renderLeads(); renderNextStep();
+    }
+  }).withFailureHandler(function(err){ rollback(); }).markOwnContract(row, state);
+  function rollback(msg){
+    targets.forEach(function(L,j){ keys.forEach(function(k,i){ L[k]=before[j][i]; }); });
+    if(CURRENT && CURRENT._row===row){ renderContractSection_(CURRENT, null); renderNextStep(); }
+    renderLeads();
+    toast(msg || 'Could not update — try again');
+  }
 }
 // Only regenerating an EXISTING contract gets this protection — the very
 // first generation for a lead has nothing yet to accidentally lose, so
@@ -6840,7 +7008,7 @@ function generateContractUI(){
   // A blank price would otherwise generate a real agreement quoting nothing — stop and point
   // at the field instead (a deliberately typed "0", e.g. a comped show, is allowed through).
   if(!hasPrice(CURRENT)){ toast('Add the quoted price first'); openPriceField_(); return; }
-  var isRegenerate = !!CURRENT[C.contractSignUrl];
+  var isRegenerate = !!(CURRENT[C.contractSignUrl] && CURRENT[C.contractPdfUrl]);
   var btn=$('d_contractbtn');
   if(isRegenerate && !CONTRACT_ARM){
     CONTRACT_ARM=true;
@@ -6866,7 +7034,7 @@ function doGenerateContract(){
       btn.textContent=contractBtnLabel_(true);
       renderContractResultPanel(r.signUrl, r.pdfUrl, r.docUrl);
       // keep all three links on the lead so the Contract block still shows them if this lead is reopened before a refresh
-      if(CURRENT){ CURRENT[C.contractSignUrl]=r.signUrl; CURRENT[C.contractPdfUrl]=r.pdfUrl; CURRENT[C.contractDocUrl]=r.docUrl; CURRENT._contractStale=false; var lx=LEADS.find(function(x){ return x._row===CURRENT._row; }); if(lx) lx._contractStale=false; renderNextStep(); renderContractSection_(CURRENT, null); }
+      if(CURRENT){ CURRENT[C.contractSignUrl]=r.signUrl; CURRENT[C.contractPdfUrl]=r.pdfUrl; CURRENT[C.contractDocUrl]=r.docUrl; CURRENT._contractStale=false; var keepOwn=ownContractState_(CURRENT)==='signed'; /* regenerating ours never undoes their signed contract */ if(!keepOwn) CURRENT[C.contractSigned]='No'; var lx=LEADS.find(function(x){ return x._row===CURRENT._row; }); if(lx){ lx._contractStale=false; if(!keepOwn) lx[C.contractSigned]='No'; } renderNextStep(); renderContractSection_(CURRENT, null); }
     } else {
       btn.textContent=contractBtnLabel_(false);
       out.innerHTML =
@@ -6934,6 +7102,38 @@ function toggleGContacts(){
   var open=w.style.display==='none';
   w.style.display=open?'':'none';
   if(btn) btn.classList.toggle('open', open);
+  if(open) loadContactAuto_();
+}
+// The optional nightly Contacts sync: a checkbox, the hour, and when it last ran.
+function gcHourLabel_(h){ return (h%12||12)+' '+(h<12?'AM':'PM'); }
+function loadContactAuto_(){
+  var sel=$('gcauto_hour'); if(!sel) return;
+  if(!sel.options.length){
+    for(var h=0;h<24;h++){ var o=document.createElement('option'); o.value=h; o.textContent=gcHourLabel_(h); sel.appendChild(o); }
+    sel.value='21';
+  }
+  GS.withSuccessHandler(function(r){
+    if(!r) return;
+    $('gcauto_on').checked=!!r.on; sel.value=String(r.hour);
+    $('gcauto_timerow').style.display=r.on?'flex':'none';
+  }).withFailureHandler(function(){}).getContactAutoSync();
+  GS.withSuccessHandler(function(r){
+    var el=$('gcauto_last'); if(!el || !r || !r.finishedAt || r.status!=='done') return;
+    var when=new Date(r.finishedAt).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    el.textContent='Last synced '+when+' \u2014 '+(r.created||0)+' added'+(r.updated?', '+r.updated+' updated':'')+'.';
+    el.style.display='block';
+  }).withFailureHandler(function(){}).getContactSyncStatus();
+}
+function saveContactAuto(){
+  var cb=$('gcauto_on'), sel=$('gcauto_hour'), note=$('gcauto_note'); if(!cb||!sel) return;
+  var on=cb.checked;
+  $('gcauto_timerow').style.display=on?'flex':'none';
+  function fail(msg){ cb.checked=false; $('gcauto_timerow').style.display='none'; note.textContent=msg; }
+  GS.withSuccessHandler(function(json){
+    var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
+    if(!r.ok){ fail(r.error||'Could not save that \u2014 try again.'); return; }
+    toast(on?'Nightly sync on \u2014 around '+gcHourLabel_(r.hour):'Nightly sync off');
+  }).withFailureHandler(function(){ fail('Could not save that \u2014 try again.'); }).setContactAutoSync(on, parseInt(sel.value,10));
 }
 // Export all clients/leads to a CSV — client-side, same mechanism as the
 // Expenses export (build from the already-loaded LEADS, download via a Blob).
@@ -7796,7 +7996,7 @@ function withInsightsPeriod_(scope, month, fn){
 }
 function insightsMetrics_(cutoff){
   var all=insightsScopedLeads(), booked=all.filter(isBookedLike);
-  var bookedVal=booked.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var bookedVal=booked.reduce(function(s,L){ return s+bookedAmt_(L); },0);
   var inc=insightsScopedIncomeEvents(), exp=insightsScopedExpenses();
   if(cutoff){
     inc=inc.filter(function(e){ return e.date<=cutoff; });
@@ -7954,7 +8154,7 @@ function renderInsights(){
   var all=insightsScopedLeads();
   var booked=all.filter(isBookedLike);
   var pending=all.filter(function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; });
-  var bookedVal=booked.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var bookedVal=booked.reduce(function(s,L){ return s+bookedAmt_(L); },0);
   var playVal=pending.reduce(function(s,L){ return s+money(L[C.price]); },0);
   var avgBooked= booked.length ? Math.round(bookedVal/booked.length) : 0;
   // Anchored to today regardless of the archive-year scope selector above
@@ -8112,7 +8312,7 @@ function oracleBestSource(){
   LEADS.forEach(function(L){
     var key=sourceKey_(L[C.source]);
     if(!bySource[key]) bySource[key]={src:sourceLabel_(L[C.source]), bookedVal:0, spend:0};
-    if(isBookedLike(L)) bySource[key].bookedVal+=money(L[C.price]);
+    if(isBookedLike(L)) bySource[key].bookedVal+=bookedAmt_(L);
   });
   marketingSpendRows_().forEach(function(E){
     var key=sourceKey_(E.adSource);
@@ -8204,7 +8404,7 @@ function oracleAdSpend(){
   LEADS.forEach(function(L){
     if(!isBookedLike(L)) return;
     var key=sourceKey_(L[C.source]);
-    bySource[key]=(bySource[key]||0)+money(L[C.price]);
+    bySource[key]=(bySource[key]||0)+bookedAmt_(L);
   });
   var bookedFromSpendSources=0;
   Object.keys(spendSources).forEach(function(src){ bookedFromSpendSources+=(bySource[src]||0); });
@@ -8472,7 +8672,7 @@ function computeSourcePerf(all){
     var key=sourceKey_(L[C.source]);
     if(!by[key]) by[key]={src:sourceLabel_(L[C.source]), total:0, booked:0, bookedVal:0, spend:0};
     by[key].total++;
-    if(isBookedLike(L)){ by[key].booked++; by[key].bookedVal+=money(L[C.price]); }
+    if(isBookedLike(L)){ by[key].booked++; by[key].bookedVal+=bookedAmt_(L); }
   });
   scopedMarketingSpendRows_().forEach(function(E){
     var key=sourceKey_(E.adSource);
@@ -8514,7 +8714,7 @@ function computeAdRoi(all){
     var k=d.getFullYear()+'|'+srcKey;
     if(!stats[k]) stats[k]={bookedVal:0, bookedCount:0, totalLeads:0, label:sourceLabel_(L[C.source])};
     stats[k].totalLeads++;
-    if(isBookedLike(L)){ stats[k].bookedVal+=money(L[C.price]); stats[k].bookedCount++; }
+    if(isBookedLike(L)){ stats[k].bookedVal+=bookedAmt_(L); stats[k].bookedCount++; }
   });
   var spend={}, spendLabel={};
   marketingSpendRows_().forEach(function(E){
@@ -9130,7 +9330,7 @@ function checkSyncStatus(){
       stat.innerHTML='Syncing in the background\u2026 '+(r.created||0)+' added, '+(r.updated||0)+' updated so far. Feel free to keep using the app.';
     } else if(r.status==='done'){
       if(SYNC_POLL_TIMER){ clearInterval(SYNC_POLL_TIMER); SYNC_POLL_TIMER=null; }
-      var msg='Done \u2726 '+r.created+' added, '+r.updated+' updated'+(r.skipped?', '+r.skipped+' skipped':'')+'.';
+      var msg='Done \u2726 '+r.created+' added'+(r.mode==='new'?'':', '+r.updated+' updated')+(r.skipped?', '+r.skipped+' skipped':'')+'.';
       if(r.errorSamples && r.errorSamples.length){
         msg+='<br><span style="color:#E9927B;font-size:11.5px">'+r.errorSamples.map(esc).join('<br>')+'</span>';
       }
@@ -12092,6 +12292,12 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.84', d:'Oct 2026', notes:[
+    'New — A client who has their own contract. If a client signs their own contract instead of yours, open the lead and tap “Client has their own contract?” under Contract. You get three rows: mark their contract signed (or undo it), create and copy their event portal link, and attach a copy of their contract, which is filed in the same Drive folder as your contracts. Their event portal never shows your agreement; it says their contract is pending signing or on file, and they can still pay their deposit. A new Help topic explains it.',
+    'Improved — Booked value now includes travel fees. Booked value, the average per booking, and each lead source’s booked value and return on ad spend count the quoted price plus the travel fee, so they match what you are actually owed. Numbers for earlier periods will read higher for shows that had a travel fee. Referral fees still use the quoted price only.',
+    'New (optional) — Nightly Google Contacts sync. In Settings → Tools → Google Contacts, tick “Add new leads automatically every evening” and pick an hour. Only new leads are added; people already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick. This needs Google Contacts to be switched on for your app, as for the Sync now button.',
+    'Fixed — A Google Contacts sync that stopped part-way no longer blocks every later sync.'
+  ]},
   { v:'1.5.83', d:'Oct 2026', notes:[
     'Improved — Tidier Tax Estimate: the note about what your deductions save and the Meals & Entertainment 50% note are now on separate lines, and the tax rate box is a little narrower.'
   ]},
@@ -12358,6 +12564,8 @@ var CHANGELOG_ = [
 ];
 // Features that are easy to miss. Opt-in reference only (Help) — never pushed at anyone.
 var HELP_KNOW = [
+  { q:'A client has their own contract',
+    a:'If a client signs their own contract instead of yours, open the lead and tap <b>Client has their own contract?</b> under Contract. You get three rows: <b>Their own contract</b> (tap <b>Mark signed</b> once they have signed), <b>Event portal link</b> (tap <b>Create</b>, then <b>Copy</b> to send it), and <b>Their contract file</b> (tap <b>Attach</b> to file a copy with your contracts). The link and the file are optional. Their event portal shows their contract (never yours) and still lets them pay their deposit. Tap <b>Use our contract instead</b> any time to go back to yours.' },
   { q:'A client needs to move their date (postponing a show)',
     a:'Open the lead and tap <b>Follow-up</b>, then tap <b>Postpone — follow up later</b> under the calendar. Pick the date you want to follow up and, if you like, add a note. The lead moves from Booked back to Pending, the old event date and times are cleared, and the old event portal link is turned off. A note with the original date is saved in the lead’s history. When the new date is set, enter it on the lead and tap <b>Regenerate contract</b> so your client signs the new one. A deposit they already paid is not touched — you decide whether to refund it or keep it as credit.' },
   { q:'Double-booking warnings and travel time',

@@ -537,7 +537,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.83';
+var APP_VERSION = '1.5.84';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1138,7 +1138,7 @@ var API_ = {
   createProposalDraft: createProposalDraft_, sendTestEmail: sendTestEmail_,
   uploadSignature: uploadSignature_, removeSignature: removeSignature_, getSignaturePreview: getSignaturePreview_, activateLicense: activateLicense_,
   startTrial: startTrial_, getTrialInfo: getTrialInfo_, markTrialWarned: markTrialWarned_, getUpdateInfo: getUpdateInfo_,
-  snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_, makeTaxPackage: makeTaxPackage_, finishTaxPackage: finishTaxPackage_, makeTaxPdf: makeTaxPdf_,
+  snoozeUpdate: snoozeUpdate_, dismissUpdateVersion: dismissUpdateVersion_, generateContract: generateContract_, markOwnContract: markOwnContract_, createOwnPortal: createOwnPortal_, attachClientContract: attachClientContract_, removeClientContract: removeClientContract_, makeTaxPackage: makeTaxPackage_, finishTaxPackage: finishTaxPackage_, makeTaxPdf: makeTaxPdf_,
   getTaxPrep: getTaxPrep_, saveTaxExtras: saveTaxExtras_, setTaxW9: setTaxW9_, addMileageTrip: addMileageTrip_, deleteMileageTrip: deleteMileageTrip_,
   getMileageSuggestions: getMileageSuggestions_, makeAccountantDraft: makeAccountantDraft_,
   confirmReportedPayment: confirmReportedPayment_, dismissReportedPayment: dismissReportedPayment_,
@@ -1155,7 +1155,7 @@ var API_ = {
   deleteTextTemplate: deleteTextTemplate_, addPartnerTextTemplate: addPartnerTextTemplate_, updatePartnerTextTemplate: updatePartnerTextTemplate_,
   deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_,
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
-  startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_,
+  startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, getContactAutoSync: getContactAutoSync_, setContactAutoSync: setContactAutoSync_,
   setTaxRate: setTaxRate_, getLeads: getLeads_, getLeadsCore: getLeadsCore_, getLeadsLogs: getLeadsLogs_, getLeadsPeople: getLeadsPeople_, getLeadsExtras: getLeadsExtras_, getLeadsRest: getLeadsRest_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
   saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, markSeen: markSeen_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
@@ -2475,7 +2475,8 @@ function generateContract_(rowNum) {
     const token = existingToken || Utilities.getUuid();
     sh.getRange(rowNum, cols.docIdCol).setValue(result.copy.getId());
     sh.getRange(rowNum, cols.tokenCol).setValue(token);
-    sh.getRange(rowNum, cols.signedCol).setValue('No');
+    // (a client's OWN signed contract is not undone by regenerating ours)
+    if (!(String(sh.getRange(rowNum, cols.signedCol).getValue() || '') === 'Yes' && String(sh.getRange(rowNum, cols.signedNameCol).getValue() || '') === OWN_CONTRACT_NAME)) sh.getRange(rowNum, cols.signedCol).setValue('No');
     sh.getRange(rowNum, cols.pdfUrlCol).setValue(result.pdfFile.getUrl());
     sh.getRange(rowNum, cols.docUrlCol).setValue(result.copy.getUrl());
     sh.getRange(rowNum, cols.termsCol).setValue(contractTermsOf_(get, tzNow_()));
@@ -2488,6 +2489,134 @@ function generateContract_(rowNum) {
   } catch (e) {
     // Surface the real exception rather than a generic failure, so a
     // problem here is actually diagnosable instead of a dead end.
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+// Owner-only. For a client who signs their OWN contract instead of ours. Two steps, kept in the same three columns a
+// real signature fills, with this fixed name:
+//   'pending' -> name set, NOT signed (waiting for them to sign; the lead still counts as unsigned everywhere)
+//   'signed'  -> Contract Signed = Yes + today's date, so every "signed" check agrees and auto-book runs
+//   ''        -> undo either step. Only ever our own mark, never a real client signature.
+// (true/false are still accepted as signed/undo.) Regenerating our contract leaves a signed own-contract alone.
+var OWN_CONTRACT_NAME = 'Client\u2019s own contract';
+function markOwnContract_(rowNum, state) {
+  try {
+    state = state === true ? 'signed' : (!state ? '' : String(state));
+    if (['pending', 'signed', ''].indexOf(state) < 0) return JSON.stringify({ ok: false, error: 'Unknown state' });
+    const sh = sheet_();
+    rowNum = Number(rowNum);
+    if (!(rowNum >= 2) || rowNum > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'Lead not found' });
+    const cols = ensureContractCols_(sh);
+    const signed = String(sh.getRange(rowNum, cols.signedCol).getValue() || '') === 'Yes';
+    const isOwn = String(sh.getRange(rowNum, cols.signedNameCol).getValue() || '') === OWN_CONTRACT_NAME;
+    if (state === '') {
+      if (!isOwn) return JSON.stringify({ ok: false, error: 'Only a contract marked as the client\u2019s own can be undone' });
+      sh.getRange(rowNum, cols.signedCol).setValue('');
+      sh.getRange(rowNum, cols.signedNameCol).setValue('');
+      sh.getRange(rowNum, cols.signedDateCol).setValue('');
+    } else {
+      if (signed && !isOwn) return JSON.stringify({ ok: false, error: 'This contract is already signed' });
+      if (state === 'pending') {
+        sh.getRange(rowNum, cols.signedCol).setValue('');
+        sh.getRange(rowNum, cols.signedNameCol).setValue(OWN_CONTRACT_NAME);
+        sh.getRange(rowNum, cols.signedDateCol).setValue('');
+      } else if (!(signed && isOwn)) {
+        sh.getRange(rowNum, cols.signedCol).setValue('Yes');
+        sh.getRange(rowNum, cols.signedNameCol).setValue(OWN_CONTRACT_NAME);
+        sh.getRange(rowNum, cols.signedDateCol).setValue(new Date());
+        try { if (maybeMarkBooked_(sh, rowNum)) syncBookedCalendarEvent_(sh, rowNum, false); } catch (e) { console.error('Auto-book on own contract failed: ' + e); }
+      }
+    }
+    const heads = headers_(sh);
+    const si = heads.indexOf('Status');
+    return JSON.stringify({ ok: true, status: si > -1 ? String(sh.getRange(rowNum, si + 1).getValue() || '') : '' });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+// Owner-only. The event portal link for a lead on the client's OWN contract: just the link (the same token the portal looks
+// up) and the invoice number — NO Doc or PDF of ours, since nobody signs ours. If our contract is generated for this lead
+// later, generateContract_ reuses the same token, so a link already sent keeps working.
+function createOwnPortal_(rowNum) {
+  try {
+    const sh = sheet_();
+    rowNum = Number(rowNum);
+    if (!(rowNum >= 2) || rowNum > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'Lead not found' });
+    const cols = ensureContractCols_(sh);
+    if (String(sh.getRange(rowNum, cols.signedNameCol).getValue() || '') !== OWN_CONTRACT_NAME) {
+      return JSON.stringify({ ok: false, error: 'Mark the lead as \u201cClient has their own contract\u201d first.' });
+    }
+    ensureInvoiceNumber_(sh, rowNum, cols);
+    const token = String(sh.getRange(rowNum, cols.tokenCol).getValue() || '').trim() || Utilities.getUuid();
+    const signUrl = ScriptApp.getService().getUrl() + '?sign=' + token;
+    sh.getRange(rowNum, cols.tokenCol).setValue(token);
+    sh.getRange(rowNum, cols.signUrlCol).setValue(signUrl);
+    return JSON.stringify({ ok: true, signUrl: signUrl });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+// Owner-only. The client's own contract file (PDF, photo or Word) goes in the SAME Drive folder as our contracts, so
+// the records live in one place, and the event portal lists it as "Your contract". Only for a lead marked as the
+// client's own contract; a new upload replaces (trashes) the earlier file.
+var CLIENT_CONTRACT_TYPES_ = /^(application\/pdf|image\/(png|jpe?g|gif|webp|heic|heif)|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
+var CLIENT_CONTRACT_MAX_B64_ = 14 * 1024 * 1024; // ~10 MB of file
+function clientContractCols_(sh) {
+  const heads = headers_(sh);
+  function ensure(name) {
+    var col = heads.indexOf(name) + 1;
+    if (!col) { col = heads.length + 1; sh.getRange(1, col).setValue(name); heads.push(name); }
+    return col;
+  }
+  return { urlCol: ensure('Client Contract URL'), idCol: ensure('Client Contract File ID'), nameCol: ensure('Client Contract Name') };
+}
+function attachClientContract_(rowNum, base64Data, mimeType, fileName) {
+  try {
+    const sh = sheet_();
+    rowNum = Number(rowNum);
+    if (!(rowNum >= 2) || rowNum > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'Lead not found' });
+    if (!base64Data) return JSON.stringify({ ok: false, error: 'No file was received — please try again.' });
+    if (String(base64Data).length > CLIENT_CONTRACT_MAX_B64_) return JSON.stringify({ ok: false, error: 'That file is over 10 MB — please use a smaller one.' });
+    const sc = ensureContractCols_(sh);
+    if (String(sh.getRange(rowNum, sc.signedNameCol).getValue() || '') !== OWN_CONTRACT_NAME) {
+      return JSON.stringify({ ok: false, error: 'Mark the lead as “Client has their own contract” first.' });
+    }
+    var origName = String(fileName || '').trim();
+    var ext = (origName.match(/\.([A-Za-z0-9]{2,5})$/) || [])[1] || '';
+    var mime = String(mimeType || '').toLowerCase();
+    if (!mime || mime === 'application/octet-stream') {
+      mime = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }[ext.toLowerCase()] || '';
+    }
+    if (!CLIENT_CONTRACT_TYPES_.test(mime)) return JSON.stringify({ ok: false, error: 'Please upload a PDF, photo or Word file.' });
+    const heads = headers_(sh);
+    const who = String(sh.getRange(rowNum, heads.indexOf('Customer Name') + 1).getValue() || 'Client').replace(/[\\\/:*?"<>|]/g, ' ').trim() || 'Client';
+    const finalName = (who + ' - client\u2019s own contract - ' + Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd') + (ext ? '.' + ext.toLowerCase() : '')).slice(0, 180);
+    const cc = clientContractCols_(sh);
+    const oldId = String(sh.getRange(rowNum, cc.idCol).getValue() || '').trim();
+    const file = contractsFolder_().createFile(Utilities.newBlob(Utilities.base64Decode(base64Data), mime, finalName));
+    shareAnyoneWithLink_(file);
+    try { if (oldId) DriveApp.getFileById(oldId).setTrashed(true); } catch (e) {}
+    sh.getRange(rowNum, cc.urlCol).setValue(file.getUrl());
+    sh.getRange(rowNum, cc.idCol).setValue(file.getId());
+    sh.getRange(rowNum, cc.nameCol).setValue(origName || finalName);
+    return JSON.stringify({ ok: true, url: file.getUrl(), name: origName || finalName });
+  } catch (e) {
+    return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
+  }
+}
+function removeClientContract_(rowNum) {
+  try {
+    const sh = sheet_();
+    rowNum = Number(rowNum);
+    if (!(rowNum >= 2) || rowNum > sh.getLastRow()) return JSON.stringify({ ok: false, error: 'Lead not found' });
+    const cc = clientContractCols_(sh);
+    const oldId = String(sh.getRange(rowNum, cc.idCol).getValue() || '').trim();
+    try { if (oldId) DriveApp.getFileById(oldId).setTrashed(true); } catch (e) {}
+    sh.getRange(rowNum, cc.urlCol).setValue('');
+    sh.getRange(rowNum, cc.idCol).setValue('');
+    sh.getRange(rowNum, cc.nameCol).setValue('');
+    return JSON.stringify({ ok: true });
+  } catch (e) {
     return JSON.stringify({ ok: false, error: 'Server error: ' + (e && e.message ? e.message : String(e)) });
   }
 }
@@ -2512,6 +2641,8 @@ function getContractForSigning(token) {
       const ed = get('Date of Event');
       const depositPaid = String(get('Deposit Received') || '') === 'Yes';
       const balancePaid = String(get('Balance Paid') || '') === 'Yes';
+      const ownContract = String(get('Contract Signed Name') || '') === OWN_CONTRACT_NAME; // pending or signed
+      const ownPending = ownContract && String(get('Contract Signed') || '') !== 'Yes';
       const balanceDueDaysRaw = Number(get('Balance Due Days'));
       const balanceDueDays = (balanceDueDaysRaw > 0) ? balanceDueDaysRaw : 0;
       var daysUntilEvent = null;
@@ -2534,8 +2665,12 @@ function getContractForSigning(token) {
         balanceBase: balance,
         contractNote: contractNoteOf_(get),
         paymentMethod: get('Payment Method') || '',
-        pdfUrl: get('Contract PDF URL') || '',
-        pdfPending: !!signedPdfQueue_()[token], // signed, and the signed PDF is still being built
+        // A client who signed THEIR OWN contract: our agreement/PDF is not theirs, so the portal hides it and lists their file.
+        ownContract: ownContract,
+        ownPending: ownPending,
+        clientContractUrl: ownContract ? (get('Client Contract URL') || '') : '',
+        pdfUrl: ownContract ? '' : (get('Contract PDF URL') || ''),
+        pdfPending: !!signedPdfQueue_()[token] && !ownContract, // signed, and the signed PDF is still being built
         alreadySigned: String(get('Contract Signed') || '') === 'Yes',
         signedName: get('Contract Signed Name') || '',
         depositPaid: depositPaid,
@@ -4626,6 +4761,7 @@ function ensureContactColumn_(sh) {
  */
 const SYNC_STATUS_KEY = 'contactSyncStatus';
 const SYNC_TRIGGER_FN = 'runContactSyncJob';
+const CONTACT_SYNC_STALE_MS = 30 * 60 * 1000;
 
 /**
  * Kicks off a contact sync in the background via a one-time trigger, rather
@@ -4634,7 +4770,8 @@ const SYNC_TRIGGER_FN = 'runContactSyncJob';
  * exactly how the sync could create duplicate contacts, since two runs could
  * each see the same not-yet-synced lead and both try to create it.
  */
-function startContactSync_() {
+function startContactSync_(mode) {
+  mode = mode === 'new' ? 'new' : 'all';
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(3000)) return { alreadyRunning: true };
   try {
@@ -4642,10 +4779,11 @@ function startContactSync_() {
     const raw = props.getProperty(SYNC_STATUS_KEY);
     if (raw) {
       const cur = JSON.parse(raw);
-      if (cur.status === 'running') return { alreadyRunning: true };
+      // A run that died part-way (People API switched off, a crash) must not block every later sync forever.
+      if (cur.status === 'running' && Date.now() - (cur.startedAt || 0) < CONTACT_SYNC_STALE_MS) return { alreadyRunning: true };
     }
     props.setProperty(SYNC_STATUS_KEY, JSON.stringify({
-      status: 'running', startedAt: Date.now(), created: 0, updated: 0, skipped: 0
+      status: 'running', mode: mode, startedAt: Date.now(), created: 0, updated: 0, skipped: 0
     }));
     cleanUpSyncTriggers_();
     ScriptApp.newTrigger(SYNC_TRIGGER_FN).timeBased().after(1000).create();
@@ -4682,10 +4820,16 @@ function runContactSyncJob(e) {
   const prevRaw = props.getProperty(SYNC_STATUS_KEY);
   const prev = prevRaw ? JSON.parse(prevRaw) : { createdSoFar: 0, updatedSoFar: 0, startedAt: Date.now() };
 
-  const result = syncContactsToGoogle_();
+  var result;
+  try {
+    result = syncContactsToGoogle_(prev.mode);
+  } catch (err) {
+    result = { created: 0, updated: 0, skipped: 0, timedOut: false, errorSamples: [String((err && err.message) || err)] };
+  }
 
   const totals = {
     status: result.timedOut ? 'running' : 'done',
+    mode: prev.mode || 'all',
     startedAt: prev.startedAt || Date.now(),
     createdSoFar: (prev.createdSoFar || 0) + result.created,
     updatedSoFar: (prev.updatedSoFar || 0) + result.updated,
@@ -4728,7 +4872,10 @@ function buildExistingContactNameMap_(groupRN) {
   return map;
 }
 
-function syncContactsToGoogle_() {
+// mode 'new' (the nightly run): only adds leads that are not in Contacts yet. It never rewrites a contact that already
+// exists, so edits made by hand in Google Contacts survive. Any other mode is the full sync (adds + updates in place).
+function syncContactsToGoogle_(mode) {
+  const addOnly = mode === 'new';
   const sh = sheet_();
   const heads = headers_(sh);
   const idCol = ensureContactColumn_(sh);
@@ -4770,6 +4917,7 @@ function syncContactsToGoogle_() {
     if (email) person.emailAddresses = [{ value: email, type: 'home' }];
 
     try {
+      if (addOnly && existingId) continue;
       if (existingId) {
         const current = People.People.get(existingId, { personFields: 'names' });
         person.etag = current.etag; // required for updates, but goes in the resource body, not as a separate argument
@@ -4779,7 +4927,12 @@ function syncContactsToGoogle_() {
         updated++;
       } else {
         const matchedId = existingByName[name.trim().toLowerCase()];
-        if (matchedId) {
+        if (matchedId && addOnly) {
+          // already in Contacts under this name: just re-link the row, leave the contact itself alone
+          sh.getRange(i + 1, idCol).setValue(matchedId);
+          SpreadsheetApp.flush();
+          delete existingByName[name.trim().toLowerCase()];
+        } else if (matchedId) {
           // A contact with this exact name already exists in the group —
           // this row's tracking was lost somewhere along the way. Reattach
           // to the real contact and update it, instead of creating a
@@ -4825,6 +4978,42 @@ function syncContactsToGoogle_() {
     }
   }
   return { created: created, updated: updated, skipped: skipped, timedOut: timedOut, errorSamples: errorSamples };
+}
+
+/* ---------- Optional nightly Contacts sync (Rich, 2026-10-31) ---------- */
+// Off by default. When on, one daily trigger starts the add-new-only sync around the chosen hour (the script's time zone).
+const CONTACT_AUTO_TRIGGER_FN = 'runNightlyContactSync';
+const CONTACT_AUTO_KEY = 'contactAutoSync';
+function contactAutoHour_(h) {
+  h = Math.floor(Number(h));
+  return h >= 0 && h <= 23 ? h : 21;
+}
+function runNightlyContactSync(e) {
+  triggerOnly_(e);
+  startContactSync_('new');
+}
+function getContactAutoSync_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(CONTACT_AUTO_KEY);
+  var cfg = { on: false, hour: 21 };
+  try { if (raw) cfg = JSON.parse(raw); } catch (e) {}
+  return { on: !!cfg.on, hour: contactAutoHour_(cfg.hour) };
+}
+function setContactAutoSync_(on, hour) {
+  on = on === true || on === 'true';
+  hour = contactAutoHour_(hour);
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === CONTACT_AUTO_TRIGGER_FN) ScriptApp.deleteTrigger(t);
+  });
+  if (on) {
+    try {
+      People.ContactGroups.list({ pageSize: 1 });
+    } catch (e) {
+      return JSON.stringify({ ok: false, error: 'Google Contacts is not switched on for this app yet. In Apps Script, add the People API service, then try again.' });
+    }
+    ScriptApp.newTrigger(CONTACT_AUTO_TRIGGER_FN).timeBased().atHour(hour).everyDays(1).create();
+  }
+  PropertiesService.getScriptProperties().setProperty(CONTACT_AUTO_KEY, JSON.stringify({ on: on, hour: hour }));
+  return JSON.stringify({ ok: true, on: on, hour: hour });
 }
 
 function parseYMD_(s) {

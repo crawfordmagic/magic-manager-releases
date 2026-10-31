@@ -1,5 +1,11 @@
 What's new in this update:
 
-• IMPROVED — Tidier Tax Estimate: the note about what your deductions save and the Meals & Entertainment 50% note are now on separate lines, and the tax rate box is a little narrower.
+• NEW — A client who has their own contract. If a client signs their own contract instead of yours, open the lead and tap “Client has their own contract?” under Contract. You get three rows: mark their contract signed (or undo it), create and copy their event portal link, and attach a copy of their contract, which is filed in the same Drive folder as your contracts. Their event portal never shows your agreement; it says their contract is pending signing or on file, and they can still pay their deposit. A new Help topic explains it.
+
+• IMPROVED — Booked value now includes travel fees. Booked value, the average per booking, and each lead source’s booked value and return on ad spend count the quoted price plus the travel fee, so they match what you are actually owed. Numbers for earlier periods will read higher for shows that had a travel fee. Referral fees still use the quoted price only.
+
+• NEW (OPTIONAL) — Nightly Google Contacts sync. In Settings → Tools → Google Contacts, tick “Add new leads automatically every evening” and pick an hour. Only new leads are added; people already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick. This needs Google Contacts to be switched on for your app, as for the Sync now button.
+
+• FIXED — A Google Contacts sync that stopped part-way no longer blocks every later sync.
 
 • IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
