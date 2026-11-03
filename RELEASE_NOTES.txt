@@ -1,11 +1,21 @@
 What's new in this update:
 
-• NEW — A client who has their own contract. If a client signs their own contract instead of yours, open the lead and tap “Client has their own contract?” under Contract. You get three rows: mark their contract signed (or undo it), create and copy their event portal link, and attach a copy of their contract, which is filed in the same Drive folder as your contracts. Their event portal never shows your agreement; it says their contract is pending signing or on file, and they can still pay their deposit. A new Help topic explains it.
+• NEW (OPTIONAL) — Website inquiry form. If you have a contact form on your own website, people who fill it out can now become new leads in Magic Manager automatically, and you get an email each time. It is off until you switch it on: Settings → More options → Website inquiry form. Tick the questions you want, tap Copy code, paste the code into an HTML or Embed block on your website and publish, then tap Send a test inquiry. Entries arrive marked New, from Website, with a follow-up due today. It has built-in spam protection, and “Make a new key” cancels an old code if you ever need to. A new Help topic walks through it.
 
-• IMPROVED — Booked value now includes travel fees. Booked value, the average per booking, and each lead source’s booked value and return on ad spend count the quoted price plus the travel fee, so they match what you are actually owed. Numbers for earlier periods will read higher for shows that had a travel fee. Referral fees still use the quoted price only.
+• NEW (OPTIONAL) — TRMNL e-ink display. If you own a TRMNL screen, Magic Manager can send it your next show, follow-ups, new leads, booked, owed, and income vs. expenses every 30 minutes. Settings → More options → TRMNL display.
 
-• NEW (OPTIONAL) — Nightly Google Contacts sync. In Settings → Tools → Google Contacts, tick “Add new leads automatically every evening” and pick an hour. Only new leads are added; people already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick. This needs Google Contacts to be switched on for your app, as for the Sync now button.
+• IMPROVED — Insights → Booked list now shows what is paid and what is still due for each show, with totals. Each show’s amount includes its travel fee.
 
-• FIXED — A Google Contacts sync that stopped part-way no longer blocks every later sync.
+• IMPROVED — Deposit and Balance now appear as small pills on one line under each show, in both Upcoming Shows and the Booked list. Tap one, then tap again to mark the payment received; the screen updates at once. A new Help topic explains it.
 
-• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve.
+• IMPROVED — The travel fee is counted the same way everywhere: Insights drill-downs, the Oracle and in-play totals now match Booked value, and the lead screens say “total” where travel is included.
+
+• IMPROVED — Upcoming follow-ups are grouped by day. The soonest day is open, the others are collapsed with a date badge, and the badges line up.
+
+• IMPROVED — Settings is tidier. Settings → Tools is shorter: Import, Export and Google Contacts are now together in one row called “Your clients” (the nightly Contacts sync is there), and “Send me a test email” lives in Message templates. The sections inside More options are in alphabetical order.
+
+• IMPROVED — Small touches: the Booked tiles in Insights match the other tiles, the Today card says when a client’s own contract is not yet signed, date badges line up in the to-do list, and the Postpone hint can be dismissed.
+
+• Still new if you are updating from before: a client can have their own contract (Help explains it), booked value includes travel fees, and you can turn on a nightly Google Contacts sync.
+
+• IMPORTANT when updating: replace the four files as usual — Code.gs, Index.html, Sign.html and Store.html — then Deploy → Manage deployments → New version. Your data is never affected, and there are no new permissions to approve. The website inquiry form and the TRMNL display are both off until you switch them on.

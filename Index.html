@@ -122,8 +122,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
 .pill{font-size:11px;font-weight:600;letter-spacing:.06em;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--cream)}
 .pill.gold{background:rgba(201,160,80,.14);border-color:var(--gold);color:var(--gold-bright)}
 .pill.dim{color:var(--muted)}
-.pill.red{border-color:var(--crimson);color:#E9927B;background:rgba(192,82,54,.12)}
-.pill.follow{}
+.pill.red{border-color:var(--crimson);color:#E9927B;background:rgba(192,82,54,.12)}.pill.follow{}
 @keyframes oracleGlow{
   0%,100%{ border-color:var(--gold); box-shadow:0 0 14px rgba(201,160,80,.22); }
   50%{ border-color:var(--oracle-violet); box-shadow:0 0 20px rgba(143,184,232,.32); }
@@ -334,6 +333,13 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
   padding:10px 0; border-top:1px solid var(--line); cursor:pointer;
 }
 .upcomingfu-row:first-child{ border-top:none; }
+.fuday-h{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; }
+.fuday-h:first-child{ border-top:none; }
+.fuday-t{ font-weight:600; color:var(--cream); font-size:13.5px; }
+.fuday-s{ font-size:12px; color:var(--muted); }
+.fuday-h .chev{ flex:0 0 auto; color:var(--muted); font-size:16px; transition:transform .2s ease; }
+.fuday-h.open .chev{ transform:rotate(90deg); }
+.fuday-pad{ flex:0 0 auto; font-size:16px; visibility:hidden; }
 .insight-group-label{
   font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
   color:var(--muted); margin:26px 2px 10px; padding-top:16px; border-top:1px solid var(--line);
@@ -448,6 +454,7 @@ main{padding:14px 14px 8px;max-width:640px;margin:0 auto}
    chevron + a gentle press. Static number tiles get neither. */
 .stat[onclick]{cursor:pointer}
 .stat[onclick]::after{content:"\203A";position:absolute;top:6px;right:9px;font-size:13px;line-height:1;color:var(--muted);opacity:.6}
+.stat.gold{background:rgba(201,160,80,.07);border-color:var(--gold)}
 .stat.on{background:var(--gold);border-color:var(--gold)}
 .stat.on .v{color:#141008}
 .stat.on .l{color:rgba(20,16,8,.65)}
@@ -996,34 +1003,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
 
     <div class="insight-group-label" id="setToolsLbl">Tools</div>
     <div class="more-list" id="setToolsList">
-      <button type="button" class="more-row" data-kw="export download csv spreadsheet backup excel" onclick="exportLeadsCsv()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 3h16"/></svg></span>
-        <span class="t">Export my clients (CSV)</span><span class="chev">&#8250;</span>
-      </button>
-      <button type="button" class="more-row" id="gcontacts_toggle" data-kw="contacts sync google phone book" onclick="toggleGContacts()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-        <span class="t">Google Contacts</span><span class="chev">&#8250;</span>
-      </button>
-      <div id="gcontacts_wrap" class="more-detail" style="display:none">
-        <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
-        <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
-        <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
-        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
-          <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="gcauto_on" style="width:auto;flex:0 0 auto;margin:0" onchange="saveContactAuto()"><span>Add new leads automatically every evening</span></label>
-          <div id="gcauto_timerow" style="display:none;margin:10px 0 0 28px;align-items:center;gap:8px">
-            <label for="gcauto_hour" style="margin:0">Around</label>
-            <select id="gcauto_hour" aria-label="Time of the nightly sync" style="width:auto;font-size:13px;padding:6px 28px 6px 12px" onchange="saveContactAuto()"></select>
-          </div>
-          <p class="note" id="gcauto_note" style="text-align:left;margin:8px 0 0">Only new leads are added. People already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick.</p>
-          <p class="note" id="gcauto_last" style="text-align:left;margin:6px 0 0;display:none"></p>
-        </div>
-      </div>
-
-      <button type="button" class="more-row" data-kw="import csv upload spreadsheet bring clients" onclick="openLeadImport()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg></span>
-        <span class="t">Import existing clients</span><span class="chev">&#8250;</span>
-      </button>
-      <button type="button" class="more-row" data-kw="templates email text message wording" onclick="openMsgTemplates()">
+      <button type="button" class="more-row" data-kw="templates email text message wording test alert notification" onclick="openMsgTemplates()">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
         <span class="t">Message templates</span><span class="chev">&#8250;</span>
       </button>
@@ -1040,14 +1020,29 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
         <span class="ic"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></span>
         <span class="t">Referral link</span><span class="chev">&#8250;</span>
       </button>
-      <button type="button" class="more-row" id="testmail_toggle" data-kw="test email alert notification" onclick="toggleTestEmail()">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/><path d="M15.5 17.5l1.8 1.8 3.4-3.6"/></svg></span>
-        <span class="t">Send me a test email</span><span class="chev">&#8250;</span>
+      <button type="button" class="more-row" id="clients_toggle" data-kw="clients import export download csv spreadsheet backup excel upload bring contacts sync google phone book" onclick="toggleClients()">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="t">Your clients</span><span class="chev">&#8250;</span>
       </button>
-      <div id="testmail_wrap" class="more-detail" style="display:none">
-        <p class="note" style="text-align:left;margin:0 0 10px">Sends a short email to your contact email, so you know the alerts for a signed contract or a reported payment will reach you.</p>
-        <button class="save" id="testMailBtn" style="width:100%" onclick="sendTestEmail()">Send test email</button>
-        <p class="note" id="testMailStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+      <div id="clients_wrap" class="more-detail" style="display:none">
+        <p class="note" style="text-align:left;margin:0 0 10px">Bring clients in, take a copy out, or keep your Google Contacts in step.</p>
+        <button class="save" style="margin-top:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="openLeadImport()">Import existing clients</button>
+        <button class="save" style="margin-top:10px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="exportLeadsCsv()">Export my clients (CSV)</button>
+        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+          <div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 6px">Google Contacts</div>
+          <p class="note" style="text-align:left;margin:0 0 10px">Keep your leads&rsquo; names and numbers in sync with your Google Contacts.</p>
+          <button class="save" id="syncBtn" style="width:100%" onclick="syncContacts()">Sync now</button>
+          <p class="note" id="syncStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="gcauto_on" style="width:auto;flex:0 0 auto;margin:0" onchange="saveContactAuto()"><span>Add new leads automatically every evening</span></label>
+          <div id="gcauto_timerow" style="display:none;margin:10px 0 0 28px;align-items:center;gap:8px">
+            <label for="gcauto_hour" style="margin:0">Around</label>
+            <select id="gcauto_hour" class="pillsel" aria-label="Time of the nightly sync" onchange="saveContactAuto()"></select>
+          </div>
+          <p class="note" id="gcauto_note" style="text-align:left;margin:8px 0 0">Only new leads are added. People already in your Google Contacts are never changed, so your own edits there are safe. It runs at some point within the hour you pick.</p>
+          <p class="note" id="gcauto_last" style="text-align:left;margin:6px 0 0;display:none"></p>
+        </div>
+        </div>
       </div>
 
     </div>
@@ -1358,6 +1353,11 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
   <button class="save" id="mt_starter_btn" style="margin-top:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="addStarterTemplatesUI()">Add starter templates</button>
   <p class="note" style="text-align:left;margin:8px 0 0">Adds ready-made templates you don&rsquo;t have yet &mdash; inquiry reply, quote, agreement, reminders, thank-you, and partner referrals. It never changes or removes anything of yours.</p>
   <div id="mt_list"></div>
+  <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+    <p class="note" style="text-align:left;margin:0 0 10px">Want to see that email reaches you? This sends a short test email to your contact email, so you know the alerts for a signed contract or a reported payment will arrive.</p>
+    <button class="save" id="testMailBtn" style="margin-top:0;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="sendTestEmail()">Send me a test email</button>
+    <p class="note" id="testMailStat" style="text-align:left;margin:8px 0 0;display:none"></p>
+  </div>
 </div>
 <div class="sheet" id="refLinkSheet" style="z-index:56">
   <div class="grab"></div>
@@ -1504,7 +1504,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
     </select>
       </div>
     </div>
-    <p class="note" id="d_postpone_hint" style="display:none;text-align:left;margin:8px 0 0">Show moved? Tap Follow-up, then “Postpone — follow up later”.</p>
+    <p class="note" id="d_postpone_hint" style="display:none;text-align:left;margin:8px 0 0"><button type="button" aria-label="Dismiss this tip" onclick="dismissPostponeHint_()" style="float:right;margin:-8px -8px 0 8px;padding:8px 12px;color:var(--muted);font-size:14px;line-height:1">&#10005;</button>Show moved? Tap Follow-up, then “Postpone — follow up later”.</p>
     <div id="d_followwrap">
       <div id="d_followbody" style="display:none;margin-top:10px">
         <div class="grid2">
@@ -3417,10 +3417,10 @@ function openTopClients(){
 function closeTopClients(){
   $('topclientsSheet').classList.remove('open'); syncOverlay();
 }
-function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml){
+function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml, extraHtml){
   // The chevron only appears when the row actually opens something (onclick is truthy) — several
   // callers pass '' for a plain, non-tappable summary row, and that must stay visibly inert.
-  return '<div class="upcomingfu-row" onclick="'+onclick+'">'
+  return '<div class="upcomingfu-row" onclick="'+onclick+'"'+(extraHtml?' style="flex-wrap:wrap;row-gap:6px"':'')+'>'
     +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:baseline;gap:8px">'
         +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+(iconHtml||'')+esc(name)+'</span>'
@@ -3430,6 +3430,7 @@ function compactRow(name, price, meta, rightText, rightClass, onclick, iconHtml)
     +'</div>'
     +(rightText?'<span class="pill '+(rightClass||'gold')+'">'+esc(rightText)+'</span>':'')
     +(onclick?'<span class="row-chev">&#8250;</span>':'')
+    +(extraHtml?'<div style="flex:0 0 100%">'+extraHtml+'</div>':'')
     +'</div>';
 }
 function compactLeadSection(title, arr, dangerHeader, rowFn, collapseKey){
@@ -3502,22 +3503,22 @@ function leadRow_Upcoming(L){
   var depositYes=String(L[C.depositReceived]||'')==='Yes';
   var balanceYes=String(L[C.balancePaid]||'')==='Yes';
   var contractYes=String(L[C.contractSigned]||'')==='Yes';
-  var badges='<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'
-    +paymentBadge('Deposit', depositYes, L._row, 'depositReceived')
-    +paymentBadge('Balance', balanceYes, L._row, 'balancePaid')
+  var badges='<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +paymentBadge(esc(payLabel_('Deposit', depositBase(L))), depositYes, L._row, 'depositReceived')
+    +paymentBadge(esc(payLabel_('Balance', balanceBase(L))), balanceYes, L._row, 'balancePaid')
     +statusBadge('Contract', contractYes)
     +'</div>';
-  return '<div class="upcomingfu-row" onclick="openSheet('+L._row+')">'
+  return '<div class="upcomingfu-row" onclick="openSheet('+L._row+')" style="flex-wrap:wrap;row-gap:6px">'
     +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:baseline;gap:8px">'
         +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(L[C.name]||'Lead')+'</span>'
         +(L[C.price]?'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')
       +'</div>'
       +(meta?'<div style="font-size:12px;color:var(--muted)">'+esc(meta)+'</div>':'')
-      +badges
     +'</div>'
     +(d?'<span class="pill gold">'+esc(fmtDateY(L[C.eventDate]))+'</span>':'')
     +'<span class="row-chev">&#8250;</span>'
+    +'<div style="flex:0 0 100%">'+badges+'</div>'
     +'</div>';
 }
 function armOrToggleQuickPayment(row, colKey){
@@ -3530,9 +3531,16 @@ function armOrToggleQuickPayment(row, colKey){
   }
   QP_ARM[key]=setTimeout(function(){
     delete QP_ARM[key];
-    renderLeads();
+    renderQuickPaymentViews_();
   }, 3500);
+  renderQuickPaymentViews_();
+}
+// The Deposit / Balance pills live on Upcoming Shows (the Leads page) and on the Insights Booked list; after a
+// tap, redraw whichever of the two is on screen so the pill and the Paid / Still due totals change at once.
+function renderQuickPaymentViews_(){
   renderLeads();
+  var sh=$('insightResultsSheet'), tt=$('insightResults_title');
+  if(INSIGHT_BOOKED_OPEN_ && sh && sh.classList.contains('open') && tt && tt.textContent.indexOf('Booked')===0) insightBooked();
 }
 function toggleQuickPayment(row, colKey){
   var L=LEADS.find(function(x){ return x._row===row; });
@@ -3541,10 +3549,10 @@ function toggleQuickPayment(row, colKey){
   var cur=String(L[col]||'')==='Yes';
   var next=cur?'No':'Yes';
   L[col]=next;
-  renderLeads();
+  renderQuickPaymentViews_();
   var updates={}; updates[col]=next;
   GS.withSuccessHandler(function(json){ ingest(json); })
-    .withFailureHandler(function(){ L[col]=cur?'Yes':'No'; renderLeads(); toast('Could not update \u2014 try again'); })
+    .withFailureHandler(function(){ L[col]=cur?'Yes':'No'; renderQuickPaymentViews_(); toast('Could not update \u2014 try again'); })
     .updateLead(row, updates);
 }
 // Same compact look as "Upcoming Follow-ups"; the pill shows status (there's no follow-up date to show).
@@ -3657,27 +3665,50 @@ function clearStaleUI(){
   }).withFailureHandler(function(){ toast('Could not clear \u2014 try again'); refreshQuiet(); })
   .clearStaleFollowups(JSON.stringify(rows));
 }
+// Upcoming follow-ups grouped by day (Rich, 2026-11-01): a day with 2+ leads is one collapsed row ("Mon, Nov 2 - 4 follow-ups") that opens to
+// the names; a day with a single lead stays a plain row. Every day starts collapsed (Rich, 2026-11-01). Rows keep their incoming (soonest-first) order.
+function upcomingDayGroups_(rows){
+  var map={}, order=[];
+  rows.forEach(function(L){
+    var f=pd(L[C.followup]); if(!f) return;
+    var key=ymd(f);
+    if(!map[key]){ map[key]={key:key, label:isToday_(f)?'Today':f.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}),
+      pill:isToday_(f)?'Today':f.toLocaleDateString(undefined,{month:'short',day:'numeric'}), weekday:isToday_(f)?'Due today':f.toLocaleDateString(undefined,{weekday:'long'}), rows:[]}; order.push(key); }
+    map[key].rows.push(L);
+  });
+  return order.map(function(k){ return map[k]; });
+}
+// One upcoming row. Inside a day group the date would repeat on every row, so there the pill shows only a time of day (if one is set).
+// pad: a plain row sitting among collapsed day headers gets an invisible chevron so its date badge lines up with theirs.
+function upcomingRow_(L, inGroup, pad){
+  var f=pd(L[C.followup]);
+  var ed=pd(L[C.eventDate]);
+  var meta=[(ed?fmtDateY(L[C.eventDate]):''), (L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
+  var pill = inGroup ? ((f.getHours()||f.getMinutes()) ? f.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : '') : (isToday_(f)?todayPill_(f):fmtFU(f));
+  return '<div class="upcomingfu-row" onclick="openSheet('+L._row+')">'
+    +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:baseline;gap:8px">'
+        +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(L[C.name]||'Lead')+'</span>'
+        +conflictIconHtml(L)
+        +(L[C.price]?'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')
+      +'</div>'
+      +(meta?'<div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(meta)+'</div>':'')
+    +'</div>'
+    +(pill?'<span class="pill gold">'+esc(pill)+'</span>':'')
+    +(pad?'<span class="fuday-pad">&#8250;</span>':'')
+    +'</div>';
+}
 function upcomingFuHTML(upcoming){
   if(!upcoming.length) return '';
-  var h='';
-  h+='<div>'
-    +upcoming.map(function(L){
-      var f=pd(L[C.followup]);
-      var ed=pd(L[C.eventDate]);
-      var meta=[(ed?fmtDateY(L[C.eventDate]):''), (L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
-      return '<div class="upcomingfu-row" onclick="openSheet('+L._row+')">'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="display:flex;align-items:baseline;gap:8px">'
-            +'<span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(L[C.name]||'Lead')+'</span>'
-            +conflictIconHtml(L)
-            +(L[C.price]?'<span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(fmtMoney(L[C.price]))+'</span>':'')
-          +'</div>'
-          +(meta?'<div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(meta)+'</div>':'')
-        +'</div>'
-        +'<span class="pill gold">'+esc(isToday_(f)?todayPill_(f):fmtFU(f))+'</span>'
-        +'</div>';
-    }).join('')
-    +'</div>';
+  var h='<div>'+upcomingDayGroups_(upcoming).map(function(g, i){
+    if(g.rows.length===1) return upcomingRow_(g.rows[0], false, true);
+    var key='fu_'+g.key, open=secIsOpen_(key, {defaultOpen:false});
+    return '<div class="fuday-h'+(open?' open':'')+'" id="sec_h_'+key+'" onclick="toggleSec_(\''+key+'\')">'
+        +'<div style="flex:1;min-width:0"><div class="fuday-t">'+g.rows.length+' follow-ups</div><div class="fuday-s">'+esc(g.weekday)+'</div></div>'
+        +'<span class="pill gold">'+esc(g.pill)+'</span><span class="chev">&#8250;</span></div>'
+      +'<div id="sec_b_'+key+'" style="display:'+(open?'block':'none')+';padding-left:12px;border-left:1px solid var(--line);margin-left:2px">'
+        +g.rows.map(function(L){ return upcomingRow_(L, true); }).join('')+'</div>';
+  }).join('')+'</div>';
   return '<div class="more-list" style="margin-bottom:16px">'+collapsibleSec_('upcoming','Upcoming Follow-ups',upcoming.length,h,{noun:['lead','leads']})+'</div>';
 }
 function todayPill_(d){ return (d.getHours()||d.getMinutes()) ? 'Today '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : 'Today'; }
@@ -3867,7 +3898,10 @@ function todayShowNotesHtml_(L){
   if(balanceBase(L)>0 && String(L[C.balancePaid]||'')!=='Yes'){
     out+='<div class="todayshow-note">'+(String(L[C.balanceReported]||'')==='Yes' ? 'Balance reported paid — confirm it' : 'Balance due: '+esc(fmtMoney(balanceFinal(L))))+'</div>';
   }
-  if(String(L[C.contractSignUrl]||'').trim() && String(L[C.contractSigned]||'')!=='Yes'){
+  if(ownContractState_(L)==='pending'){
+    // a client with their own contract: it is tracked on purpose, so flag it even when no event portal link was made
+    out+='<div class="todayshow-note warn">Their own contract is not signed yet</div>';
+  } else if(String(L[C.contractSignUrl]||'').trim() && String(L[C.contractSigned]||'')!=='Yes'){
     out+='<div class="todayshow-note warn">Contract sent, not signed yet</div>';
   }
   return out;
@@ -4103,6 +4137,10 @@ function syncUpcomingNote_(){
     });
     var ys=Object.keys(other).sort();
     if(ys.length) txt = thisYear+' this year'+ys.map(function(y){ return ' \u00b7 '+other[y]+' in '+y; }).join('');
+  }
+  if(FILTER==='All' && !(Q && String(Q).trim())){
+    var allN=LEADS.filter(function(L){ return matches(L,'All'); }).length;
+    txt=allN+' lead'+(allN===1?'':'s')+' '+String.fromCharCode(183)+' listed by follow-up date';
   }
   n.textContent=txt; n.style.display = txt ? 'block' : 'none';
 }
@@ -4479,7 +4517,7 @@ function taskCard(T, isDone){
       +(meta?'<div style="font-size:12px;color:var(--muted)">'+esc(meta)+'</div>':'')
     +'</div>'
     +(f?'<span class="pill '+(overdue?'red':'gold')+'">'+esc(fmtFU(T.due))+'</span>':'')
-    +((isDone||T.repeat)?'<button class="tdel" onclick="event.stopPropagation();deleteTaskUI(\''+esc(T.id)+'\')">\u2715</button>':'')
+    +((isDone||T.repeat)?'<button class="tdel" onclick="event.stopPropagation();deleteTaskUI(\''+esc(T.id)+'\')">\u2715</button>':'<span class="tdel" style="visibility:hidden" aria-hidden="true">&#10005;</span>')   // same-size invisible slot, so every row's date badge ends in the same place
     +'</div>';
 }
 function renderTasks(){
@@ -4987,7 +5025,7 @@ function nextStepFor_(L){
         why: booked ? 'Booked \u2014 enter the quoted price so you can send the agreement.' : 'Enter what you\u2019re charging, then send the agreement.'};
       return {kind:'contract', label:'Generate contract',
         why: booked ? 'Booked \u2014 but no agreement yet. Send one to protect the date.'
-          : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+' quoted \u2014 send the agreement to lock in the date'};
+          : fmtMoney(money(L[C.price])+money(L[C.travelFee]))+(money(L[C.travelFee])>0?' total':' quoted')+' \u2014 send the agreement to lock in the date'};
     }
     if(booked) return {kind:'link', label:'Get the contract signed',
       why:(String(L[C.depositReceived]||'')==='Yes' ? 'Deposit received \u2014 ' : 'Booked \u2014 ')+'agreement not signed yet. Tap to copy their event portal link.'};
@@ -5606,8 +5644,10 @@ function postponeReset_(){
 // A quiet pointer for the one place people look first (Status): shown only while the lead is Booked.
 function renderPostponeHint_(){
   var el=$('d_postpone_hint'), s=$('d_status'); if(!el||!s) return;
-  el.style.display = s.value==='Booked' ? 'block' : 'none';
+  el.style.display = (s.value==='Booked' && !seen('postponeHint')) ? 'block' : 'none';
 }
+// The tip retires for good once it is dismissed or Postpone has been used (server-side "seen", like the other tips).
+function dismissPostponeHint_(){ markSeen('postponeHint'); var el=$('d_postpone_hint'); if(el) el.style.display='none'; }
 function renderPostponeBtn_(){            // no standing button: the panel is reached from the Follow-up date picker
   renderPostponeHint_();
   var w=$('d_postwrap'); if(!w) return;
@@ -5651,6 +5691,7 @@ function postponeApply_(){
   }
   postponeDisarm_();
   // Instant: the screen changes right now and the save happens in the background (rolled back if it fails).
+  markSeen('postponeHint');   // using Postpone once is the lesson learned: the tip retires
   var row=L._row, note=($('d_post_note').value||'').trim(), snap={};
   var keys=[C.status, C.followup, C.eventDate, C.start, C.end, C.contractSignUrl, C.contractSigned];
   keys.forEach(function(k){ snap[k]=L[k]; });
@@ -7097,8 +7138,8 @@ function toggleRecycleBin(){
   w.style.display=open?'':'none';
   if(btn) btn.classList.toggle('open', open);
 }
-function toggleGContacts(){
-  var w=$('gcontacts_wrap'), btn=$('gcontacts_toggle'); if(!w) return;
+function toggleClients(){
+  var w=$('clients_wrap'), btn=$('clients_toggle'); if(!w) return;
   var open=w.style.display==='none';
   w.style.display=open?'':'none';
   if(btn) btn.classList.toggle('open', open);
@@ -7134,6 +7175,38 @@ function saveContactAuto(){
     if(!r.ok){ fail(r.error||'Could not save that \u2014 try again.'); return; }
     toast(on?'Nightly sync on \u2014 around '+gcHourLabel_(r.hour):'Nightly sync off');
   }).withFailureHandler(function(){ fail('Could not save that \u2014 try again.'); }).setContactAutoSync(on, parseInt(sel.value,10));
+}
+/* ---------- TRMNL display (optional) ---------- */
+function trmnlNote_(msg){ var n=$('trmnl_note'); if(!n) return; n.textContent=msg||''; n.style.display=msg?'block':'none'; }
+function trmnlSaved_(hint){ var u=$('trmnl_url'); if(u){ u.value=''; u.placeholder=hint?'Saved (ends '+hint+') — paste a new one to replace it':'Paste the webhook URL from TRMNL'; } }
+function showTrmnlLast_(l){
+  if(!l || !l.at){ trmnlNote_(''); return; }
+  var when=new Date(l.at).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+  trmnlNote_(l.ok ? 'Last sent '+when+'.' : (l.error||'The last send failed.')+' ('+when+')');
+}
+function loadTrmnl_(){
+  GS.withSuccessHandler(function(r){
+    if(!r) return;
+    $('trmnl_on').checked=!!r.on; trmnlSaved_(r.hasUrl?r.hint:''); showTrmnlLast_(r.last);
+  }).withFailureHandler(function(){}).getTrmnl();
+}
+// One path for the checkbox and the button: save the URL + on/off, then send once so the screen updates right away.
+function saveTrmnl(){
+  var cb=$('trmnl_on'), inp=$('trmnl_url'), btn=$('trmnl_send'); if(!cb||!inp||!btn) return;
+  var on=cb.checked, url=inp.value.trim();
+  btn.disabled=true; btn.textContent='Sending…'; trmnlNote_('');
+  function done(){ btn.disabled=false; btn.textContent='Send now'; }
+  function fail(msg){ cb.checked=false; trmnlNote_(msg); done(); }
+  GS.withSuccessHandler(function(json){
+    var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
+    if(!r.ok){ fail(r.error||'Could not save that — try again.'); return; }
+    trmnlSaved_(r.hint);
+    GS.withSuccessHandler(function(j2){
+      var s={}; try{ s=JSON.parse(j2)||{}; }catch(e){}
+      showTrmnlLast_(s); done();
+      toast(s.ok ? (on?'TRMNL updates on — sent':'Sent to your TRMNL') : 'TRMNL did not update');
+    }).withFailureHandler(function(){ trmnlNote_('Could not reach the server — try again.'); done(); }).sendTrmnlNow();
+  }).withFailureHandler(function(){ fail('Could not save that — try again.'); }).setTrmnl(on, url);
 }
 // Export all clients/leads to a CSV — client-side, same mechanism as the
 // Expenses export (build from the already-loaded LEADS, download via a Blob).
@@ -8155,7 +8228,7 @@ function renderInsights(){
   var booked=all.filter(isBookedLike);
   var pending=all.filter(function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; });
   var bookedVal=booked.reduce(function(s,L){ return s+bookedAmt_(L); },0);
-  var playVal=pending.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var playVal=pending.reduce(function(s,L){ return s+bookedAmt_(L); },0);
   var avgBooked= booked.length ? Math.round(bookedVal/booked.length) : 0;
   // Anchored to today regardless of the archive-year scope selector above
   // — "new this week" would be a meaningless, always-zero number if it
@@ -8167,12 +8240,9 @@ function renderInsights(){
   var cd=insightsCompareData_();
   var _cn=$('insightsCompareNote'); if(_cn){ var _t=insightsCompareNoteText_(cd); _cn.textContent=_t; _cn.style.display=_t?'block':'none'; }
   $('statGrid').innerHTML =
-    // Hero: booked value + booked count for the selected period — the headline.
-    '<div class="ins-hero" style="grid-column:1/-1">'
-     +'<div class="ins-hero-main"><div class="ins-hero-v">'+$m(bookedVal)+'</div><div class="ins-hero-l">Booked value</div>'+cmpFor_(cd,'bookedVal',true)+'</div>'
-     +'<div class="ins-hero-div"></div>'
-     +'<div class="ins-hero-side" onclick="insightBooked()"><div class="ins-hero-v2">'+booked.length+'</div><div class="ins-hero-l">Booked</div>'+cmpFor_(cd,'booked',true)+'</div>'
-    +'</div>'
+    // Booked value + booked count for the selected period — the headline row, same tile look as the rest (Rich, 2026-11-02).
+    '<div class="stat gold"><div class="v">'+$m(bookedVal)+'</div><div class="l">Booked value</div>'+cmpFor_(cd,'bookedVal',true)+'</div>'
+     +'<div class="stat gold" onclick="insightBooked()"><div class="v">'+booked.length+'</div><div class="l">Booked</div>'+cmpFor_(cd,'booked',true)+'</div>'
    // Mirrors the hero row (money on the left, count on the right) so "In-play quoted / In play"
    // reads as the pending-business counterpart directly under "Booked value / Booked", and
    // "Avg booked / Total leads" keeps the same money-left/count-right pattern below that.
@@ -8366,7 +8436,7 @@ function oracleUpcoming(){
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
   var upcoming=oracleUpcomingLeads_();
   if(!upcoming.length) return 'Nothing booked in the next 30 days.';
-  var val=upcoming.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var val=upcoming.reduce(function(s,L){ return s+bookedAmt_(L); },0);
   return '<b>'+upcoming.length+' show'+(upcoming.length===1?'':'s')+'</b> booked in the next 30 days, worth '+$m(val)+' total.';
 }
 function oracleConversion(){
@@ -9166,21 +9236,48 @@ function byEventSoonest_(a,b){
 }
 // Newest inquiry first (leads with no inquiry date last); biggest quoted value first.
 function byNewestInquiry_(a,b){ return (pd(b[C.timestamp])||0)-(pd(a[C.timestamp])||0); }
-function byValueDesc_(a,b){ return money(b[C.price])-money(a[C.price]); }
-function showInsightInPlace(label, pred, ignoreScope, sortFn){
+function byValueDesc_(a,b){ return bookedAmt_(b)-bookedAmt_(a); }
+// What has come in and what is still owed on a lead, from the same Deposit Received / Balance Paid
+// flags the lead tracker uses: total = price + travel fee, split into the deposit and the balance.
+function paidDue_(L){
+  var dep=depositBase(L), bal=balanceBase(L);
+  var depIn=String(L[C.depositReceived]||'')==='Yes', balIn=String(L[C.balancePaid]||'')==='Yes';
+  var paid=(depIn?dep:0)+(balIn?bal:0), due=(depIn?0:dep)+(balIn?0:bal);
+  return {total:bookedAmt_(L), paid:paid, due:due, depIn:depIn, dep:dep, bal:bal, balIn:balIn};
+}
+// Pill label shared by Upcoming Shows and the Booked list: "Deposit $1,500" (statusBadge/paymentBadge add the
+// green check when it is in, the red cross when it is still due). No amount = just the word.
+function payLabel_(word, amt){ return amt>0 ? word+' $'+Math.round(amt).toLocaleString() : word; }
+// Under a Booked row: the same small pills Upcoming Shows uses \u2014 Deposit and Balance with their amounts.
+// A show with no deposit set gets just the Balance pill.
+function paidDueLine_(L){
+  var p=paidDue_(L);
+  if(p.total<=0) return '';
+  var h='';
+  if(p.dep>0) h+=paymentBadge(esc(payLabel_('Deposit', p.dep)), p.depIn, L._row, 'depositReceived');
+  if(p.bal>0) h+=paymentBadge(esc(payLabel_('Balance', p.bal)), p.balIn, L._row, 'balancePaid');
+  return h?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+h+'</div>':'';
+}
+function showInsightInPlace(label, pred, ignoreScope, sortFn, withMoney){
   var results = LEADS.filter(function(L){ return (ignoreScope || inInsightsScope(L)) && pred(L); });
   if(sortFn) results.sort(sortFn);
   $('insightResults_title').textContent = label + ' \u00b7 ' + results.length;
+  var sum='', $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
+  if(withMoney && results.length){
+    var paid=0, due=0; results.forEach(function(L){ var p=paidDue_(L); paid+=p.paid; due+=p.due; });
+    sum='<div style="font-size:14px;color:var(--cream);margin:2px 0 8px">Paid <b style="color:#B5CF9C;font-size:15px">'+esc($m(paid))+'</b> \u00b7 Still due <b style="color:#F0A590;font-size:15px">'+esc($m(due))+'</b></div>';
+  }
   $('insightResults_list').innerHTML = results.length
-    ? results.map(function(L){
+    ? sum + results.map(function(L){
         var meta=[(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
         var d=pd(L[C.eventDate]);
-        return compactRow(L[C.name]||'Lead', fmtMoney(L[C.price]), meta, d?fmtDateY(L[C.eventDate]):'', 'gold', 'closeInsightResults();openSheet('+L._row+')');
+        return compactRow(L[C.name]||'Lead', withMoney?fmtMoney(bookedAmt_(L)):fmtMoney(L[C.price]), meta, d?fmtDateY(L[C.eventDate]):'', 'gold', 'closeInsightResults();openSheet('+L._row+')', '', withMoney?paidDueLine_(L):'');
       }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>Nothing here yet.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
 function closeInsightResults(){
+  INSIGHT_BOOKED_OPEN_=false;
   $('insightResultsSheet').classList.remove('open'); syncOverlay();
 }
 function insightAll(){ showInsightInPlace('All leads', function(){ return true; }, false, byNewestInquiry_); }
@@ -9220,7 +9317,9 @@ function insightInquiredBooked(){
 }
 function insightNewWeek(){ var wkStart=weekStart(); showInsightInPlace('New this week', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=wkStart; }, true, byNewestInquiry_); }
 function insightNewMonth(){ var moStart=monthStart(); showInsightInPlace('New this month', function(L){ var ts=pd(L[C.timestamp]); return ts && ts>=moStart; }, true, byNewestInquiry_); }
-function insightBooked(){ showInsightInPlace('Booked', isBookedLike, false, byEventSoonest_); }
+// True only while the Booked list is the one showing in the results sheet, so a pill tap redraws it (and nothing else).
+var INSIGHT_BOOKED_OPEN_=false;
+function insightBooked(){ showInsightInPlace('Booked', isBookedLike, false, byEventSoonest_, true); INSIGHT_BOOKED_OPEN_=true; }
 function insightInPlay(){ showInsightInPlace('In play', function(L){ var s=String(L[C.status]||'New'); return s==='Pending'||s==='New'; }, false, byEventSoonest_); }
 // Advertising ROI and Best-Performing Sources both show booked value —
 // this drill-down mirrors that exactly: same source, same Booked-or-
@@ -9242,12 +9341,12 @@ function showAdRoiSourceDrilldown(src, year){
     return true;
   }).sort(byValueDesc_);
   var $m=function(n){ return '$'+Math.round(n).toLocaleString(); };
-  var total = rows.reduce(function(s,L){ return s+money(L[C.price]); },0);
+  var total = rows.reduce(function(s,L){ return s+bookedAmt_(L); },0);
   var periodY = year || insightsScopeYear();
   $('insightResults_title').textContent = sourceLabel_(src)+(periodY?(' \u00b7 '+(insightsScopeMonth()!==null?insightsMonthName_(insightsScopeMonth())+' ':'')+periodY):'')+' \u00b7 '+$m(total);
   $('insightResults_list').innerHTML = rows.length
     ? rows.map(function(L){
-        return compactRow(L[C.name]||'Lead', $m(money(L[C.price])), String(L[C.status]||''), '', 'gold', L._row?('closeInsightResults();openSheet('+L._row+')'):'');
+        return compactRow(L[C.name]||'Lead', $m(bookedAmt_(L)), String(L[C.status]||''), '', 'gold', L._row?('closeInsightResults();openSheet('+L._row+')'):'');
       }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No booked or completed leads from this source'+(periodY?(' in '+(insightsScopeMonth()!==null?insightsMonthName_(insightsScopeMonth())+' ':'')+periodY):'')+'.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
@@ -9285,16 +9384,10 @@ function insightEvent(evt){ showInsightInPlace('Event type \u00b7 '+evt, functio
 // key (case/space-insensitive, same rule as everywhere else) and opens the
 // in-Insights overlay like the rest.
 function insightSource(src){ showInsightInPlace('Lead source \u00b7 '+src, function(L){ return sourceKey_(L[C.source])===sourceKey_(src); }, false, byValueDesc_); }
-function toggleTestEmail(){
-  var w=$('testmail_wrap'), btn=$('testmail_toggle'); if(!w) return;
-  var open=w.style.display==='none';
-  w.style.display=open?'':'none';
-  if(btn) btn.classList.toggle('open', open);
-}
 function sendTestEmail(){
   var btn=$('testMailBtn'), stat=$('testMailStat');
   btn.disabled=true; btn.textContent='Sending\u2026'; stat.style.display='none';
-  function done(msg){ btn.disabled=false; btn.textContent='Send test email'; stat.textContent=msg; stat.style.display='block'; }
+  function done(msg){ btn.disabled=false; btn.textContent='Send me a test email'; stat.textContent=msg; stat.style.display='block'; }
   GS.withSuccessHandler(function(json){
     var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
     if(r.ok) done('Sent to '+r.to+' \u2726 check your inbox (and spam, just this once).'+(r.signOn?'':' Note: \u201cEmail me when a client signs\u201d is turned off in your settings.'));
@@ -11141,9 +11234,9 @@ function applySettingsSearch_(){
   all('.setgrp').forEach(function(el){ var id=el.getAttribute('data-grp'), show=!on || !!plan.grps[id]; el.style.display = show ? '' : 'none'; setOpen(id, on && show); });
   var moreAny=false;
   all('.setsec').forEach(function(el){
-    var id=el.getAttribute('data-sec'), show=!on || !!plan.secs[id];
+    var id=el.getAttribute('data-sec'), show=!on || !!plan.secs[id] || (id==='trmnl' && rowMatches_(SETTINGS_Q, 'TRMNL display', TRMNL_KW_)) || (id==='intake' && rowMatches_(SETTINGS_Q, 'Website inquiry form', INTAKE_KW_));
     el.style.display = show ? '' : 'none'; setOpen(id, on && show);
-    if(show && on && (SETTINGS_SECTIONS_LIVE||[]).some(function(s){ return s.id===id && s.tier==='more'; })) moreAny=true;
+    if(show && on && (id==='trmnl' || id==='intake' || (SETTINGS_SECTIONS_LIVE||[]).some(function(s){ return s.id===id && s.tier==='more'; }))) moreAny=true;
   });
   var more=$('setmore'); if(more) more.style.display = (!on || moreAny) ? '' : 'none';
   setOpen('moreopts', on && moreAny);
@@ -11263,6 +11356,164 @@ function refreshSettingsQuiet_(paint){
     if(changed && !busy && body) paint(s);
   }).withFailureHandler(function(){}).getSettings();
 }
+/* Website inquiry form (optional, off until switched on; Rich, 2026-11-03). The buyer ticks which fields their form should have and
+   pastes the generated code into their own website, so it looks like their site and shows no Google bar. It POSTs to this app. */
+var INTAKE_KW_='website form inquiry inquiries zapier embed paste code lead capture contact';
+var INTAKE_={on:false,key:'',fields:[],url:'',menu:[],loaded:false}, INTAKE_ARM_=0;
+function intakeSectionHtml_(){
+  return '<div class="setsec" data-sec="intake"><button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'intake\')">'
+    + '<span class="httitle">Website inquiry form<span class="httsub">Add leads from a form on your own website</span></span>'
+    + '<span class="htright"><span id="setsec_intake_chev">&#9662;</span></span></button>'
+    + '<div id="setsec_intake_wrap" style="display:none;margin-top:10px">'
+    + '<p class="note" style="text-align:left;margin:0 0 10px">Optional, and a little technical. Put a contact form on your own website that adds leads to Magic Manager by itself.</p>'
+    + '<label style="display:flex;align-items:center;gap:10px;margin:0;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="intake_on" style="width:auto;flex:0 0 auto;margin:0" onchange="saveIntake_()"><span>Accept inquiries from my website</span></label>'
+    + '<div id="intake_body" style="display:none;margin-top:14px">'
+    + '<ol style="margin:0 0 14px;padding-left:20px;font-size:13.5px;line-height:1.55;color:var(--cream)"><li>Tick the questions you want below.</li><li>Tap <b>Copy code</b>.</li><li>In your website builder, add a <b>Code</b> (or <b>HTML</b>) block where the form should go, paste the code in, and publish the page.</li><li>Tap <b>Send a test inquiry</b>, then fill in the form on your site once to be sure it works.</li></ol>'
+    + '<div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:0 0 6px">Questions on your form</div>'
+    + '<div id="intake_fields"></div>'
+    + '<p class="note" style="text-align:left;margin:8px 0 0">Name is always asked, and so is an email or a phone number, so you can answer every inquiry.</p>'
+    + '<div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin:16px 0 6px">Paste this into your website</div>'
+    + '<textarea id="intake_code" readonly rows="7" onclick="this.select()" style="font-family:monospace;font-size:12px" aria-label="Form code to paste into your website"></textarea>'
+    + '<button class="save" style="width:100%;margin-top:10px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="copyIntakeCode_()">Copy code</button>'
+    + '<button class="save" style="width:100%;margin-top:10px;background:transparent;border:1px solid var(--gold);color:var(--gold-bright)" onclick="sendIntakeTest_()">Send a test inquiry</button>'
+    + '<p class="note" style="text-align:left;margin:8px 0 0">The test adds a sample lead called <b>Test inquiry</b> to Leads (and emails you), so you can see how inquiries arrive. Delete it afterwards. Every real inquiry arrives the same way, marked <b>New</b>. If you change the questions above, copy and paste the code again.</p>'
+    + '<button class="save" id="intake_reset" style="width:100%;margin-top:14px;background:transparent;border:1px solid #C05236;color:#E9927B" onclick="resetIntakeKey_()">Make a new key</button>'
+    + '<p class="note" style="text-align:left;margin:8px 0 0">The key in the code only lets a form add leads &mdash; it can never read anything. If you ever think it was misused, make a new key and paste the new code.</p>'
+    + '</div></div></div>';
+}
+function loadIntake_(){
+  GS.withSuccessHandler(function(r){ if(!r) return; INTAKE_=r; INTAKE_.loaded=true; renderIntake_(); }).withFailureHandler(function(){}).getIntake();
+}
+function intakeRand_(n){
+  var a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', s='', b=new Uint8Array(n);
+  try{ (window.crypto||window.msCrypto).getRandomValues(b); }catch(e){ for(var i=0;i<n;i++) b[i]=Math.floor(Math.random()*256); }
+  for(var j=0;j<n;j++) s+=a.charAt(b[j]%a.length);
+  return s;
+}
+// The tick boxes as a field list, in menu order. Name is always in; with neither email nor phone ticked, email is put back.
+function intakeFieldsFromUI_(){
+  var out=[];
+  (INTAKE_.menu||[]).forEach(function(m){
+    var inc=$('intake_inc_'+m.id), rq=$('intake_req_'+m.id);
+    if(m.id==='name'){ out.push({id:'name',req:true}); return; }
+    if(inc && inc.checked) out.push({id:m.id,req:!!(rq && rq.checked)});
+  });
+  var ids=out.map(function(f){ return f.id; });
+  if(ids.indexOf('email')<0 && ids.indexOf('phone')<0) out.push({id:'email',req:true});
+  return out;
+}
+function renderIntake_(){
+  var on=$('intake_on'); if(!on) return;
+  on.checked=!!INTAKE_.on;
+  $('intake_body').style.display=INTAKE_.on?'block':'none';
+  var chosen={}; (INTAKE_.fields||[]).forEach(function(f){ chosen[f.id]=f; });
+  $('intake_fields').innerHTML=(INTAKE_.menu||[]).map(function(m){
+    var f=chosen[m.id], isName=m.id==='name';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">'
+      +'<input type="checkbox" id="intake_inc_'+m.id+'" style="width:auto;flex:0 0 auto;margin:0"'+(f?' checked':'')+(isName?' disabled':'')+' onchange="saveIntake_()" aria-label="Include '+esc(m.label)+'">'
+      +'<span style="flex:1;font-size:14px;color:var(--cream)">'+esc(m.label)+'</span>'
+      +'<label style="display:flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--muted);cursor:pointer"><input type="checkbox" id="intake_req_'+m.id+'" style="width:auto;flex:0 0 auto;margin:0"'+(f&&f.req?' checked':'')+(isName?' disabled':'')+' onchange="saveIntake_()">Required</label>'
+      +'</div>';
+  }).join('');
+  $('intake_code').value=INTAKE_.on?intakeCode_():'';
+}
+function saveIntake_(){
+  var cb=$('intake_on'); if(!cb) return;
+  var prev=JSON.parse(JSON.stringify(INTAKE_));
+  var on=cb.checked, sendKey='';
+  if(INTAKE_.menu && INTAKE_.menu.length && $('intake_inc_name')) INTAKE_.fields=intakeFieldsFromUI_();
+  if(on && !INTAKE_.key){ INTAKE_.key=intakeRand_(24); sendKey=INTAKE_.key; }
+  INTAKE_.on=on;
+  renderIntake_();
+  intakePersist_(sendKey, prev);
+}
+function intakePersist_(sendKey, prev){
+  GS.withSuccessHandler(function(json){
+    var r={}; try{ r=JSON.parse(json)||{}; }catch(e){}
+    if(!r.ok){ INTAKE_=prev; renderIntake_(); toast(r.error||'Could not save that — try again.'); }
+  }).withFailureHandler(function(){ INTAKE_=prev; renderIntake_(); toast('Could not save that — try again.'); }).setIntake(INTAKE_.on, JSON.stringify(INTAKE_.fields), sendKey);
+}
+// Adds a sample lead through the same path a real form uses. Instant: it shows at once and the server's list replaces it.
+function sendIntakeTest_(){
+  ADD_SEQ_=(ADD_SEQ_||0)+1;
+  var temp={_row:-ADD_SEQ_, _tsKey:'pending'+ADD_SEQ_, _pending:true};
+  temp[C.name]='Test inquiry'; temp[C.status]='New'; temp[C.source]='Website'; temp[C.timestamp]=new Date().toISOString();
+  temp[C.notes]='This is a test from your Website inquiry form. You can delete this lead.';
+  LEADS.unshift(temp); renderChips(); renderLeads(); renderInsights();
+  toast('Test inquiry added to Leads ✦');
+  GS.withSuccessHandler(function(json){ ingest(json); renderChips(); renderLeads(); renderInsights(); })
+    .withFailureHandler(function(){ LEADS=LEADS.filter(function(L){ return L!==temp; }); renderChips(); renderLeads(); renderInsights(); toast('Could not send the test — try again.'); })
+    .sendTestInquiry();
+}
+function copyIntakeCode_(){
+  var t=$('intake_code'); if(!t) return;
+  t.select();
+  var done=function(){ toast('Code copied'); };
+  try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t.value).then(done, function(){ document.execCommand('copy'); done(); }); return; } }catch(e){}
+  try{ document.execCommand('copy'); done(); }catch(e){ toast('Press and hold the code to copy it'); }
+}
+// Arm-then-confirm: the old code stops working the moment this is confirmed.
+function resetIntakeKey_(){
+  var b=$('intake_reset'); if(!b) return;
+  if(!INTAKE_ARM_){
+    INTAKE_ARM_=setTimeout(function(){ INTAKE_ARM_=0; b.textContent='Make a new key'; }, 3500);
+    b.textContent='Tap again — the old code will stop working';
+    return;
+  }
+  clearTimeout(INTAKE_ARM_); INTAKE_ARM_=0; b.textContent='Make a new key';
+  var prev=JSON.parse(JSON.stringify(INTAKE_));
+  INTAKE_.key=intakeRand_(24);
+  renderIntake_();
+  intakePersist_(INTAKE_.key, prev);
+  toast('New key made — copy and paste the new code');
+}
+// The code the buyer pastes into their website. Plain HTML + a few lines of script, no outside files; the inputs take on the site's own
+// text and colors. (The script tags are split so this file's own <script> block is not ended early.)
+function intakeCode_(){
+  var url=INTAKE_.url||(CFG&&CFG.SELF_URL)||'', menu={}, ids=[];
+  (INTAKE_.menu||[]).forEach(function(m){ menu[m.id]=m; });
+  var box='display:block;width:100%;box-sizing:border-box;padding:10px;font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-radius:4px';
+  var rows=(INTAKE_.fields||[]).map(function(f){
+    var m=menu[f.id]; if(!m) return ''; ids.push(f.id);
+    var type={email:'email',phone:'tel',date:'date'}[f.id]||'text', req=f.req?' required':'';
+    var input=m.long ? '<textarea name="'+f.id+'" rows="4"'+req+' style="'+box+'"></textarea>' : '<input type="'+type+'" name="'+f.id+'"'+req+' style="'+box+'">';
+    return '  <div style="margin:0 0 12px"><label style="display:block;margin:0 0 4px">'+m.label+(f.req?' *':'')+'</label>'+input+'</div>';
+  }).filter(Boolean);
+  var hasContact=ids.indexOf('email')>-1||ids.indexOf('phone')>-1;
+  return '<!-- Inquiry form from Magic Manager -->\n'
+    +'<form id="mm-inquiry" style="max-width:520px">\n'+rows.join('\n')+'\n'
+    +'  <div style="position:absolute;left:-5000px" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>\n'
+    +'  <button type="submit" style="padding:10px 22px;font:inherit;cursor:pointer">Send my inquiry</button>\n'
+    +'  <p id="mm-inquiry-msg" style="margin:12px 0 0"></p>\n'
+    +'</form>\n'
+    +'<scr'+'ipt>\n(function(){\n'
+    +' var f=document.getElementById("mm-inquiry"),m=document.getElementById("mm-inquiry-msg");\n'
+    +' var ids='+JSON.stringify(ids)+';\n'
+    +' f.addEventListener("submit",function(e){\n  e.preventDefault();\n  var d={};\n'
+    +'  ids.forEach(function(i){ d[i]=f.elements[i].value; });\n'
+    +(hasContact?'  if(!d.email&&!d.phone){ m.textContent="Please add an email or phone number."; return; }\n':'')
+    +'  var b=f.querySelector("button"); b.disabled=true;\n'
+    +'  fetch('+JSON.stringify(url)+',{method:"POST",mode:"no-cors",body:JSON.stringify({k:'+JSON.stringify(INTAKE_.key)+',f:d,h:f.elements.website.value})})\n'
+    +'   .then(function(){ f.reset(); m.textContent="Thank you! We will be in touch soon."; b.disabled=false; })\n'
+    +'   .catch(function(){ m.textContent="Sorry, that did not send. Please try again."; b.disabled=false; });\n'
+    +' });\n})();\n</scr'+'ipt>';
+}
+/* TRMNL display lives under More options (Rich, 2026-11-02): it is optional and most buyers will never use it. It is a section
+   like Contract / Store, but its fields are not server settings, so the markup is built here. */
+var TRMNL_KW_='trmnl e-ink eink display screen dashboard desk glance';
+function trmnlSectionHtml_(){
+  return '<div class="setsec" data-sec="trmnl"><button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'trmnl\')">'
+    + '<span class="httitle">TRMNL display<span class="httsub">Show your numbers on an e-ink screen</span></span>'
+    + '<span class="htright"><span id="setsec_trmnl_chev">&#9662;</span></span></button>'
+    + '<div id="setsec_trmnl_wrap" style="display:none;margin-top:10px">'
+    + '<p class="note" style="text-align:left;margin:0 0 10px">Show your next show, follow-ups, new leads and money on a TRMNL screen. Create a Private Plugin in TRMNL with the <b>Webhook</b> strategy and paste its webhook URL here.</p>'
+    + '<input type="text" id="trmnl_url" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="TRMNL webhook URL" placeholder="Paste the webhook URL from TRMNL">'
+    + '<label style="display:flex;align-items:center;gap:10px;margin:12px 0 0;font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;color:var(--cream);cursor:pointer"><input type="checkbox" id="trmnl_on" style="width:auto;flex:0 0 auto;margin:0" onchange="saveTrmnl()"><span>Keep my TRMNL up to date (every 30 minutes)</span></label>'
+    + '<button class="save" id="trmnl_send" style="width:100%;margin-top:12px" onclick="saveTrmnl()">Send now</button>'
+    + '<p class="note" id="trmnl_note" style="text-align:left;margin:8px 0 0;display:none"></p>'
+    + '<p class="note" style="text-align:left;margin:8px 0 0">Only totals and first names are sent &mdash; no phone numbers, emails or addresses.</p>'
+    + '</div></div>';
+}
 function renderSettings(){
   var body = $('settingsBody');
   if(!body) return;
@@ -11320,10 +11571,14 @@ function renderSettings(){
     // The essentials show up front; everything optional sits behind ONE "More options" row so nobody faces a long list.
     var mainSecs=sections.filter(function(sec){ return sec.tier!=='more'; }), moreSecs=sections.filter(function(sec){ return sec.tier==='more'; });
     mainSecs.forEach(function(sec){ html+=sectionHtml(sec); });
-    var moreHtml=moreSecs.map(sectionHtml).join('');
+    // Inside More options the sections are alphabetical, like every other menu of separate things (Rich, 2026-11-03).
+    var moreItems=moreSecs.filter(function(sec){ return SETTINGS_FIELDS.some(function(f){ return f.section===sec.id; }); })
+      .map(function(sec){ return {t:sec.title, n:sec.short||sec.title, h:sectionHtml(sec)}; })
+      .concat([{t:'TRMNL display', n:'TRMNL', h:trmnlSectionHtml_()}, {t:'Website inquiry form', n:'Website form', h:intakeSectionHtml_()}])
+      .sort(function(x,y){ return x.t.localeCompare(y.t); });
+    var moreHtml=moreItems.map(function(i){ return i.h; }).join('');
     if(moreHtml){
-      var names=moreSecs.filter(function(sec){ return SETTINGS_FIELDS.some(function(f){ return f.section===sec.id; }); })
-        .map(function(sec){ return sec.short||sec.title; }).join(' \u00b7 ');
+      var names=moreItems.map(function(i){ return i.n; }).join(' \u00b7 ');
       html += '<div id="setmore"><button class="htoggle hstack" style="margin-top:12px" onclick="toggleSetupSection(\'moreopts\')">'
         + '<span class="httitle">More options (all optional)</span>'
         + '<span class="htright"><span id="setsec_moreopts_sum" style="font-size:11px;color:var(--muted)">'+esc(names)+'</span><span id="setsec_moreopts_chev">&#9662;</span></span></button>'
@@ -11371,6 +11626,8 @@ function toggleSetupSection(id){
   var chev=$('setsec_'+id+'_chev'); if(chev) chev.innerHTML=open?'&#9652;':'&#9662;';
   // the "More options" row shows what is inside it only while it is closed
   if(id==='moreopts'){ var sum=$('setsec_moreopts_sum'); if(sum) sum.style.display=open?'none':''; }
+  if(id==='trmnl' && open) loadTrmnl_();
+  if(id==='intake' && open) loadIntake_();
 }
 function updateLogoPreview(val){
   var box = $('logoPreview'); if(!box) return;
@@ -12292,6 +12549,16 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.85', d:'Nov 2026', notes:[
+    'New (optional) — Website inquiry form. If you have a contact form on your own website, people who fill it out can become new leads here automatically, and you get an email each time. It is off until you switch it on: Settings → More options → Website inquiry form. Tick the questions you want, tap Copy code, paste the code into an HTML or Embed block on your website and publish, then tap Send a test inquiry. Entries arrive marked New, from Website, with a follow-up due today. It has built-in spam protection, and “Make a new key” cancels an old code if you ever need to. A new Help topic walks through it.',
+    'New (optional) — TRMNL e-ink display. If you own a TRMNL screen, Magic Manager can send it your next show, follow-ups, new leads, booked, owed, and income vs. expenses every 30 minutes. Settings → More options → TRMNL display.',
+    'Improved — Insights → Booked list now shows what is paid and what is still due for each show, with totals. Each show’s amount includes its travel fee.',
+    'Improved — Deposit and Balance now appear as small pills on one line under each show, in both Upcoming Shows and the Booked list. Tap one, then tap again to mark the payment received; the screen updates at once. A new Help topic explains it.',
+    'Improved — The travel fee is counted the same way everywhere: Insights drill-downs, the Oracle and in-play totals now match Booked value, and the lead screens say “total” where travel is included.',
+    'Improved — Upcoming follow-ups are grouped by day. The soonest day is open, the others are collapsed with a date badge, and the badges line up.',
+    'Improved — Settings is tidier. Settings → Tools is shorter: Import, Export and Google Contacts are now together in one row called “Your clients” (the nightly Contacts sync is there), and “Send me a test email” lives in Message templates. The sections inside More options are in alphabetical order.',
+    'Improved — Small touches: the Booked tiles in Insights match the other tiles, the Today card says when a client’s own contract is not yet signed, date badges line up in the to-do list, and the Postpone hint can be dismissed.'
+  ]},
   { v:'1.5.84', d:'Oct 2026', notes:[
     'New — A client who has their own contract. If a client signs their own contract instead of yours, open the lead and tap “Client has their own contract?” under Contract. You get three rows: mark their contract signed (or undo it), create and copy their event portal link, and attach a copy of their contract, which is filed in the same Drive folder as your contracts. Their event portal never shows your agreement; it says their contract is pending signing or on file, and they can still pay their deposit. A new Help topic explains it.',
     'Improved — Booked value now includes travel fees. Booked value, the average per booking, and each lead source’s booked value and return on ad spend count the quoted price plus the travel fee, so they match what you are actually owed. Numbers for earlier periods will read higher for shows that had a travel fee. Referral fees still use the quoted price only.',
@@ -12566,10 +12833,14 @@ var CHANGELOG_ = [
 var HELP_KNOW = [
   { q:'A client has their own contract',
     a:'If a client signs their own contract instead of yours, open the lead and tap <b>Client has their own contract?</b> under Contract. You get three rows: <b>Their own contract</b> (tap <b>Mark signed</b> once they have signed), <b>Event portal link</b> (tap <b>Create</b>, then <b>Copy</b> to send it), and <b>Their contract file</b> (tap <b>Attach</b> to file a copy with your contracts). The link and the file are optional. Their event portal shows their contract (never yours) and still lets them pay their deposit. Tap <b>Use our contract instead</b> any time to go back to yours.' },
+  { q:'Adding leads from a form on your own website',
+    a:'This is optional and a little technical — skip it unless you want website inquiries to land in Magic Manager by themselves. Open <b>Settings → More options → Website inquiry form</b> and switch on <b>Accept inquiries from my website</b>. Tick the questions you want your form to ask, tap <b>Copy code</b>, then paste it into a <b>Code</b> or <b>HTML</b> block in your website builder where the form should appear. It takes on your site’s own look. Tap <b>Send a test inquiry</b> to see a sample arrive. Each inquiry arrives in Leads as <b>New</b>, marked from <b>Website</b>, and you get an email. If you change the questions, copy and paste the code again. Switch it off any time and the form stops working. <b>Make a new key</b> replaces the key inside the code if you ever think it was misused (then paste the new code).<br><br><b>If it doesn’t work</b><br><br><b>I got a thank-you, but no lead.</b> Your website can’t see Magic Manager’s reply, so it says “Thank you” even when the inquiry was turned away. Check that <b>Accept inquiries from my website</b> is on, that you copied the code again after any change, and that you republished the page. Past 30 inquiries an hour, extras aren’t saved.<br><br><b>I changed my questions, but the form didn’t change.</b> Copy the code again and replace the old one on your site.<br><br><b>The code won’t paste or save.</b> Your plan or builder may not allow custom code. Check your plan, or ask your web person.<br><br><b>The form shows up, but nothing arrives.</b> Some builders and hosts block or delay the script. Try a different kind of block, such as Embed instead of Code, or ask your web person.<br><br><b>A lead arrived, but no email.</b> Check the Contact email in Settings. The lead is saved either way. Google also caps daily emails at roughly a hundred.' },
   { q:'A client needs to move their date (postponing a show)',
     a:'Open the lead and tap <b>Follow-up</b>, then tap <b>Postpone — follow up later</b> under the calendar. Pick the date you want to follow up and, if you like, add a note. The lead moves from Booked back to Pending, the old event date and times are cleared, and the old event portal link is turned off. A note with the original date is saved in the lead’s history. When the new date is set, enter it on the lead and tap <b>Regenerate contract</b> so your client signs the new one. A deposit they already paid is not touched — you decide whether to refund it or keep it as credit.' },
   { q:'Double-booking warnings and travel time',
     a:'A lead is flagged when another show on the same date <b>overlaps</b> its times, or leaves less than your set gap between them (<b>Settings \u2192 Services &amp; event portal \u2192 Time needed between shows</b>, 60 minutes unless you change it). If either show has no start time, the app can only warn about the date, and a show with no end time is assumed to last two hours.<br><br>When two <b>Booked</b> shows are on the same day without overlapping, the lead page also checks the <b>typical drive</b> between the two event locations and tells you whether you can make it. It needs an Event Location on both shows (full street addresses work best) and it is a typical drive, not live traffic.' },
+  { q:'Marking a deposit or balance as received',
+    a:'On <b>Upcoming Shows</b> and on <b>Insights → Booked</b>, each show has a <b>Deposit</b> pill and a <b>Balance</b> pill with the amount. A green pill with a check means it’s in; a red one with a cross means it’s still due. To mark one received, <b>tap it, then tap it again</b> (the pill says <b>Tap to confirm</b> in between). It saves right away, and the Paid and Still due totals on the Booked list update with it. Tapped by mistake? Wait a few seconds and it goes back by itself. To undo one that’s already marked, tap the green pill twice. Tapping anywhere else on the row opens the lead.' },
   { q:'Putting the app on your phone',
     a:'<b>Get the link.</b> On your computer, open Magic Manager the way you normally do. Click the address bar at the top of the browser and copy the whole link — it starts with <b>script.google.com</b> and has <b>?key=</b> near the end. Send it to your phone by text, email, or AirDrop.<br><br><b>iPhone</b><ol><li>Tap the link. If it opens inside Mail or Messages, tap the compass icon so it opens in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (the square with an arrow pointing up).</li><li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol><br><b>Android</b><ol><li>Tap the link. If it opens inside another app, open it in <b>Chrome</b>.</li><li>Tap the three dots in the top corner.</li><li>Tap <b>Add to Home screen</b>, then <b>Add</b>.</li></ol><br>You’ll get a Magic Manager icon on your home screen — tap it any time to open your app.<br><br><b>Keep that link private.</b> Anyone who has it can open your app, so don’t post it or share it with clients. To give a client something to open, send them their event portal link instead.<br><br><b>If the link doesn’t work:</b> in your Google Sheet, click <b>Magic Manager</b> in the top menu, then <b>Get my app link</b>, and use that link instead.' },
   { q:'Tasks and reminders',

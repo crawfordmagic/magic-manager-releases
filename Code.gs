@@ -537,7 +537,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.84';
+var APP_VERSION = '1.5.85';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1156,6 +1156,7 @@ var API_ = {
   deletePartnerTextTemplate: deletePartnerTextTemplate_, deleteLead: deleteLead_,
   restoreLead: restoreLead_, permanentlyDeleteTrash: permanentlyDeleteTrash_, permanentlyDeleteTrashBatch: permanentlyDeleteTrashBatch_,
   startContactSync: startContactSync_, getContactSyncStatus: getContactSyncStatus_, getContactAutoSync: getContactAutoSync_, setContactAutoSync: setContactAutoSync_,
+  getTrmnl: getTrmnl_, setTrmnl: setTrmnl_, sendTrmnlNow: sendTrmnlNow_, getIntake: getIntake_, setIntake: setIntake_, sendTestInquiry: sendTestInquiry_,
   setTaxRate: setTaxRate_, getLeads: getLeads_, getLeadsCore: getLeadsCore_, getLeadsLogs: getLeadsLogs_, getLeadsPeople: getLeadsPeople_, getLeadsExtras: getLeadsExtras_, getLeadsRest: getLeadsRest_, addExpenseCategory: addExpenseCategory_, deleteExpenseCategory: deleteExpenseCategory_,
   saveFieldSettings: saveFieldSettings_, markOracleTipShown: markOracleTipShown_, markSeen: markSeen_, logPartnerContact: logPartnerContact_,
   updatePartnerLog: updatePartnerLog_, deletePartnerLog: deletePartnerLog_, addPartner: addPartner_,
@@ -5016,6 +5017,161 @@ function setContactAutoSync_(on, hour) {
   return JSON.stringify({ ok: true, on: on, hour: hour });
 }
 
+/* ---------- TRMNL e-ink display (Rich, 2026-11-01) ---------- */
+// Optional. A timer PUSHES a small summary to the owner's TRMNL private-plugin webhook, so nothing public is added to the app
+// (the webhook URL is the secret and lives only in Script Properties). The numbers follow Insights exactly: booked value and
+// in-play use price + travel fee, income is cash received by payment date (tests/check-trmnl.js compares them with Index.html).
+const TRMNL_FN = 'runTrmnlPush';
+const TRMNL_KEY = 'trmnlCfg';
+const TRMNL_LAST_KEY = 'trmnlLast';
+const TRMNL_URL_RE_ = /^https:\/\/[A-Za-z0-9.-]+\/api\/custom_plugins\/[A-Za-z0-9-]+$/;
+function trmnlYmd_(v) {
+  var m = String(v == null ? '' : v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
+}
+function trmnlUtc_(ymd) { var p = ymd.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+function trmnlAddDays_(ymd, n) {
+  var d = new Date(trmnlUtc_(ymd) + n * 86400000);
+  return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2);
+}
+function trmnlMoney_(v) { var n = parseFloat(String(v || '').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; }
+function trmnlFmt_(n) {
+  n = Math.round(n);
+  return (n < 0 ? '-' : '') + '$' + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function trmnlFirst_(s) { return String(s || '').trim().split(/\s+/)[0] || 'Lead'; }
+// One row per Booked show with something still to collect: total (price + travel), the deposit and whether it is marked
+// received, whether the balance is marked paid, and what that leaves owed. The "Owed" tile is the sum of these rows.
+function trmnlOwedRows_(leads) {
+  var rows = [];
+  (leads || []).forEach(function (L) {
+    if (String(L['Status'] || 'New') !== 'Booked') return;
+    var total = trmnlMoney_(L['Quoted Price']) + trmnlMoney_(L['Travel Fee']);
+    var dep = trmnlMoney_(L['Deposit Amount']), depPaid = String(L['Deposit Received'] || '') === 'Yes', balPaid = String(L['Balance Paid'] || '') === 'Yes';
+    var o = (depPaid ? 0 : dep) + (balPaid ? 0 : Math.max(0, total - dep));
+    if (o > 0) rows.push({ name: String(L['Customer Name'] || 'Lead'), date: trmnlYmd_(L['Date of Event']), total: total, dep: dep, depPaid: depPaid, balPaid: balPaid, owed: o });
+  });
+  return rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+}
+// Pure: d = { leads, expenses, storeSales, fees, storeOn, today: 'yyyy-MM-dd', updated }. Returns the merge variables.
+function trmnlBuild_(d) {
+  var today = d.today, year = today.slice(0, 4), monthStart = today.slice(0, 8) + '01', last7 = trmnlAddDays_(today, -6);
+  var leads = d.leads || [];
+  var status = function (L) { return String(L['Status'] || 'New'); };
+  var booked = function (L) { var s = String(L['Status']); return s === 'Booked' || s === 'Completed'; };
+  var amt = function (L) { return trmnlMoney_(L['Quoted Price']) + trmnlMoney_(L['Travel Fee']); };
+  var leadYear = function (L) { var y = trmnlYmd_(L['Date of Event']) || trmnlYmd_(L['Timestamp']); return y ? y.slice(0, 4) : ''; };
+  var sum = function (list) { return list.reduce(function (s, L) { return s + amt(L); }, 0); };
+
+  var bookedList = leads.filter(function (L) { return booked(L) && leadYear(L) === year; });
+  var playList = leads.filter(function (L) { var s = status(L); return (s === 'Pending' || s === 'New') && leadYear(L) === year; });
+  var created = function (L) { return trmnlYmd_(L['Timestamp']); };
+  var new7 = leads.filter(function (L) { var t = created(L); return t && t >= last7; }).length;
+  var newMonth = leads.filter(function (L) { var t = created(L); return t && t >= monthStart; }).length;
+
+  // Follow-ups due today or earlier: leads in play, plus booked shows with a follow-up that has come due.
+  var due = leads.filter(function (L) {
+    var s = status(L), f = trmnlYmd_(L['Followup']);
+    return f && f <= today && (s === 'Pending' || s === 'New' || s === 'No response' || s === 'Booked' || s === 'Completed');
+  }).sort(function (a, b) { return trmnlYmd_(a['Followup']) < trmnlYmd_(b['Followup']) ? -1 : 1; });
+  var over = due.filter(function (L) { return trmnlYmd_(L['Followup']) < today; }).length;
+
+  var upcoming = leads.filter(function (L) { var e = trmnlYmd_(L['Date of Event']); return status(L) === 'Booked' && e && e >= today; })
+    .sort(function (a, b) { return trmnlYmd_(a['Date of Event']) < trmnlYmd_(b['Date of Event']) ? -1 : 1; });
+  var next = null;
+  if (upcoming.length) {
+    var n0 = upcoming[0], ed = trmnlYmd_(n0['Date of Event']);
+    var wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(trmnlUtc_(ed)).getUTCDay()];
+    var mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+ed.slice(5, 7) - 1];
+    next = { days: Math.round((trmnlUtc_(ed) - trmnlUtc_(today)) / 86400000), date: wd + ' ' + mo + ' ' + (+ed.slice(8, 10)),
+      who: trmnlFirst_(n0['Customer Name']), type: String(n0['Event Type'] || '').trim() };
+  }
+
+  // Cash received this year, dated by the day it arrived (same events as the Insights Income total).
+  var income = 0, inYear = function (v) { var y = trmnlYmd_(v); return y && y.slice(0, 4) === year; };
+  leads.forEach(function (L) {
+    var dep = trmnlMoney_(L['Deposit Amount']);
+    if (String(L['Deposit Received'] || '') === 'Yes' && inYear(L['Deposit Received Date'])) income += dep;
+    if (String(L['Balance Paid'] || '') === 'Yes' && inYear(L['Balance Paid Date'])) income += Math.max(0, amt(L) - dep);
+  });
+  if (d.storeOn) (d.storeSales || []).forEach(function (s) {
+    if (String(s.status || '').trim().toLowerCase() === 'received' && inYear(s.date)) income += trmnlMoney_(s.amount);
+  });
+  (d.fees || []).forEach(function (f) {
+    if (String(f.status || '').trim().toLowerCase() === 'received' && inYear(f.date)) income += trmnlMoney_(f.amount);
+  });
+  var expenses = (d.expenses || []).reduce(function (s, E) { return inYear(E.date) ? s + (Number(E.amount) || 0) : s; }, 0);
+
+  // Still to collect on shows that are booked and not yet played: an unpaid deposit plus an unpaid balance.
+  var owedRows = trmnlOwedRows_(leads), owedN = owedRows.length;
+  var owed = owedRows.reduce(function (s, r) { return s + r.owed; }, 0);
+
+  return {
+    updated: d.updated || '', year: Number(year), next: next,
+    fu: { n: due.length, over: over, names: due.slice(0, 3).map(function (L) { return trmnlFirst_(L['Customer Name']); }) },
+    new7: new7, newMonth: newMonth,
+    play: { n: playList.length, val: trmnlFmt_(sum(playList)) },
+    booked: { n: bookedList.length, val: trmnlFmt_(sum(bookedList)) },
+    inc: trmnlFmt_(income), exp: trmnlFmt_(expenses), net: trmnlFmt_(income - expenses),
+    owed: { n: owedN, val: trmnlFmt_(owed) }
+  };
+}
+function trmnlPayload_() {
+  var tz = tzNow_(), now = new Date();
+  return trmnlBuild_({
+    leads: buildLeadsArray_(), expenses: getExpenses_(), fees: getReferralFees_(),
+    storeOn: storeEnabled_(), storeSales: storeEnabled_() ? getStoreSales_() : [],
+    today: Utilities.formatDate(now, tz, 'yyyy-MM-dd'), updated: Utilities.formatDate(now, tz, 'EEE h:mm a')
+  });
+}
+function trmnlCfg_() {
+  var cfg = { on: false, url: '' };
+  try { var raw = PropertiesService.getScriptProperties().getProperty(TRMNL_KEY); if (raw) cfg = JSON.parse(raw); } catch (e) {}
+  return { on: !!cfg.on, url: String(cfg.url || '') };
+}
+function trmnlLast_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(TRMNL_LAST_KEY) || 'null'); } catch (e) { return null; }
+}
+// Posts the summary now. Never throws; the outcome is remembered for the Settings screen.
+function trmnlSend_() {
+  var cfg = trmnlCfg_(), res;
+  if (!TRMNL_URL_RE_.test(cfg.url)) res = { ok: false, error: 'Paste your TRMNL webhook URL first.' };
+  else {
+    try {
+      var resp = UrlFetchApp.fetch(cfg.url, { method: 'post', contentType: 'application/json', payload: JSON.stringify({ merge_variables: trmnlPayload_() }), muteHttpExceptions: true });
+      var c = resp.getResponseCode();
+      res = c >= 200 && c < 300 ? { ok: true } : { ok: false, error: c === 429 ? 'TRMNL says too many updates — it will retry on the next cycle.' : 'TRMNL answered with an error (' + c + '). Check the webhook URL.' };
+    } catch (e) { res = { ok: false, error: 'Could not reach TRMNL.' }; }
+  }
+  res.at = Date.now();
+  PropertiesService.getScriptProperties().setProperty(TRMNL_LAST_KEY, JSON.stringify(res));
+  return res;
+}
+function runTrmnlPush(e) {
+  triggerOnly_(e);
+  if (trmnlCfg_().on) trmnlSend_();
+}
+function getTrmnl_() {
+  var cfg = trmnlCfg_();
+  return { on: cfg.on, hasUrl: !!cfg.url, hint: cfg.url ? cfg.url.slice(-4) : '', last: trmnlLast_() };
+}
+// url '' keeps the saved one (it is never sent back to the screen).
+function setTrmnl_(on, url) {
+  on = on === true || on === 'true';
+  url = String(url || '').trim();
+  var cfg = trmnlCfg_();
+  if (url) {
+    if (!TRMNL_URL_RE_.test(url)) return JSON.stringify({ ok: false, error: 'That does not look like a TRMNL webhook URL. It ends in /api/custom_plugins/ and a long code.' });
+    cfg.url = url;
+  }
+  if (on && !cfg.url) return JSON.stringify({ ok: false, error: 'Paste your TRMNL webhook URL first.' });
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === TRMNL_FN) ScriptApp.deleteTrigger(t); });
+  if (on) ScriptApp.newTrigger(TRMNL_FN).timeBased().everyMinutes(30).create();
+  PropertiesService.getScriptProperties().setProperty(TRMNL_KEY, JSON.stringify({ on: on, url: cfg.url }));
+  return JSON.stringify({ ok: true, on: on, hasUrl: !!cfg.url, hint: cfg.url.slice(-4) });
+}
+function sendTrmnlNow_() { return JSON.stringify(trmnlSend_()); }
+
 function parseYMD_(s) {
   // "2026-07-20" or "2026-07-20 14:30" -> local Date (avoids timezone drift)
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?$/);
@@ -5227,7 +5383,7 @@ function markOracleTipShown_(){
 // whose storage Safari doesn't reliably keep between sessions, so a browser-only "Got it" can
 // come back (reported 2026-09-27). Handed to the page at load (doGet) so the wizard can check
 // it before anything paints. Only these keys are accepted.
-var UI_SEEN_KEYS_ = ['leadTap', 'tplHint', 'wizard', 'portalPreview'];
+var UI_SEEN_KEYS_ = ['leadTap', 'tplHint', 'wizard', 'portalPreview', 'postponeHint'];
 function uiSeen_() {
   var props = PropertiesService.getScriptProperties(), stored = {}, out = {};
   try { stored = JSON.parse(props.getProperty('UI_SEEN') || '{}') || {}; } catch (e) { stored = {}; }
@@ -5877,6 +6033,138 @@ function referralReceivePage_(p) {
   return page('&#10038;', res.dup ? 'Already in your inbox' : 'Referral received',
     '<b>' + esc(clean.lead.n) + '</b>' + who + (res.dup ? ' is already waiting in your Magic Manager.' : ' is now waiting in your Magic Manager.')
     + '<br><br>Open your app and look for <b>Referral inbox</b> at the top of Leads to review it and add it as a lead.');
+}
+
+/* ---------- Website inquiry form (optional, off by default) ----------
+ * A buyer who switches this on (Settings -> More options -> Website inquiry form) pastes a small generated form onto their own
+ * website. The form POSTs here (doPost). This is the one place the public can add a lead without a signed link, so it is
+ * deliberately narrow: it does nothing unless the buyer turned it on AND the request carries the buyer's key; it only accepts the
+ * fields in INTAKE_MENU_ (anything else is ignored); every value goes through clientText_(); a hidden trap field, a duplicate check
+ * and an hourly cap stop spam. The key lives in Script Properties; it is in the website's page source by necessity, so it can only
+ * ever add leads, and the owner can replace it at any time. */
+var INTAKE_MENU_ = [
+  { id: 'name', header: 'Customer Name', label: 'Your name', max: 120 },
+  { id: 'email', header: 'E-mail', label: 'Email', max: 160 },
+  { id: 'phone', header: 'Phone number', label: 'Phone', max: 40 },
+  { id: 'company', header: 'Company or Organization', label: 'Company or organization', max: 120 },
+  { id: 'date', header: 'Date of Event', label: 'Event date', max: 10 },
+  { id: 'type', header: 'Event Type', label: 'Type of event', max: 80 },
+  { id: 'location', header: 'Event Location', label: 'Event location', max: 200 },
+  { id: 'guests', header: 'Audience Size', label: 'Number of guests', max: 20 },
+  { id: 'service', header: 'Service', label: 'Service you are interested in', max: 120 },
+  { id: 'message', header: 'Notes about interaction', label: 'Message', max: 2000, long: true }
+];
+var INTAKE_DEFAULT_FIELDS_ = [{ id: 'name', req: true }, { id: 'email', req: true }, { id: 'phone', req: false }, { id: 'date', req: false }, { id: 'type', req: false }, { id: 'location', req: false }, { id: 'message', req: false }];
+var INTAKE_KEY_RE_ = /^[A-Za-z0-9]{16,40}$/;
+var INTAKE_HOURLY_CAP_ = 30;
+
+function intakeState_() {
+  var p = PropertiesService.getScriptProperties();
+  var fields = null;
+  try { fields = JSON.parse(p.getProperty('INTAKE_FIELDS') || 'null'); } catch (e) {}
+  return { on: p.getProperty('INTAKE_ON') === '1', key: String(p.getProperty('INTAKE_KEY') || ''), fields: cleanIntakeFields_(fields) };
+}
+// Only menu fields, each once, name always present and required. An empty/garbled list falls back to the default set.
+function cleanIntakeFields_(list) {
+  var seen = {}, out = [];
+  if (Array.isArray(list)) list.forEach(function (f) {
+    var id = f && String(f.id || '');
+    if (!id || seen[id] || !INTAKE_MENU_.some(function (m) { return m.id === id; })) return;
+    seen[id] = 1; out.push({ id: id, req: id === 'name' ? true : !!f.req });
+  });
+  if (!seen.name) out.unshift({ id: 'name', req: true });
+  // A lead needs a way to be answered, so the form always asks for an email or a phone number.
+  if (!seen.email && !seen.phone) out.push({ id: 'email', req: true });
+  return out.length > 1 ? out : INTAKE_DEFAULT_FIELDS_.map(function (f) { return { id: f.id, req: f.req }; });
+}
+// Owner-only (API_): the screen's current state, including the key and this app's address (they go into the pasted code).
+function getIntake_() {
+  var s = intakeState_(), url = '';
+  try { url = ScriptApp.getService().getUrl() || ''; } catch (e) {}
+  return { on: s.on, key: s.key, fields: s.fields, url: url, menu: INTAKE_MENU_.map(function (m) { return { id: m.id, label: m.label, long: !!m.long }; }) };
+}
+// Owner-only (API_): switch on/off, choose fields, and (optionally) replace the key. The key is made in the browser so the tap is
+// instant; it is only ever stored if it is plain letters and digits of a sensible length.
+function setIntake_(on, fieldsJson, key) {
+  var p = PropertiesService.getScriptProperties();
+  var fields = []; try { fields = JSON.parse(fieldsJson || '[]'); } catch (e) {}
+  p.setProperty('INTAKE_FIELDS', JSON.stringify(cleanIntakeFields_(fields)));
+  key = String(key || '');
+  if (key) {
+    if (!INTAKE_KEY_RE_.test(key)) return JSON.stringify({ ok: false, error: 'That key is not valid.' });
+    p.setProperty('INTAKE_KEY', key);
+  }
+  if (on && !p.getProperty('INTAKE_KEY')) return JSON.stringify({ ok: false, error: 'Missing key.' });
+  p.setProperty('INTAKE_ON', on ? '1' : '0');
+  return JSON.stringify({ ok: true });
+}
+// Pure: validate and clean one submission against the menu. Returns {fields: {Header: value}} or {error}.
+function intakeClean_(raw) {
+  raw = raw && typeof raw === 'object' ? raw : {};
+  var out = {};
+  INTAKE_MENU_.forEach(function (m) {
+    if (raw[m.id] == null) return;
+    var v = clientText_(raw[m.id], m.max, !!m.long);
+    if (!v) return;
+    if (m.id === 'email' && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(v)) return;
+    if (m.id === 'phone' && !/^\+?[\d\s().\-]{7,40}$/.test(v)) return;
+    if (m.id === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    out[m.header] = v;
+  });
+  if (!out['Customer Name']) return { error: 'Please add your name.' };
+  if (!out['E-mail'] && !out['Phone number']) return { error: 'Please add an email or phone number.' };
+  return { fields: out };
+}
+function intakeReply_(ok, error) {
+  return ContentService.createTextOutput(JSON.stringify(ok ? { ok: true } : { ok: false, error: error || 'Could not send.' })).setMimeType(ContentService.MimeType.JSON);
+}
+// Saves one cleaned inquiry as a New lead (from Website, follow-up today) and emails the owner. Shared by the real form and the test button.
+function intakeSave_(f) {
+  f['Status'] = 'New';
+  f['Lead Source'] = 'Website';
+  f['Followup'] = Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  var out, lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try { out = addLead_(f); } finally { lock.releaseLock(); }
+  try {
+    var to = String(getConfig_().EMAIL || '').trim();
+    if (to) MailApp.sendEmail(to, 'New website inquiry — ' + f['Customer Name'],
+      Object.keys(f).filter(function (h) { return ['Status', 'Lead Source', 'Followup'].indexOf(h) < 0; }).map(function (h) { return h + ': ' + f[h]; }).join('\n') + '\n\nIt is in your Leads, marked New.');
+  } catch (m) { console.error('Inquiry email failed: ' + m); }
+  return out;
+}
+// Owner-only (API_): the "Send a test inquiry" button. Same saving path as a real form submission, so it proves the app side works.
+function sendTestInquiry_() {
+  var to = String(getConfig_().EMAIL || '').trim();
+  var f = { 'Customer Name': 'Test inquiry', 'Notes about interaction': 'This is a test from your Website inquiry form. You can delete this lead.' };
+  if (to) f['E-mail'] = to;
+  return intakeSave_(f);
+}
+// Web-app POST. The website form sends a text/plain JSON body {k: key, f: {fieldId: value}, h: trapField}.
+function doPost(e) {
+  try {
+    var s = intakeState_();
+    if (!s.on || !s.key) return intakeReply_(false, 'Inquiries are not switched on.');
+    var body = {};
+    try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}') || {}; } catch (x) {}
+    if (String(body.k || '') !== s.key) return intakeReply_(false, 'Not allowed.');
+    if (body.h) return intakeReply_(true);  // the hidden trap field was filled in: a bot. Look successful, save nothing.
+    var res = intakeClean_(body.f);
+    if (res.error) return intakeReply_(false, res.error);
+    var cache = CacheService.getScriptCache(), hourKey = 'intk_h' + Utilities.formatDate(new Date(), 'UTC', 'yyyyMMddHH');
+    var n = Number(cache.get(hourKey) || 0);
+    if (n >= INTAKE_HOURLY_CAP_) return intakeReply_(false, 'Too many requests right now. Please try again later.');
+    cache.put(hourKey, String(n + 1), 3700);
+    var f = res.fields;
+    var dupKey = 'intk_d' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, [f['Customer Name'], f['E-mail'] || '', f['Phone number'] || ''].join('|').toLowerCase())).slice(0, 40);
+    if (cache.get(dupKey)) return intakeReply_(true);  // the same person sent it twice within ten minutes
+    cache.put(dupKey, '1', 600);
+    intakeSave_(f);
+    return intakeReply_(true);
+  } catch (err) {
+    console.error('Inquiry failed: ' + err);
+    return intakeReply_(false, 'Could not send. Please try again.');
+  }
 }
 
 /* ---------- Advertising spend (retired — migrated into Expenses) ---------- */
