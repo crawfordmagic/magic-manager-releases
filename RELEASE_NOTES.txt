@@ -1,6 +1,6 @@
 What's new in this update:
 
-• NEW (OPTIONAL) — Website inquiry form. If you have a contact form on your own website, people who fill it out can now become new leads in Magic Manager automatically, and you get an email each time. It is off until you switch it on: Settings → More options → Website inquiry form. Tick the questions you want, tap Copy code, paste the code into an HTML or Embed block on your website and publish, then tap Send a test inquiry. Entries arrive marked New, from Website, with a follow-up due today. It has built-in spam protection, and “Make a new key” cancels an old code if you ever need to. A new Help topic walks through it.
+• NEW (OPTIONAL) — Website inquiry form. If you have a contact form on your own website, people who fill it out can now become new leads in Magic Manager automatically, and you get an email each time. It is off until you switch it on: Settings → More options → Website inquiry form. Tick the questions you want, tap Copy code, paste the code into an HTML or Embed block on your website and publish, then tap Send a test inquiry. Entries arrive marked New, from Website, with a follow-up due today. It has built-in spam protection, and “Make a new key” cancels an old code if you ever need to. A new Help topic walks through it. Watch the walkthrough video: https://youtu.be/gdQGBwn0Y8E
 
 • NEW (OPTIONAL) — TRMNL e-ink display. If you own a TRMNL screen, Magic Manager can send it your next show, follow-ups, new leads, booked, owed, and income vs. expenses every 30 minutes. Settings → More options → TRMNL display.
 
