@@ -960,6 +960,10 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
         <div class="field"><label>Audience size</label><input id="a_audience" inputmode="numeric"></div>
       </div>
       <div class="grid2">
+        <div class="field"><label>Audience age range</label><input id="a_audienceAge" placeholder="e.g. 5 to 10"></div>
+        <div class="field"><label>Start time</label><div class="pvwrap block" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Start time" onclick="dpOpen_('a_startTime',this,'time')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();dpOpen_('a_startTime',this,'time');}"><input tabindex="-1" id="a_startTime" type="time"></div></div>
+      </div>
+      <div class="grid2">
         <div class="field"><label>Service</label>
           <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Service" onclick="pvOpen_('a_service',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('a_service',this);}"><select id="a_service" tabindex="-1"></select></div></div>
         <div class="field"><label>Event type</label>
@@ -1285,7 +1289,14 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
   <h2 id="mil_title">Mileage log</h2>
   <div id="mil_body"></div>
 </div>
-<div class="sheet" id="expenseSheet">
+<div class="sheet" id="evLinkSheet" style="z-index:56">
+  <div class="grab"></div>
+  <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeLinkExpenses_()">&#8592; Back</a>
+  <h2 id="evLink_title">Link expenses</h2>
+  <div id="evLink_list"></div>
+  <button type="button" class="save" id="evLink_btn" style="margin-top:12px" onclick="saveLinkExpenses_()">Pick expenses to link</button>
+</div>
+<div class="sheet" id="expenseSheet" style="z-index:56">
   <div class="grab"></div>
   <a class="act" href="javascript:void(0)" style="display:inline-block;margin-bottom:10px" onclick="closeExpenseSheet()">&#8592; Back</a>
   <h2 id="expenseSheet_title">Add Expense</h2>
@@ -1306,6 +1317,10 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
     <label>Attribute to lead source <span style="font-weight:400;color:var(--muted)">(optional, for ROI tracking)</span></label>
     <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Lead source" onclick="pvOpen_('exp_adsource_sel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exp_adsource_sel',this);}"><select id="exp_adsource_sel" tabindex="-1" onchange="onAdSourceSelChange()"></select></div>
     <input type="text" id="exp_adsource_other" placeholder="Source name" style="display:none;margin-top:8px">
+  </div>
+  <div id="exp_event_wrap">
+    <label>Event <span style="font-weight:400;color:var(--muted)">(optional &mdash; see this event&rsquo;s profit)</span></label>
+    <div class="pvwrap block" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Event" onclick="pvOpen_('exp_event_sel',this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pvOpen_('exp_event_sel',this);}"><select id="exp_event_sel" tabindex="-1"></select></div>
   </div>
   <div id="exp_repeat_wrap">
     <label id="exp_repeat_label">Repeat</label>
@@ -1573,6 +1588,8 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
 
   </div>
 
+  <div id="d_evprofit" style="display:none"></div>
+  <div id="d_hotelsug" style="display:none"></div>
   <div id="d_details">
     <div class="dlab">Details</div>
     <div class="kv" id="d_kv" style="margin-top:6px"></div>
@@ -1608,7 +1625,7 @@ nav.moved .tab.on .g{animation:tabpop .2s ease-out}
     <p class="note" id="d_ownnote" style="display:none;text-align:left;margin:8px 0 0"></p>
     <p class="note" id="d_ownback" style="display:none;text-align:left;margin:10px 0 0;font-size:12.5px"><a href="javascript:void(0)" onclick="markOwnContractUI('')" style="color:var(--gold);text-decoration:underline dotted;text-underline-offset:3px">Use our contract instead</a></p>
   </div>
-  <a class="act" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10038;</a>
+  <a class="act" id="d_dupbtn" href="javascript:void(0)" style="display:block;text-align:center;margin:8px 0" onclick="duplicateLeadUI()">Duplicate as new booking &#10038;</a>
   <button class="save" id="d_delbtn" style="background:transparent;border:1px solid #C05236;color:#E9927B" onclick="deleteLeadUI()">Delete this lead &#10005;</button>
 </div>
 
@@ -1668,7 +1685,7 @@ var C = {
   email:'E-mail', audience:'Audience Size', service:'Service', eventType:'Event Type',
   notes:'Notes about interaction', source:'Lead Source', location:'Event Location',
   price:'Quoted Price', start:'Start Time', end:'End Time', status:'Status',
-  followup:'Followup', eventDate:'Date of Event', referral:'Referred To', referredBy:'Referred By', referralFeeSent:'Referral Fee Sent',
+  followup:'Followup', eventDate:'Date of Event', referral:'Referred To', referredBy:'Referred By', leavingFrom:'Leaving From', traveling:'Traveling', referralFeeSent:'Referral Fee Sent',
   partnerResponse:'Partner Response', partnerResponseDate:'Partner Response Date', partnerEventDate:'Partner Event Date', partnerUpdateSeen:'Partner Update Seen',
   partnerFeeSentDate:'Partner Fee Sent Date', partnerFeeSeen:'Partner Fee Seen', partnerAskSnooze:'Partner Ask Snoozed Until', partnerNudgeSnooze:'Partner Nudge Snoozed Until', referralToken:'Referral Token', timestamp:'Timestamp', lostReason:'Lost Reason',
   audienceAge:'Audience Age Range',
@@ -1884,7 +1901,9 @@ function money(v){ var n=parseFloat(String(v||'').replace(/[^0-9.]/g,'')); retur
 // a BLANK price. Keeping them separate lets a deliberately entered "0" (a comped/free show)
 // through, while a lead nobody has priced yet still gets stopped and pointed at the field.
 function hasPrice(L){ return String(L[C.price]||'').trim()!==''; }
-function fmtMoney(v){ var n=money(v); return n ? '$'+n.toLocaleString() : ''; }
+function fmtMoney(v){ var n=money(v); return n ? '$'+n.toLocaleString(undefined,{minimumFractionDigits:(Math.round(n*100)%100?2:0), maximumFractionDigits:2}) : ''; }
+// One payment / expense line in an Insights list: whole dollars, but real cents when it has them ($42.50, not $43). Totals stay whole-dollar.
+function rowMoney_(n){ n=Number(n)||0; var c=Math.round(n*100)/100; return '$'+c.toLocaleString(undefined,{minimumFractionDigits:(c%1?2:0), maximumFractionDigits:2}); }
 /* ---------- Deposit / card fee ---------- */
 // The deposit and balance fields always store the base amount agreed to —
 // the 3.25% card fee is calculated on top and shown separately, never
@@ -3625,6 +3644,12 @@ function referredGroups_(rows){
   });
   return {unsent:unsent, groups:groups};
 }
+// What a partner's listed leads have paid you: "$42.50 received · $120 expected" ('' when none). Counts fees on THESE leads, so it follows the Archive year pill.
+function partnerFeeText_(rows){
+  var r=0, e=0;
+  rows.forEach(function(L){ var t=feeTotals_(feesFor_({leadKey:L._tsKey})); r+=t.received; e+=t.expected; });
+  return (r?'<span style="color:var(--sage)">'+feeAmt_(r)+' received</span>':'')+(r&&e?' · ':'')+(e?feeAmt_(e)+' expected':'');   // received = sage (money that arrived), expected stays muted
+}
 function leadRow_Referred(L){
   var meta=[(L[C.service]?svcLabel(L[C.service]):''), L[C.eventType], L[C.source]].filter(Boolean).join(' \u00b7 ');
   var s=String(L[C.status]||'');
@@ -3879,13 +3904,14 @@ function renderTodayShow(){
       +'<div class="todayshow-badge">\u2728 Showtime Today \u2728</div>'
       +'<div class="todayshow-name">'+esc(L[C.name]||'Lead')+'</div>'
       +meta
-      +'<div class="todayshow-leave" id="todayshow_lv_'+i+'" data-row="'+L._row+'" data-leave="" data-start="'+(startD?startD.getTime():'')+'"></div>'
+      +'<div class="todayshow-leave" id="todayshow_lv_'+i+'" data-row="'+L._row+'" data-leave="" data-from="'+esc(String(L[C.leavingFrom]||'').trim())+'" data-start="'+(startD?startD.getTime():'')+'"></div>'
+      +'<div class="todayshow-note todayshow-ht" data-row="'+L._row+'"'+(hotelSugHtml_(L)?'':' style="display:none"')+'>'+hotelSugHtml_(L)+'</div>'
       +'<div class="todayshow-countdown" id="todayshow_cd_'+i+'" data-start="'+(startD?startD.getTime():'')+'" data-end="'+(endD?endD.getTime():'')+'">&nbsp;</div>'
       +todayShowNotesHtml_(L)
       +actions
       +'</div>';
   }).join('');
-  shows.forEach(function(L,i){ loadTodayLeave_(L,i); });
+  shows.forEach(function(L,i){ loadTodayLeave_(L,i); loadHotelSuggest_(L); });
   updateTodayShowCountdowns();
   if(TODAY_SHOW_TIMER) clearInterval(TODAY_SHOW_TIMER);
   TODAY_SHOW_TIMER=setInterval(updateTodayShowCountdowns, 1000);
@@ -3907,13 +3933,14 @@ function todayShowNotesHtml_(L){
   return out;
 }
 // "Leave in 1h 12m · 4:15 PM", then "Time to go!" once the leave time passes, nothing once the show has started.
-function leaveCountdownText_(leaveMs, startMs, now){
+function leaveCountdownText_(leaveMs, startMs, now, from){
   if(!leaveMs) return {text:'', go:false};
   if(startMs && now>=startMs) return {text:'', go:false};
   if(now>=leaveMs) return {text:'Time to go! Leave now', go:true};
   var diff=leaveMs-now;
   var h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
-  return {text:'Leave in '+(h>0?h+'h ':'')+m+'m '+s+'s · '+hm12(new Date(leaveMs)), go:false};
+  from=String(from||'').trim();      // a custom "Leaving from" (hotel...) is named so the time is not a mystery
+  return {text:'Leave in '+(h>0?h+'h ':'')+m+'m '+s+'s · '+hm12(new Date(leaveMs))+(from?' · from '+(from.length>40?from.slice(0,37)+'…':from):''), go:false};
 }
 // Asks the server (once per show/place/time, then remembered) when to leave; the card is already on screen, so this only
 // fills in the leave line when it arrives. No starting address / location / route = no leave line, no error.
@@ -3921,7 +3948,8 @@ var TODAY_LEAVE_={};
 function loadTodayLeave_(L, i){
   var startD=timeToday(L[C.start]), loc=String(L[C.location]||'').trim();
   if(!startD || !loc) return;
-  var svc=String(L[C.service]||'').trim(), key=L._row+'|'+loc+'|'+svc+'|'+startD.getTime();
+  if(String(L[C.traveling]||'').trim().toLowerCase()==='yes') return;     // traveling: no leave countdown for this show
+  var svc=String(L[C.service]||'').trim(), from=String(L[C.leavingFrom]||'').trim(), key=L._row+'|'+loc+'|'+svc+'|'+from+'|'+startD.getTime();
   var show=function(ms){
     var el=$('todayshow_lv_'+i);
     if(!el || el.getAttribute('data-row')!==String(L._row)) return;
@@ -3932,12 +3960,12 @@ function loadTodayLeave_(L, i){
     var o=null; try{ o=JSON.parse(r); }catch(e){}
     if(!o || !o.ok || !o.leaveAtMs) return;
     TODAY_LEAVE_[key]=o.leaveAtMs; show(o.leaveAtMs);
-  }).withFailureHandler(function(){}).leaveForShow(loc, startD.getTime(), svc);
+  }).withFailureHandler(function(){}).leaveForShow(loc, startD.getTime(), svc, from, '');
 }
 function updateTodayShowCountdowns(){
   document.querySelectorAll('.todayshow-leave').forEach(function(el){
     var lv=Number(el.getAttribute('data-leave'))||0, st=Number(el.getAttribute('data-start'))||0;
-    var r=leaveCountdownText_(lv, st, Date.now());
+    var r=leaveCountdownText_(lv, st, Date.now(), el.getAttribute('data-from'));
     el.textContent=r.text; el.classList.toggle('go', r.go);
   });
   var els=document.querySelectorAll('.todayshow-countdown');
@@ -4461,7 +4489,7 @@ function renderLeads(){
       h+='<div class="sec-title"><span class="t">Sent to partners · '+sentN+'</span><span class="rule"></span></div>'
         +'<div class="more-list" style="margin-bottom:16px">'
         +rg.groups.map(function(g){
-          return collapsibleSec_('ref_'+g.key.replace(/[^a-z0-9]+/g,'-'), esc(g.label), g.rows.length, g.rows.map(leadRow_Referred).join(''), {noun:['lead','leads']});
+          return collapsibleSec_('ref_'+g.key.replace(/[^a-z0-9]+/g,'-'), esc(g.label), g.rows.length, g.rows.map(leadRow_Referred).join(''), {noun:['lead','leads'], extra:partnerFeeText_(g.rows)});
         }).join('')
         +'</div>';
     }
@@ -4723,6 +4751,22 @@ function refreshQuiet(){
     ingest(json); renderChips(); renderLeads(); renderInsights();
   }).withFailureHandler(function(){}).getLeads();
 }
+// An app left open (or on the home screen) used to keep showing what it loaded -- a payment your client reported, a new website
+// inquiry, a change from another device. When you come back after a few minutes away, reload the data quietly, but only if nothing
+// is open for editing (no sheet/overlay, nothing being typed) so it can never wipe a half-finished edit.
+var AWAY_AT_=0, AWAY_MS_=180000, RETURN_BUSY_=false;
+function refreshOnReturn_(){
+  if(RETURN_BUSY_) return;
+  var ov=$('overlay'); if(ov && ov.classList.contains('open')) return;
+  var a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  RETURN_BUSY_=true; setTimeout(function(){ RETURN_BUSY_=false; }, 15000);
+  refreshQuiet();
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ AWAY_AT_=Date.now(); return; }
+  if(AWAY_AT_ && Date.now()-AWAY_AT_>=AWAY_MS_) refreshOnReturn_();
+  AWAY_AT_=0;
+});
 
 /* ---------- Task editor ---------- */
 var TCUR=null, TSAVET=null;
@@ -4747,7 +4791,7 @@ function openTask(id){
   $('overlay').classList.add('open'); $('tsheet').classList.add('open');
 }
 function anyPanelOpen(){
-  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','taxSheet','mileageSheet','expenseSheet','importSheet','categorySheet','msgTplSheet','refLinkSheet'].some(function(id){
+  return ['sheet','tsheet','epicker','tesheet','histsheet','partnersheet','tpicker','tesheet2','refersheet','lostReasonSheet','topclientsSheet','managefieldsSheet','insightResultsSheet','taxSheet','mileageSheet','evLinkSheet','expenseSheet','importSheet','categorySheet','msgTplSheet','refLinkSheet'].some(function(id){
     var el=$(id); return el && el.classList.contains('open');
   });
 }
@@ -4844,13 +4888,20 @@ function referralFeePct_(){
   var n=Number(s); return (n>=1 && n<=100) ? n : 0;
 }
 // "Send Rich Crawford their referral fee: $500 (10% of $5,000)". The fee is a percent of the QUOTED price only -- no travel fee.
+// What you owe the person who sent you this lead, in dollars (0 when it is not a referral, there is no percent set, or no price yet).
+// ONE place for the math: the reminder text above and the Event profit card both use it.
+function referralFeeOwed_(L){
+  if(!referrerName_(L)) return 0;
+  var pct=referralFeePct_(), price=money(L[C.price]);
+  if(!pct || !(price>0)) return 0;
+  return Math.round(price*pct)/100;              // price x pct / 100, in cents
+}
 function referralFeeNote_(L){
   var who=referrerName_(L); if(!who) return '';
   var pct=referralFeePct_(), price=money(L[C.price]);
   var base='Send '+who+' their referral fee';
   if(!pct || !(price>0)) return base;
-  var cents=Math.round(price*pct);               // price x pct / 100, in cents
-  var fee=cents/100;
+  var fee=referralFeeOwed_(L);
   var fmt=function(n){ return '$'+(Math.round(n)===n ? n.toLocaleString('en-US') : n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})); };
   return base+': '+fmt(fee)+' ('+pct+'% of '+fmt(price)+')';
 }
@@ -4899,9 +4950,9 @@ function leadStage_(L){
 function arrangeLeadPage_(L){
   var det=$('d_details'); if(!det || !det.parentNode) return;
   var st=leadStage_(L);
-  var seq = st==='prospect' ? ['d_actions','ct_noteprompt','d_ctrl','d_track','d_nextstep','d_review']
-          : st==='closed'   ? ['d_ctrl','d_actions','ct_noteprompt','d_track','d_nextstep','d_review']
-          :                   ['d_track','d_nextstep','d_review','d_actions','ct_noteprompt','d_ctrl'];
+  var seq = st==='prospect' ? ['d_actions','ct_noteprompt','d_ctrl','d_track','d_nextstep','d_review','d_evprofit','d_hotelsug']
+          : st==='closed'   ? ['d_ctrl','d_actions','ct_noteprompt','d_track','d_nextstep','d_review','d_evprofit','d_hotelsug']
+          :                   ['d_track','d_nextstep','d_review','d_actions','ct_noteprompt','d_ctrl','d_evprofit','d_hotelsug'];
   seq.forEach(function(id){ var n=$(id); if(n) det.parentNode.insertBefore(n, det); });
 }
 
@@ -5048,9 +5099,82 @@ function nextStepFor_(L){
     return {kind:'review', label:'Ask for a review', why:'Show was '+fmtDateY(ed)+' \u2014 no review yet. Pick your thank-you / review message.'};
   return null;
 }
+/* ---------- Hotel suggestion (Rich, 2026-11-06) ----------
+   For a show far from home (drive of HOTEL_CHECK_HOURS or more, decided on the server), the app looks on your Google Calendar for a
+   hotel stay around the show date and offers its address as "Leaving from", one tap to use. It only ever suggests: nothing is filled
+   in by itself, nothing shows when no hotel is found, and it stops as soon as "Leaving from" is set or the show is marked Traveling. */
+var HOTEL_SUG_={};
+function hotelSugWanted_(L){
+  if(!L || String(L[C.status])!=='Booked' || !(Number(L._row)>0)) return false;
+  var ed=pd(L[C.eventDate]); if(!ed || ed<today0()) return false;
+  if(!String(L[C.location]||'').trim()) return false;
+  if(String(L[C.leavingFrom]||'').trim()) return false;
+  return String(L[C.traveling]||'').trim().toLowerCase()!=='yes';
+}
+function hotelSugKey_(L){ var ed=pd(L[C.eventDate]); return L._row+'|'+String(L[C.location]||'').trim()+'|'+(ed?ymd(ed):''); }
+function hotelSugHtml_(L){
+  if(!hotelSugWanted_(L)) return '';
+  var v=HOTEL_SUG_[hotelSugKey_(L)]; if(!v || v.state!=='found') return '';
+  return '<span>Hotel on your calendar: <b>'+esc(v.name)+'</b></span> '
+    +'<button class="followupdue-btn" style="margin-left:6px;padding:4px 12px" onclick="event.stopPropagation();useHotelSuggestion_('+L._row+')">Use it for Leaving from</button>';
+}
+// Once "Leaving from" is set the suggestion is gone, so a quiet one-line note says where it landed (and lets you change it).
+// Upcoming booked shows only; never for a Traveling show (no leave time there).
+function leavingNoteHtml_(L){
+  if(!L || String(L[C.status])!=='Booked' || !(Number(L._row)>0)) return '';
+  var ed=pd(L[C.eventDate]); if(!ed || ed<today0()) return '';
+  var lf=String(L[C.leavingFrom]||'').trim(); if(!lf) return '';
+  if(String(L[C.traveling]||'').trim().toLowerCase()==='yes') return '';
+  return '<span>Leaving from: <b>'+esc(lf.length>70 ? lf.slice(0,67)+'…' : lf)+'</b></span> '
+    +'<button class="followupdue-btn" style="margin-left:6px;padding:4px 12px" onclick="event.stopPropagation();editLeavingFrom_()">Change</button>';
+}
+function editLeavingFrom_(){
+  var i=KVF.findIndex(function(F){ return F.col===C.leavingFrom; }); if(i<0) return;
+  if(ensureKVShown_(i)) editKV(i);
+}
+function paintHotelSuggest_(){
+  var box=$('d_hotelsug');
+  if(box){
+    var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT), html=L ? (hotelSugHtml_(L)||leavingNoteHtml_(L)) : '';
+    box.innerHTML=html; box.style.display=html ? 'block' : 'none';
+    if(html) box.className='note';
+  }
+  document.querySelectorAll('.todayshow-ht').forEach(function(el){
+    var L2=LEADS.find(function(x){ return String(x._row)===el.getAttribute('data-row'); });
+    var t=L2 ? hotelSugHtml_(L2) : '';
+    el.innerHTML=t; el.style.display=t ? '' : 'none';
+  });
+}
+function loadHotelSuggest_(L){
+  if(!hotelSugWanted_(L)) return;
+  var key=hotelSugKey_(L); if(HOTEL_SUG_[key]) return;          // asked once per show/place/date (also while the answer is on its way)
+  HOTEL_SUG_[key]={state:'loading'};
+  var ed=pd(L[C.eventDate]);
+  GS.withSuccessHandler(function(r){
+    var o=null; try{ o=JSON.parse(r); }catch(e){}
+    HOTEL_SUG_[key]=(o && o.ok && o.address) ? {state:'found', name:String(o.name||'Hotel'), address:String(o.address)} : {state:'none'};
+    paintHotelSuggest_();
+  }).withFailureHandler(function(){ HOTEL_SUG_[key]={state:'none'}; }).hotelForShow(String(L[C.location]||'').trim(), ymd(ed));
+}
+function renderHotelSuggest_(){
+  paintHotelSuggest_();
+  var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT);
+  if(L) loadHotelSuggest_(L);
+}
+function useHotelSuggestion_(row){
+  var L=LEADS.find(function(x){ return x._row===row; }); if(!L) return;
+  var v=HOTEL_SUG_[hotelSugKey_(L)]; if(!v || v.state!=='found') return;
+  var i=KVF.findIndex(function(F){ return F.col===C.leavingFrom; }); if(i<0) return;
+  CURRENT=L;
+  commitKV_(i, v.address);          // the normal field save: instant, saved in the background
+  toast('Leaving from set to '+v.name);
+  paintHotelSuggest_(); renderTodayShow();
+}
 function renderNextStep(){
   var box=$('d_nextstep'); if(!box) return;
   renderLeadTop_();
+  renderEventProfit_();
+  renderHotelSuggest_();
   var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT);
   var step=L ? nextStepFor_(L) : null;
   renderContractSection_(L, step);
@@ -5143,6 +5267,7 @@ function openSheet(row){
   extraReset_();
   postponeReset_();
   var L=CURRENT;
+  EVP_OPEN=false;
   // Rebuild the contract panel from whatever's actually saved on this lead,
   // rather than always clearing it — a contract already generated earlier
   // should still show its links when you come back to this same lead,
@@ -5191,6 +5316,7 @@ function openSheet(row){
   $('ct_noteprompt').style.display='none'; CT_TYPE=null;
   $('d_savestat').innerHTML='Changes save automatically &#10038;';
   DELARM=false; $('d_delbtn').innerHTML='Delete this lead &#10005;';
+  DUPARM=false; clearTimeout(DUPARM_T); $('d_dupbtn').innerHTML='Duplicate as new booking &#10038;';
   refreshHistory();
   $('overlay').classList.add('open'); $('sheet').classList.add('open');
 }
@@ -5226,6 +5352,8 @@ var KVF=[
   {label:'Company', col:C.company, type:'text'},
   {label:'Company address (billing/mailing)', col:C.companyAddress, type:'text'},
   {label:'Location', col:C.location, type:'text'},
+  {label:'Leaving from (hotel or other start for this show; blank = your home)', col:C.leavingFrom, type:'text'},
+  {label:'Traveling (no leave alert for this show)', col:C.traveling, type:'select', opts:['Yes','No']},
   {label:'Phone', col:C.phone, type:'tel'},
   {label:'Email', col:C.email, type:'email'}
 ];
@@ -5259,7 +5387,15 @@ function orderedAllKVIndices(){
       if(KVF[i].col===col && !seen[i]){ order.push(i); seen[i]=true; break; }
     }
   });
-  for(var j=0;j<KVF.length;j++){ if(!seen[j]){ order.push(j); seen[j]=true; } }
+  // A field you have never ordered (a new one) goes right after the field before it in the default list (so "Leaving from" lands
+  // under "Location"), not at the very bottom; with no earlier field placed yet it goes last.
+  for(var j=0;j<KVF.length;j++){
+    if(seen[j]) continue;
+    var at=-1;
+    for(var p=j-1;p>=0 && at<0;p--) at=order.indexOf(p);
+    if(at<0) order.push(j); else order.splice(at+1,0,j);
+    seen[j]=true;
+  }
   return order;
 }
 function orderedVisibleKVIndices(){
@@ -7094,8 +7230,20 @@ function doGenerateContract(){
     toast('Could not generate contract \u2014 see details below');
   }).generateContract(CURRENT._row);
 }
+// Two taps, like Delete: the first arms it (3.5s), the second creates the new booking.
+var DUPARM=false, DUPARM_T=null;
 function duplicateLeadUI(){
   if(!CURRENT) return;
+  var b=$('d_dupbtn');
+  if(!DUPARM){
+    DUPARM=true;
+    if(b) b.textContent='Tap again to create the new booking';
+    clearTimeout(DUPARM_T);
+    DUPARM_T=setTimeout(function(){ DUPARM=false; var x=$('d_dupbtn'); if(x) x.innerHTML='Duplicate as new booking &#10038;'; }, 3500);
+    return;
+  }
+  DUPARM=false; clearTimeout(DUPARM_T);
+  if(b) b.innerHTML='Duplicate as new booking &#10038;';
   var row=CURRENT._row;
   var name=CURRENT[C.name]||'this contact';
   toast('Creating a new booking for '+name+'\u2026');
@@ -7504,7 +7652,9 @@ function submitLead(){
   f[C.phone]=$('a_phone').value; f[C.email]=$('a_email').value; f[C.company]=$('a_company').value;
   var _ed=checkedDateYear_($('a_eventDate').value, true);
   if(!_ed.ok){ toast('The event date has an odd year — please re-enter it'); return; }
-  f[C.eventDate]=_ed.v; f[C.audience]=$('a_audience').value;
+  f[C.eventDate]=_ed.v; f[C.audience]=$('a_audience').value; f[C.audienceAge]=$('a_audienceAge').value.trim();
+  // Start time is stored with the event date, like the lead editor does (1970-01-01 when no date yet).
+  var _st=$('a_startTime').value; f[C.start]=_st ? ((_ed.v||'1970-01-01')+' '+_st) : '';
   f[C.service]=$('a_service').value; f[C.eventType]=$('a_eventType').value; if(f[C.eventType]==='__new__') f[C.eventType]='';
   f[C.source]=$('a_source').value; if(f[C.source]==='__new__') f[C.source]=''; f[C.price]=$('a_price').value;
   f[C.location]=$('a_location').value; f[C.status]=$('a_status').value;
@@ -7517,7 +7667,7 @@ function submitLead(){
   // (sheet row + automations + calendar) finishes in the background. On success
   // the server's full list replaces the temporary lead; on failure we pull it
   // back out and restore what was typed so nothing is lost.
-  var formIds=['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_price','a_location','a_followup','a_followtime','a_notes','a_service','a_eventType','a_source','a_status'];
+  var formIds=['a_name','a_phone','a_email','a_company','a_eventDate','a_audience','a_audienceAge','a_startTime','a_price','a_location','a_followup','a_followtime','a_notes','a_service','a_eventType','a_source','a_status'];
   var saved={}; formIds.forEach(function(id){ saved[id]=$(id).value; });
   ADD_SEQ_=(ADD_SEQ_||0)+1;
   var temp={_row:-ADD_SEQ_, _tsKey:'pending'+ADD_SEQ_, _pending:true};
@@ -8196,7 +8346,7 @@ function showIncomeBreakdown(){
   $('insightResults_title').textContent = 'Income \u00b7 '+$m(total);
   $('insightResults_list').innerHTML = events.length
     ? events.map(function(e){
-        return compactRow(e.name, $m(e.amount), e.kind+' received', fmtDateY(ymd(e.date)), 'gold', e.row?('closeInsightResults();openSheet('+e.row+')'):'');
+        return compactRow(e.name, rowMoney_(e.amount), e.kind+' received', fmtDateY(ymd(e.date)), 'gold', e.row?('closeInsightResults();openSheet('+e.row+')'):'');
       }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No income recorded for this period.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
@@ -8212,7 +8362,7 @@ function showExpensesBreakdown(){
   $('insightResults_title').textContent = 'Expenses \u00b7 '+$m(total);
   $('insightResults_list').innerHTML = exp.length
     ? exp.map(function(E){
-        return compactRow(E.vendor||'Expense', $m(E.amount), E.category||'Other', E.date?fmtDateY(E.date):'', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):'');
+        return compactRow(E.vendor||'Expense', rowMoney_(E.amount), E.category||'Other', E.date?fmtDateY(E.date):'', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):'');
       }).join('')
     : '<div class="empty"><span class="star">&#10038;</span>No expenses recorded for this period.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
@@ -9082,9 +9232,9 @@ function showMonthMoney(mo){
   $('insightResults_title').textContent = names[mo]+' '+y+' · +'+$m(incTotal)+' / −'+$m(expTotal);
   var h='';
   if(inc.length){ h+='<div class="sec-title"><span class="t">Income</span><span class="rule"></span></div>'
-    + inc.map(function(e){ return compactRow(e.name, $m(e.amount), e.kind+' received', fmtDateY(ymd(e.date)), 'gold', e.row?('closeInsightResults();openSheet('+e.row+')'):''); }).join(''); }
+    + inc.map(function(e){ return compactRow(e.name, rowMoney_(e.amount),e.kind+' received', fmtDateY(ymd(e.date)), 'gold', e.row?('closeInsightResults();openSheet('+e.row+')'):''); }).join(''); }
   if(exp.length){ h+='<div class="sec-title" style="margin-top:14px"><span class="t">Expenses</span><span class="rule"></span></div>'
-    + exp.map(function(E){ return compactRow(E.vendor||'Expense', $m(E.amount), E.category||'Other', E.date?fmtDateY(E.date):'', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):''); }).join(''); }
+    + exp.map(function(E){ return compactRow(E.vendor||'Expense', rowMoney_(E.amount),E.category||'Other', E.date?fmtDateY(E.date):'', 'gold', E._row?('closeInsightResults();openAddExpense('+E._row+')'):''); }).join(''); }
   $('insightResults_list').innerHTML = h || '<div class="empty"><span class="star">&#10038;</span>Nothing recorded for '+names[mo]+' '+y+'.</div>';
   $('overlay').classList.add('open'); $('insightResultsSheet').classList.add('open');
 }
@@ -9221,6 +9371,156 @@ function getAdSourceValue(){
 }
 function updateAdSourceVisibility(){
   $('exp_adsource_wrap').style.display = ($('exp_category').value === 'Marketing & Advertising') ? '' : 'none';
+}
+
+/* ---------- Event profit ----------
+   An expense can be linked to ONE event (a lead) through its Event column (the lead's _tsKey). Linking is only a tag: it never
+   changes any total on the Expenses or Insights screens. The Event profit card on a lead shows what the event brought in against
+   what it cost. Profit is on the BOOKED basis (price + travel fee, same as Booked value); Received (cash in, same events Insights
+   counts) is shown beside it. If the lead came from a referral, the fee you owe is a read-only cost line -- unless you already
+   linked an expense that looks like that fee, so it is never counted twice. */
+function eventKeyOf_(L){ var k=String((L&&L._tsKey)||''); return /^\d+$/.test(k) ? k : ''; }
+function leadByEventKey_(k){ k=String(k||''); if(!k) return null; return LEADS.find(function(L){ return eventKeyOf_(L)===k; })||null; }
+function eventExpenses_(L){ var k=eventKeyOf_(L); if(!k) return []; return EXPENSES.filter(function(E){ return E.eventKey===k; }); }
+function cents_(n){ return Math.round((Number(n)||0)*100)/100; }
+function eventProfit_(L){
+  var exp=eventExpenses_(L);
+  var logged=cents_(exp.reduce(function(s,E){ return s+(Number(E.amount)||0); },0));
+  var alreadyLogged=exp.some(function(E){ return /referral/i.test([E.category,E.vendor,E.notes].join(' ')); });
+  var fee=alreadyLogged ? 0 : referralFeeOwed_(L);
+  var booked=cents_(bookedAmt_(L));
+  var received=cents_(leadIncomeEvents_([L]).reduce(function(s,e){ return s+e.amount; },0));
+  var costTotal=cents_(logged+fee), profit=cents_(booked-costTotal);
+  return {expenses:exp, logged:logged, fee:fee, feeWho:referrerName_(L), booked:booked, received:received,
+          outstanding:cents_(Math.max(0,booked-received)), costTotal:costTotal, profit:profit,
+          margin:booked>0 ? Math.round(profit/booked*100) : null};
+}
+function eventLabel_(L){
+  var d=pd(L[C.eventDate]);
+  return String(L[C.name]||'Lead')+(d ? ' — '+fmtDateY(L[C.eventDate]) : '');
+}
+// The Event dropdown on the expense form: your Booked / Completed events, the one closest to today first (past or upcoming), undated last
+// (plus the one already linked, whatever its status).
+function eventsByNearness_(list){
+  var t=today0().getTime(), DAY=86400000;
+  var key=function(L){ var d=pd(L[C.eventDate]); return d ? Math.round((d.getTime()-t)/DAY) : null; };
+  return list.map(function(L){ return {L:L, k:key(L)}; }).sort(function(a,b){
+    if(a.k===null || b.k===null) return a.k===b.k ? 0 : (a.k===null ? 1 : -1);
+    var da=Math.abs(a.k), db=Math.abs(b.k);
+    return da!==db ? da-db : b.k-a.k;      // same distance: the upcoming one first
+  }).map(function(x){ return x.L; });
+}
+function fillExpenseEventSelect(sel, current){
+  var cur=String(current||'');
+  var list=eventsByNearness_(LEADS.filter(function(L){ return eventKeyOf_(L) && (isBookedLike(L) || eventKeyOf_(L)===cur); }));
+  var h='<option value="">— none —</option>'+list.map(function(L){ return '<option value="'+esc(eventKeyOf_(L))+'">'+esc(eventLabel_(L))+'</option>'; }).join('');
+  if(cur && !leadByEventKey_(cur)) h+='<option value="'+esc(cur)+'">(event no longer in your leads)</option>';
+  sel.innerHTML=h;
+  sel.value=cur;
+}
+function getExpenseEventValue(){ var s=$('exp_event_sel'); return s ? s.value : ''; }
+var EVP_OPEN=false;
+function toggleEventProfit(){
+  EVP_OPEN=!EVP_OPEN;
+  var w=$('evp_wrap'); if(w) w.style.display=EVP_OPEN?'block':'none';
+  var b=$('evp_row'); if(b) b.classList.toggle('open', EVP_OPEN);
+}
+function renderEventProfit_(){
+  var box=$('d_evprofit'); if(!box) return;
+  var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT);
+  if(!L || !eventKeyOf_(L)){ box.style.display='none'; box.innerHTML=''; return; }
+  var P=eventProfit_(L);
+  if(!isBookedLike(L) && !P.expenses.length){ box.style.display='none'; box.innerHTML=''; return; }
+  var line=function(l,v,o){ o=o||{}; return '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;'+(o.top?'border-top:1px solid var(--line);margin-top:4px;padding-top:9px;':'')+'font-size:'+(o.big?'15':'13.5')+'px">'
+    +'<span style="color:'+(o.mut?'var(--muted)':'var(--cream)')+'">'+l+'</span><span style="font-weight:600;color:'+(o.color||'var(--cream)')+'">'+v+'</span></div>'; };
+  var h='<p class="note" style="text-align:left;margin:0 0 6px">Profit is based on the booked amount. Linking an expense never changes your Expenses or Insights totals.</p>';
+  h+='<div class="dlab" style="margin-top:6px">Income</div>';
+  h+=line('Booked', esc(feeAmt_(P.booked)));
+  h+=line('Received so far', esc(feeAmt_(P.received)), {mut:true});
+  if(P.outstanding>0) h+=line('Still to come', esc(feeAmt_(P.outstanding)), {mut:true});
+  h+='<div class="dlab" style="margin-top:12px">Costs</div>';
+  if(!P.expenses.length && !P.fee) h+='<p class="note" style="text-align:left;margin:0 0 6px">No costs linked to this event yet.</p>';
+  P.expenses.slice().sort(function(a,b){ return (pd(b.date)||0)-(pd(a.date)||0); }).forEach(function(E){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0;cursor:pointer" onclick="openAddExpense('+E._row+')"><div style="font-size:13.5px;color:var(--cream);font-weight:600">'+esc(E.vendor||'Expense')+' <span style="color:var(--gold-bright)">'+esc(feeAmt_(E.amount))+'</span></div>'
+      +'<div style="font-size:11.5px;color:var(--muted)">'+esc(E.category||'Other')+(E.date?' · '+esc(fmtDateY(E.date)):'')+'</div></div>'
+      +(E._row>0?'<button type="button" class="bump" style="border-radius:8px;flex:0 0 auto" aria-label="Unlink this expense from the event" onclick="unlinkExpenseFromEvent_('+E._row+')">Unlink</button>':'')
+      +'</div>';
+  });
+  if(P.fee) h+=line('Referral fee owed to '+esc(P.feeWho)+' <span style="color:var(--muted);font-size:11.5px">(calculated)</span>', esc(feeAmt_(P.fee)));
+  h+=line('Total costs', esc(feeAmt_(P.costTotal)), {top:true});
+  h+=line('Profit'+(P.margin!==null?' <span style="color:var(--muted);font-size:12px;font-weight:400">· '+P.margin+'% of booked</span>':''), esc((P.profit<0?'−':'')+feeAmt_(Math.abs(P.profit))), {big:true, color:P.profit<0?'#E9927B':'var(--sage)', top:true});
+  h+='<div class="grid2" style="margin-top:10px;gap:8px">'
+    +'<button type="button" class="bump" style="border-radius:8px" onclick="addExpenseForEvent_()">Add expense</button>'
+    +'<button type="button" class="bump" style="border-radius:8px" onclick="openLinkExpenses_()">Link existing</button></div>';
+  box.innerHTML='<div class="more-list" style="margin-top:16px">'
+    +'<button type="button" class="more-row'+(EVP_OPEN?' open':'')+'" id="evp_row" onclick="toggleEventProfit()">'
+      +'<span class="ic"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>'
+      +'<span class="t"><span>Event profit</span></span>'
+      +'<span class="pill gold">'+esc((P.profit<0?'−':'')+feeAmt_(Math.abs(P.profit)))+'</span>'
+      +'<span class="chev">&#8250;</span>'
+    +'</button>'
+    +'<div id="evp_wrap" class="more-detail"'+(EVP_OPEN?' style="display:block"':' style="display:none"')+'>'+h+'</div>'
+    +'</div>';
+  box.style.display='block';
+}
+function addExpenseForEvent_(){ if(!CURRENT) return; openAddExpense(null, eventKeyOf_(CURRENT)); }
+// Instant: the link changes on screen first, the sheet is written in the background, and a failure puts it back.
+function setExpenseEvent_(rows, key, doneMsg){
+  var list=rows.map(function(r){ return EXPENSES.find(function(x){ return x._row===r; }); }).filter(function(E){ return E && E._row>0; });
+  if(!list.length) return;
+  var before=list.map(function(E){ return E.eventKey||''; });
+  list.forEach(function(E){ E.eventKey=key; });
+  renderExpenses(); toast(doneMsg);
+  GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); })
+    .withFailureHandler(function(){
+      list.forEach(function(E,i){ E.eventKey=before[i]; });
+      renderExpenses(); toast('Could not save — nothing was changed');
+    }).bulkSetExpenseEvent(JSON.stringify(list.map(function(E){ return E._row; })), key);
+}
+function unlinkExpenseFromEvent_(row){ setExpenseEvent_([row], '', 'Unlinked'); }
+var EVL_SEL={};
+function openLinkExpenses_(){
+  if(!CURRENT) return;
+  EVL_SEL={};
+  renderLinkExpenses_();
+  $('overlay').classList.add('open'); $('evLinkSheet').classList.add('open');
+}
+function closeLinkExpenses_(){ $('evLinkSheet').classList.remove('open'); syncOverlay(); }
+function renderLinkExpenses_(){
+  var L=CURRENT && (LEADS.find(function(x){ return x._row===CURRENT._row; })||CURRENT); if(!L) return;
+  var ed=pd(L[C.eventDate]);
+  var free=EXPENSES.filter(function(E){ return E._row>0 && !E.eventKey; });
+  // closest to the event date first: the props and gas for a show are bought around it
+  free.sort(function(a,b){
+    if(!ed) return (pd(b.date)||0)-(pd(a.date)||0);
+    return Math.abs((pd(a.date)||0)-ed)-Math.abs((pd(b.date)||0)-ed);
+  });
+  var shown=free.slice(0,50);
+  $('evLink_title').textContent='Link expenses · '+String(L[C.name]||'Event');
+  var n=Object.keys(EVL_SEL).length;
+  $('evLink_list').innerHTML=(shown.length
+    ? '<p class="note" style="text-align:left;margin:0 0 8px">Tick the expenses that belong to this event.'+(free.length>shown.length?' Showing the '+shown.length+' closest to the event date.':'')+'</p>'
+      +shown.map(function(E){
+        return '<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer">'
+          +'<input type="checkbox" style="width:auto;flex:0 0 auto;margin:0"'+(EVL_SEL[E._row]?' checked':'')+' onchange="toggleLinkPick_('+E._row+',this.checked)">'
+          +'<span style="flex:1;min-width:0"><span style="font-weight:600;color:var(--cream);font-size:13.5px">'+esc(E.vendor||'Expense')+'</span> <span style="color:var(--gold-bright);font-size:12.5px;font-weight:600">'+esc(feeAmt_(E.amount))+'</span>'
+          +'<span style="display:block;font-size:11.5px;color:var(--muted)">'+esc(E.category||'Other')+(E.date?' · '+esc(fmtDateY(E.date)):'')+'</span></span></label>';
+      }).join('')
+    : '<div class="empty"><span class="star">&#10038;</span>Every expense is already linked to an event.</div>');
+  var b=$('evLink_btn'); b.disabled=!n; b.style.opacity=n?'1':'.5';
+  b.textContent=n ? 'Link '+n+' expense'+(n===1?'':'s')+' ✦' : 'Pick expenses to link';
+}
+function toggleLinkPick_(row, on){
+  if(on) EVL_SEL[row]=1; else delete EVL_SEL[row];
+  var n=Object.keys(EVL_SEL).length, b=$('evLink_btn');
+  if(b){ b.disabled=!n; b.style.opacity=n?'1':'.5'; b.textContent=n ? 'Link '+n+' expense'+(n===1?'':'s')+' ✦' : 'Pick expenses to link'; }
+}
+function saveLinkExpenses_(){
+  var rows=Object.keys(EVL_SEL).map(Number), key=CURRENT ? eventKeyOf_(CURRENT) : '';
+  if(!rows.length || !key) return;
+  closeLinkExpenses_();
+  setExpenseEvent_(rows, key, 'Linked '+rows.length+' expense'+(rows.length===1?'':'s')+' ✦');
 }
 
 /* ---------- Insight drill-down ---------- */
@@ -9698,6 +9998,7 @@ function renderExpenses(){
   else if(EXPENSE_VIEW_MONTH!=='all') listHtml=sorted.map(expenseRowHtml).join('');
   else listHtml=expenseMonthGroupsHtml_(sorted, monthNames);
   $('expenseList').innerHTML = listHtml;
+  renderEventProfit_();   // an open lead's Event profit card follows any expense change
 }
 function expenseMonthGroupsHtml_(sorted, monthNames){
   var groups=[], byKey={};
@@ -10114,6 +10415,7 @@ function expenseRowHtml(E){
       +'<div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:2px">'
         +'<span style="width:7px;height:7px;border-radius:50%;background:'+categoryColor(E.category)+';flex:0 0 auto"></span>'
         +esc(E.category||'Other')+(E.source==='CSV Import'?' \u00b7 CSV import':'')
+        +(function(){ var ev=E.eventKey ? leadByEventKey_(E.eventKey) : null; return ev ? ' \u00b7 <span style="color:var(--gold)">'+esc(String(ev[C.name]||'Event'))+'</span>' : ''; })()
       +'</div>'
     +'</div>'
     +(d?'<span class="pill gold">'+esc(fmtDateY(E.date))+'</span>':'')
@@ -10122,11 +10424,12 @@ function expenseRowHtml(E){
 var EXPENSE_EDIT_ROW = null;
 var RECUR_EDIT_ROW = null; // editing a recurring RULE (row in the Recurring sheet), vs an expense
 var PENDING_RECEIPT = null; // {base64, mimeType, fileName} chosen but not yet uploaded to Drive
-function openAddExpense(row){
+function openAddExpense(row, presetEventKey){
   if(row && row<0){ toast('Still saving \u2014 one moment'); return; } // a just-added expense, not on the server yet
   EXPENSE_EDIT_ROW = row || null;
   RECUR_EDIT_ROW = null;
   var E = row ? EXPENSES.find(function(x){ return x._row===row; }) : null;
+  if($('exp_event_wrap')){ $('exp_event_wrap').style.display=''; fillExpenseEventSelect($('exp_event_sel'), E ? E.eventKey : (presetEventKey||'')); }
   $('expenseSheet_title').textContent = E ? 'Edit Expense' : 'Add Expense';
   if($('exp_date_wrap')) $('exp_date_wrap').style.display='';
   if($('exp_receipt_wrap')) $('exp_receipt_wrap').style.display='';
@@ -10161,6 +10464,7 @@ function openRecurringEdit(row){
   if(!R) return;
   EXPENSE_EDIT_ROW = null;
   RECUR_EDIT_ROW = row;
+  if($('exp_event_wrap')) $('exp_event_wrap').style.display='none';   // a repeating rule is not tied to one event
   $('expenseSheet_title').textContent = 'Edit Recurring';
   if($('exp_date_wrap')) $('exp_date_wrap').style.display='none';
   if($('exp_receipt_wrap')) $('exp_receipt_wrap').style.display='none';
@@ -10249,6 +10553,7 @@ function reopenExpenseForm_(vals, receipt){
   $('exp_date').value=vals.date; $('exp_vendor').value=vals.vendor; $('exp_amount').value=vals.amount;
   fillExpenseCategorySelect($('exp_category'), vals.category);
   fillAdSourceSelect($('exp_adsource_sel'), vals.adSource||''); updateAdSourceVisibility();
+  fillExpenseEventSelect($('exp_event_sel'), vals.eventKey||'');
   $('exp_notes').value=vals.notes;
   if(receipt){ PENDING_RECEIPT=receipt; renderReceiptPreview(); }
 }
@@ -10313,6 +10618,7 @@ function removeReceiptUI(){
 function saveExpenseUI(){
   var date=$('exp_date').value, vendor=$('exp_vendor').value.trim(), amount=$('exp_amount').value, category=$('exp_category').value, notes=$('exp_notes').value.trim();
   var adSource = getAdSourceValue();
+  var eventKey = getExpenseEventValue();
   if(!vendor || !amount){ toast('Vendor and amount are required'); return; }
   var repeat = ($('exp_repeat') && $('exp_repeat').value) || '';
   var rstart = ($('exp_repeat_start') && $('exp_repeat_start').value) || '';
@@ -10339,17 +10645,17 @@ function saveExpenseUI(){
   // in the list right away and save in the background, like adding a lead. If the save fails
   // the change is undone and, for a new one, the form reopens with what was typed.
   if(!repeat){
-    var vals={ date:date, vendor:vendor, amount:money(amount), category:category, notes:notes, adSource:adSource };
+    var vals={ date:date, vendor:vendor, amount:money(amount), category:category, notes:notes, adSource:adSource, eventKey:eventKey };
     if(row){
       var E=EXPENSES.find(function(x){ return x._row===row; });
-      var before=E ? { date:E.date, vendor:E.vendor, amount:E.amount, category:E.category, notes:E.notes, adSource:E.adSource } : null;
+      var before=E ? { date:E.date, vendor:E.vendor, amount:E.amount, category:E.category, notes:E.notes, adSource:E.adSource, eventKey:E.eventKey||'' } : null;
       if(E) Object.keys(vals).forEach(function(k){ E[k]=vals[k]; });
       renderExpenses(); toast(receipt ? 'Saved \u2014 attaching receipt\u2026' : 'Saved \u2726');
       GS.withSuccessHandler(function(json){ ingest(json); if(receipt) attachReceiptQuiet_(row, receipt); else renderExpenses(); })
         .withFailureHandler(function(){
           if(E && before) Object.keys(before).forEach(function(k){ E[k]=before[k]; });
           renderExpenses(); toast('Could not save \u2014 your change was undone');
-        }).updateExpense(row, date, vendor, amount, category, notes, adSource);
+        }).updateExpense(row, date, vendor, amount, category, notes, adSource, eventKey);
       return;
     }
     var temp={ _row:-(++EXP_SEQ_), source:'', receiptUrl:'', receiptFileId:'', _pending:true };
@@ -10364,7 +10670,7 @@ function saveExpenseUI(){
       renderExpenses();
       reopenExpenseForm_(vals, receipt);
       toast('Could not save that expense \u2014 your details are back in the form');
-    }).addExpense(date, vendor, amount, category, notes, adSource);
+    }).addExpense(date, vendor, amount, category, notes, adSource, eventKey);
     return;
   }
 
@@ -10390,7 +10696,7 @@ function saveExpenseUI(){
       } else {
         attachReceiptThen(row);
       }
-    }).withFailureHandler(failHandler).updateExpense(row, date, vendor, amount, category, notes, adSource);
+    }).withFailureHandler(failHandler).updateExpense(row, date, vendor, amount, category, notes, adSource, eventKey);
     return;
   }
 
@@ -10399,12 +10705,13 @@ function saveExpenseUI(){
     GS.withSuccessHandler(function(json){ ingest(json); renderExpenses(); toast('Recurring expense set up \u2726'); })
       .withFailureHandler(failHandler).addRecurringExpense(vendor, amount, category, notes, adSource, repeat, rstart||todayYmd_(), rend);
   } else {
-    GS.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource);
+    GS.withSuccessHandler(function(json){ ingest(json); attachReceiptThen(JSON.parse(json).newRow); }).withFailureHandler(failHandler).addExpense(date, vendor, amount, category, notes, adSource, eventKey);
   }
 }
 function todayYmd_(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function onExpenseRepeatChange(){
   var on = !!($('exp_repeat') && $('exp_repeat').value);
+  if($('exp_event_wrap')) $('exp_event_wrap').style.display = on ? 'none' : '';   // a repeating series is not tied to one event
   var box=$('exp_repeat_dates'); if(box) box.style.display = on ? '' : 'none';
   if(on){ var s=$('exp_repeat_start'); if(s && !s.value) s.value = todayYmd_(); }
 }
@@ -11475,7 +11782,7 @@ function intakeCode_(){
   var box='display:block;width:100%;box-sizing:border-box;padding:10px;font:inherit;color:inherit;background:transparent;border:1px solid currentColor;border-radius:4px';
   var rows=(INTAKE_.fields||[]).map(function(f){
     var m=menu[f.id]; if(!m) return ''; ids.push(f.id);
-    var type={email:'email',phone:'tel',date:'date'}[f.id]||'text', req=f.req?' required':'';
+    var type={email:'email',phone:'tel',date:'date',start:'time'}[f.id]||'text', req=f.req?' required':'';
     var input=m.long ? '<textarea name="'+f.id+'" rows="4"'+req+' style="'+box+'"></textarea>' : '<input type="'+type+'" name="'+f.id+'"'+req+' style="'+box+'">';
     return '  <div style="margin:0 0 12px"><label style="display:block;margin:0 0 4px">'+m.label+(f.req?' *':'')+'</label>'+input+'</div>';
   }).filter(Boolean);
@@ -12549,6 +12856,15 @@ var HELP_GUIDES = [
 // entry here at each release (see RELEASE.md). Baked in (not fetched), so it
 // works offline and shows history up through the installed version.
 var CHANGELOG_ = [
+  { v:'1.5.86', d:'Nov 2026', notes:[
+    'New — Event profit. Open a booked lead and tap Event profit to see what the show brought in, what it cost, and what you kept. On Expenses, each expense can be linked to an event, or you can add or link one right from the card. Linking is only a tag: it never changes your expense totals.',
+    'New — Trips and leave times. Each show now has “Leaving from” and “Traveling” fields. Leaving from sets where your drive starts, so the leave time and the “Leave in…” countdown on Today are right when you are coming from somewhere else, and they say where from. Set Traveling to Yes for a flight and the leave time is skipped. On a long-drive show, if you have a hotel on your Google Calendar within an hour of the venue, the lead offers it as your starting point with one tap.',
+    'Improved — Add Lead now has every question the website inquiry form can ask. Audience age range and Start time are added under Event details, and the website form can ask for both too.',
+    'Improved — Pages refresh when you come back. The event portal rechecks payment and signature when a client returns to the tab, and the app reloads your data quietly after you have been away a few minutes.',
+    'Improved — Money lines keep their cents ($42.50, not $43) in Insights and the expense lists. Totals stay in whole dollars. On Referred, each partner shows the fees received and the fees expected.',
+    'Improved — The contract fee table says “Balance” instead of “Balance (Remaining)”, so a paid contract no longer looks unpaid. Contracts already signed are not changed.',
+    'Improved — The Expense event picker lists the event closest to today first, “Duplicate as new booking” takes two taps like Delete, and the event portal’s per-client note is labelled “Booking details”. The “What’s new” box also now starts folded.'
+  ]},
   { v:'1.5.85', d:'Nov 2026', notes:[
     'New (optional) — Website inquiry form. If you have a contact form on your own website, people who fill it out can become new leads here automatically, and you get an email each time. It is off until you switch it on: Settings → More options → Website inquiry form. Tick the questions you want, tap Copy code, paste the code into an HTML or Embed block on your website and publish, then tap Send a test inquiry. Entries arrive marked New, from Website, with a follow-up due today. It has built-in spam protection, and “Make a new key” cancels an old code if you ever need to. A new Help topic walks through it.',
     'New (optional) — TRMNL e-ink display. If you own a TRMNL screen, Magic Manager can send it your next show, follow-ups, new leads, booked, owed, and income vs. expenses every 30 minutes. Settings → More options → TRMNL display.',
@@ -13135,7 +13451,12 @@ function renderUpdateBanner(info){
   var link = (/^https?:\/\//i.test(info.url||''))
     ? '<a class="save" style="margin:10px 0 0;display:inline-block;width:auto;padding:9px 16px;text-decoration:none" href="'+esc(info.url)+'" target="_blank" rel="noopener">See what’s new &amp; how to update</a>'
     : '';
-  var notes = info.notes ? '<div style="font-size:13px;color:var(--cream);margin-top:4px">'+esc(info.notes)+'</div>' : '';
+  // The notes can run long, so they start folded behind a "What's new" tap (the leading "What's new in this update:" is dropped, the button says it).
+  var notesTxt = String(info.notes||'').replace(/^\s*what[’']s new in this update:?\s*/i,'');
+  var notes = notesTxt
+    ? '<button type="button" id="updNotesBtn" aria-expanded="false" onclick="toggleUpdateNotes()" style="background:transparent;border:0;padding:6px 0 0;margin-top:2px;width:auto;color:var(--cream);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px">What’s new in this update <span id="updNotesChev" style="color:var(--muted);transition:transform .2s ease;display:inline-block">&#9662;</span></button>'
+      + '<div id="updNotes" style="display:none;font-size:13px;color:var(--cream);margin-top:6px">'+esc(notesTxt)+'</div>'
+    : '';
   var sbtn='background:transparent;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;width:auto';
   box.innerHTML = '<div class="card" style="border-color:var(--gold)">'
     + '<div style="font-weight:700;color:var(--gold-bright)">Update available &#9738; <span style="color:var(--muted);font-weight:400;font-size:12px">v'+esc(info.latest)+'</span></div>'
@@ -13148,6 +13469,13 @@ function renderUpdateBanner(info){
     + '</div>'
     + '</div>';
   box.style.display='';
+}
+function toggleUpdateNotes(){
+  var n=$('updNotes'), b=$('updNotesBtn'), c=$('updNotesChev'); if(!n) return;
+  var open=n.style.display!=='block';
+  n.style.display=open?'block':'none';
+  if(b) b.setAttribute('aria-expanded', open?'true':'false');
+  if(c) c.style.transform=open?'rotate(180deg)':'';
 }
 // Snooze the update banner for a number of days, or skip the current version
 // until a newer one ships. State lives server-side (Script Properties) so it's

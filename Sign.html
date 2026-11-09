@@ -180,6 +180,7 @@ function awaitSignedPdf_(d){
   }).withFailureHandler(function(){ awaitSignedPdf_.busy=false; }).finishSignedContract(TOKEN);
 }
 function renderStatusPage(d){
+  LAST_D_=d;
   document.getElementById('loading').style.display='none';
   var c=document.getElementById('content');
   c.style.display='';
@@ -661,7 +662,7 @@ function progressHtml(d){
 function contractNoteHtml_(d){
   var n=String((d && d.contractNote)||'').trim();
   if(!n) return '';
-  return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(201,160,80,.28);font-size:13px;line-height:1.5"><span style="color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Note</span><div style="margin-top:3px">'+esc(n)+'</div></div>';
+  return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(201,160,80,.28);font-size:13px;line-height:1.5"><span style="color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Booking details</span><div style="margin-top:3px">'+esc(n)+'</div></div>';
 }
 function row(k,v){
   return '<div class="row"><span class="k">'+k+'</span><span class="v">'+(v||'\u2014')+'</span></div>';
@@ -732,6 +733,30 @@ function doSign(){
     alert('Something went wrong \u2014 please try again.');
   }).submitContractSignature(TOKEN, name, method);
 }
+// A portal left open in a tab used to stay frozen on whatever it showed when it loaded (e.g. "unpaid" after you marked it paid).
+// When the client comes back to the tab, quietly ask again; only if something that matters changed (signed / paid / amounts /
+// documents) is the page redrawn, so nothing they are typing or choosing is ever wiped. The signing form itself is never refreshed.
+var LAST_D_=null, HIDDEN_AT_=0, CHK_BUSY_=false;
+function stateKey_(d){
+  return [d.alreadySigned, d.ownContract, d.ownPending, d.depositPaid, d.balancePaid, d.depositBase, d.balanceBase, d.pdfUrl, d.pdfPending,
+    d.depositReceiptUrl, d.balanceReceiptUrl, d.clientContractUrl].join('|');
+}
+function recheckOnReturn_(){
+  if(!TOKEN || !LAST_D_ || !(LAST_D_.alreadySigned || LAST_D_.ownContract) || CHK_BUSY_) return;
+  var a=document.activeElement; if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+  CHK_BUSY_=true;
+  google.script.run.withSuccessHandler(function(json){
+    CHK_BUSY_=false;
+    var d; try{ d=JSON.parse(json); }catch(e){ return; }
+    if(!d || !d.ok || !LAST_D_ || stateKey_(d)===stateKey_(LAST_D_)) return;
+    showBooking_(d);
+  }).withFailureHandler(function(){ CHK_BUSY_=false; }).getContractForSigning(TOKEN);
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ HIDDEN_AT_=Date.now(); return; }
+  if(HIDDEN_AT_ && Date.now()-HIDDEN_AT_>=15000) recheckOnReturn_();
+  HIDDEN_AT_=0;
+});
 function showBooking_(d){
   applyBank(d);
   if(!d || !d.ok) renderError();

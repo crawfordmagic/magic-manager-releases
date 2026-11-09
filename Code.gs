@@ -29,6 +29,7 @@ var CONFIG_DEFAULTS_ = {
   ADDRESS: '',
   HOME_ADDRESS: '',
   ARRIVE_EARLY_MINUTES: '60',
+  HOTEL_CHECK_HOURS: '2.5',
   ARRIVE_EARLY_BY_SERVICE: '',
   REFERRAL_FEE_PERCENT: '10',
   TELL_REFERRER_UPDATES: 'yes',
@@ -171,6 +172,7 @@ var CONFIG_FIELDS_ = [
   { key: 'HOME_ADDRESS', label: 'Starting address for drive times', help: 'Optional. Where you usually leave from (home). When a show is booked and has a location, your calendar gets a reminder set for the drive time plus your arrive-early time (an hour unless you change it below). Only you ever see this — it is not shown to clients and not put on your calendar. A street address works best.', group: 'Reminders', section: 'reminders' },
   { key: 'ARRIVE_EARLY_MINUTES', label: 'Arrive this many minutes early', help: 'Optional. How long before the start time you want to be at the show. Your leave reminder and the countdown on the show-day card use it: start time, minus this, minus the drive. Blank means 60. Use 0 to arrive right at the start.', input: 'numeric', section: 'reminders' },
   { key: 'ARRIVE_EARLY_BY_SERVICE', label: 'Arrive early by service', help: 'Optional. A different arrive-early time for a kind of show, for example 90 minutes for a stage show and 30 for strolling. A box appears for each of your Services; leave any blank to use the number above.', editor: 'servicearrive', section: 'reminders' },
+  { key: 'HOTEL_CHECK_HOURS', label: 'Look for a hotel on trips longer than (hours of driving)', help: 'Optional. For a show this many hours of driving or more from your starting address, the app looks in your Google Calendar for a hotel stay around the show date and offers it as the "Leaving from" address, one tap to use. Blank means 2.5. Shorter shows are never checked.', input: 'numeric', section: 'reminders' },
   { key: 'REFERRAL_FEE_PERCENT', label: 'Referral fee percent', help: 'Optional. For a lead another Magic Manager user sent you: the day after the show, your Today list reminds you to send them their referral fee, and shows this percent of the quoted price (travel fees are not counted). 10 is the default. Leave blank to see the reminder without an amount. Magic Manager only reminds you; it never sends money.', input: 'numeric', section: 'reminders' },
   { key: 'TELL_REFERRER_UPDATES', label: 'Tell whoever referred a lead to me', help: '', editor: 'toggle', toggleLabel: 'Tell the person who referred a lead to me when I add it, pass on it, book it, or send their fee', section: 'reminders' },
   { key: 'PARTNER_UPDATE_EMAIL', label: 'Partner update emails', help: '', editor: 'toggle', toggleLabel: 'Email me when a partner books or passes on a lead I referred', section: 'reminders' },
@@ -273,7 +275,7 @@ function saveSettings_(values) {
   });
   // A settings change (logo, business info, governing law) must rebuild the
   // cached contract template so the next contract/receipt reflects it.
-  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V5'); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty('CONTRACT_TEMPLATE_ID_V6'); } catch (e) {}
   getConfig_._cache = null;
   return { ok: true, config: getConfig_() };
 }
@@ -537,7 +539,7 @@ var LICENSE_GRACE_MS = 7 * 86400000;     // if the hub is unreachable, trust las
 // update banner shows when the hub's Meta "latestVersion" is higher than this.
 // (Only copies made from a master that already had this checker will notice —
 // the check can't be retro-added to code a customer already deployed.)
-var APP_VERSION = '1.5.85';
+var APP_VERSION = '1.5.86';
 
 function getInstallId_() {
   try { return ScriptApp.getScriptId(); } catch (e) {}
@@ -1146,7 +1148,7 @@ var API_ = {
   updateStoreSale: updateStoreSale_, storeListProducts: storeListProducts_, storeSaveProduct: storeSaveProduct_,
   storeDeleteProduct: storeDeleteProduct_, addExpense: addExpense_, addRecurringExpense: addRecurringExpense_,
   stopRecurringExpense: stopRecurringExpense_, editRecurringExpense: editRecurringExpense_, importExpensesBatch: importExpensesBatch_,
-  bulkSetAdSource: bulkSetAdSource_, updateExpense: updateExpense_, deleteExpense: deleteExpense_,
+  bulkSetAdSource: bulkSetAdSource_, bulkSetExpenseEvent: bulkSetExpenseEvent_, updateExpense: updateExpense_, deleteExpense: deleteExpense_,
   uploadExpenseReceipt: uploadExpenseReceipt_, deleteExpenseReceipt: deleteExpenseReceipt_, deleteLog: deleteLog_,
   updateLog: updateLog_, logContact: logContact_, addStarterTemplates: addStarterTemplates_, moveTemplate: moveTemplate_,
   addTemplate: addTemplate_, updateTemplate: updateTemplate_, deleteTemplate: deleteTemplate_,
@@ -1164,7 +1166,7 @@ var API_ = {
   resetReferralInboxCode: resetReferralInboxCode_, acceptReferral: acceptReferral_, dismissReferral: dismissReferral_,
   addTask: addTask_, toggleTask: toggleTask_, deleteTask: deleteTask_, updateTask: updateTask_,
   duplicateLeadAsNewBooking: duplicateLeadAsNewBooking_, updateLead: updateLead_, clearStaleFollowups: clearStaleFollowups_,
-  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_, driveBetween: driveBetween_, leaveForShow: leaveForShow_,
+  addLead: addLead_, importLeadsBatch: importLeadsBatch_, markFollowupStageDone: markFollowupStageDone_, postponeLead: postponeLead_, driveBetween: driveBetween_, leaveForShow: leaveForShow_, hotelForShow: hotelForShow_,
 };
 
 function api(key, name, args) {
@@ -1250,12 +1252,12 @@ function contractTemplate_() {
   // changes (like this fee-table rework), so the next contract generated
   // automatically builds a fresh template instead of reusing an old cached
   // copy that doesn't have the new rows/tokens. Nothing to do by hand.
-  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V5');
+  const savedId = props.getProperty('CONTRACT_TEMPLATE_ID_V6');
   if (savedId) {
     try { return DocumentApp.openById(savedId); } catch (e) {}
   }
   const doc = buildContractTemplate_();
-  props.setProperty('CONTRACT_TEMPLATE_ID_V5', doc.getId());
+  props.setProperty('CONTRACT_TEMPLATE_ID_V6', doc.getId());
   return doc;
 }
 
@@ -1912,7 +1914,7 @@ function buildContractTemplate_() {
     ['Travel & Additional Fees', '{{travelfeeline}}'],
     ['Total Investment', '{{totalinvestment}}'],
     ['{{depositlabel}}', '{{deposit}}'],
-    ['Balance (Remaining)', '{{balance}}']
+    ['Balance', '{{balance}}']
   ]);
   feeTable.setBorderWidth(0.75);
   for (var r = 0; r < feeTable.getNumRows(); r++) {
@@ -3580,19 +3582,27 @@ function expensesSheet_() {
   var sh = ss.getSheetByName(EXPENSES_SHEET);
   if (!sh) {
     sh = ss.insertSheet(EXPENSES_SHEET);
-    sh.appendRow(['Date', 'Vendor', 'Amount', 'Category', 'Notes', 'Source', 'Logged', 'Receipt URL', 'Receipt FileId', 'Ad Source']);
+    sh.appendRow(['Date', 'Vendor', 'Amount', 'Category', 'Notes', 'Source', 'Logged', 'Receipt URL', 'Receipt FileId', 'Ad Source', 'Event']);
   } else {
-    // Migration for sheets created before receipts/ad-source existed —
+    // Migration for sheets created before receipts/ad-source/event existed —
     // add any missing trailing columns without touching existing data.
-    var header = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 10)).getValues()[0];
+    var header = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 11)).getValues()[0];
     if (header[7] !== 'Receipt URL' || header[8] !== 'Receipt FileId') {
       sh.getRange(1, 8, 1, 2).setValues([['Receipt URL', 'Receipt FileId']]);
     }
     if (header[9] !== 'Ad Source') {
       sh.getRange(1, 10, 1, 1).setValues([['Ad Source']]);
     }
+    if (header[10] !== 'Event') {
+      sh.getRange(1, 11, 1, 1).setValues([['Event']]);
+    }
   }
   return sh;
+}
+// An expense can be linked to ONE event (a lead). The link is the lead's Timestamp key (the same number the lead's _tsKey carries),
+// stored in the Event column. Digits only, so a hand-typed or odd value can never become a formula or a stray string.
+function eventKeyClean_(v) {
+  return String(v == null ? '' : v).replace(/[^0-9]/g, '').slice(0, 20);
 }
 // Same self-healing "find by name or create" pattern as contractsFolder_()
 // above — a separate folder from Contracts since receipts are a different
@@ -3687,7 +3697,8 @@ function getExpenses_() {
       source: String(r[5] || ''),
       receiptUrl: String(r[7] || ''),
       receiptFileId: String(r[8] || ''),
-      adSource: String(r[9] || '')
+      adSource: String(r[9] || ''),
+      eventKey: eventKeyClean_(r[10])
     });
   }
   return expenses;
@@ -3719,9 +3730,9 @@ function rememberVendorCategory_(vendor, category) {
   props.setProperty('VENDOR_CATEGORY_MEMORY', JSON.stringify(mem));
 }
 
-function addExpense_(date, vendor, amount, category, notes, adSource) {
+function addExpense_(date, vendor, amount, category, notes, adSource, eventKey) {
   const sh = expensesSheet_();
-  sh.appendRow([date ? parseYMD_(date) : new Date(), vendor || '', Number(amount) || 0, category || 'Other', notes || '', 'Manual', new Date(), '', '', adSource || '']);
+  sh.appendRow([date ? parseYMD_(date) : new Date(), vendor || '', Number(amount) || 0, category || 'Other', notes || '', 'Manual', new Date(), '', '', adSource || '', eventKeyClean_(eventKey)]);
   rememberVendorCategory_(vendor, category);
   // newRow lets the client immediately attach a receipt to a brand-new
   // expense right after creating it, without a second round-trip just to
@@ -3883,11 +3894,24 @@ function bulkSetAdSource_(updatesJson) {
   return getExpensesScoped_();
 }
 
-function updateExpense_(rowNum, date, vendor, amount, category, notes, adSource) {
+// Link several expenses to one event in a single write (eventKey '' = unlink). Writes ONLY the Event column.
+function bulkSetExpenseEvent_(rowsJson, eventKey) {
+  const sh = expensesSheet_();
+  const rows = JSON.parse(rowsJson);
+  const key = eventKeyClean_(eventKey);
+  rows.forEach(function (r) {
+    r = Number(r);
+    if (r >= 2 && r <= sh.getLastRow()) sh.getRange(r, 11).setValue(key);
+  });
+  return getExpensesScoped_();
+}
+
+function updateExpense_(rowNum, date, vendor, amount, category, notes, adSource, eventKey) {
   const sh = expensesSheet_();
   if (rowNum < 2 || rowNum > sh.getLastRow()) return getExpensesScoped_();
   sh.getRange(rowNum, 1, 1, 5).setValues([[date ? parseYMD_(date) : '', vendor || '', Number(amount) || 0, category || 'Other', notes || '']]);
   sh.getRange(rowNum, 10).setValue(adSource || '');
+  if (eventKey !== undefined) sh.getRange(rowNum, 11).setValue(eventKeyClean_(eventKey));   // not sent (older page) = leave the link alone
   rememberVendorCategory_(vendor, category);
   // If a receipt is already attached and this date edit moved the expense
   // into a different year, relocate the actual Drive file to match —
@@ -6051,6 +6075,8 @@ var INTAKE_MENU_ = [
   { id: 'type', header: 'Event Type', label: 'Type of event', max: 80 },
   { id: 'location', header: 'Event Location', label: 'Event location', max: 200 },
   { id: 'guests', header: 'Audience Size', label: 'Number of guests', max: 20 },
+  { id: 'age', header: 'Audience Age Range', label: 'Audience age range', max: 40 },
+  { id: 'start', header: 'Start Time', label: 'Start time', max: 5 },
   { id: 'service', header: 'Service', label: 'Service you are interested in', max: 120 },
   { id: 'message', header: 'Notes about interaction', label: 'Message', max: 2000, long: true }
 ];
@@ -6109,8 +6135,14 @@ function intakeClean_(raw) {
     if (m.id === 'email' && !/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(v)) return;
     if (m.id === 'phone' && !/^\+?[\d\s().\-]{7,40}$/.test(v)) return;
     if (m.id === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    if (m.id === 'start' && !/^\d{2}:\d{2}$/.test(v)) return;   // 24-hour HH:mm, like 18:00
     out[m.header] = v;
   });
+  // Start Time is stored with the event date ("2026-12-25 18:00"). No date, no start time.
+  if (out['Start Time']) {
+    if (out['Date of Event']) out['Start Time'] = out['Date of Event'] + ' ' + out['Start Time'];
+    else delete out['Start Time'];
+  }
   if (!out['Customer Name']) return { error: 'Please add your name.' };
   if (!out['E-mail'] && !out['Phone number']) return { error: 'Please add an email or phone number.' };
   return { fields: out };
@@ -6510,7 +6542,7 @@ function addLead_(fields) {
     if (h === 'Timestamp') return new Date();
     var v = fields[h];
     if (v === undefined || v === null) return '';
-    if ((h === 'Followup' || h === 'Date of Event') && v) return parseYMD_(v);
+    if ((h === 'Followup' || h === 'Date of Event' || h === 'Start Time') && v) return parseYMD_(v);
     return v;
   });
   sh.appendRow(row);
@@ -6686,14 +6718,56 @@ function driveSeconds_(origin, destination) {
 // Owner-only (API_). When to leave for a show that starts at startMs (epoch ms), for the "Showtime Today" card's leave countdown.
 // Same plan as the calendar reminder (leavePlan_: start − arrive-early − Maps typical drive from the starting address), so the card and
 // the buzz always agree. The starting address never leaves the server; the page only gets the leave time. Never throws.
-function leaveForShow_(location, startMs, service) {
+function leaveForShow_(location, startMs, service, leavingFrom, traveling) {
   try {
     var start = new Date(Number(startMs));
     if (isNaN(start.getTime())) return JSON.stringify({ ok: false });
     var loc = String(location || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
-    var plan = loc ? leavePlan_(start, loc, String(service || '').slice(0, 200)) : null;
+    var from = String(leavingFrom || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
+    var plan = loc ? leavePlan_(start, loc, String(service || '').slice(0, 200), from, traveling) : null;
     if (!plan || !plan.leaveAt) return JSON.stringify({ ok: false });
     return JSON.stringify({ ok: true, leaveAtMs: plan.leaveAt.getTime(), minutes: plan.minutes, early: plan.early });
+  } catch (e) { return JSON.stringify({ ok: false }); }
+}
+
+// Owner-only (API_). For a long-drive show: the hotel stay on the owner's calendar around the show date, as {ok, name, address}.
+// "Long" = the drive from the starting address is at least HOTEL_CHECK_HOURS (default 2.5). A lodging event is one whose title names a hotel /
+// lodging, that has an address (its location), and that overlaps the show day (so the night before, or a check-in that day). The show's own
+// calendar event is never taken for one. Read-only; it only SUGGESTS, the owner taps to use it. Never throws.
+var LODGING_RE_ = /\b(hotel|motel|inn|suites?|resort|lodge|lodging|hostel|b&b|bed and breakfast|airbnb|vrbo|marriott|hilton|hyatt|sheraton|westin|courtyard|residence inn|fairfield|hampton|holiday inn|doubletree|embassy suites|homewood|springhill|towneplace|comfort inn|best western|la quinta|omni|kimpton|wyndham|radisson|four seasons|ritz|stay at|reservation)\b/i;
+function hotelThresholdHours_() {
+  var h = parseFloat(String(getConfig_().HOTEL_CHECK_HOURS == null ? '' : getConfig_().HOTEL_CHECK_HOURS).replace(/[^0-9.]/g, ''));
+  return h > 0 && h <= 48 ? h : 2.5;
+}
+// A hotel is only offered when it is NEAR the venue (HOTEL_NEAR_MINUTES by car), so a hotel booked for some other trip that same
+// day is never suggested for this show (Rich 2026-11-08: a New Jersey hotel was offered for a Michigan show).
+var HOTEL_NEAR_MINUTES_ = 60;
+function findHotelStay_(events, showLocation, isNear) {
+  var show = String(showLocation || '').trim().toLowerCase();
+  var hits = [];
+  (events || []).forEach(function (e) {
+    var title = String(e.getTitle() || ''), loc = String(e.getLocation() || '').replace(/[\u0000-\u001F]/g, ' ').trim();
+    if (!loc || loc.toLowerCase() === show || !LODGING_RE_.test(title)) return;
+    hits.push({ name: title.replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 120), address: loc.slice(0, 200) });
+  });
+  if (typeof isNear !== 'function') return hits[0] || null;
+  for (var i = 0; i < hits.length && i < 5; i++) { if (isNear(hits[i].address)) return hits[i]; }
+  return null;
+}
+function hotelForShow_(location, eventYmd) {
+  try {
+    var home = String(getConfig_().HOME_ADDRESS || '').trim();
+    var loc = String(location || '').replace(/[\u0000-\u001F]/g, ' ').trim().slice(0, 200);
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(eventYmd || ''));
+    if (!home || !loc || !m) return JSON.stringify({ ok: false });
+    var d = driveSeconds_(home, loc);
+    if (!d || d.error || !(d.seconds >= hotelThresholdHours_() * 3600)) return JSON.stringify({ ok: false });
+    var from = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0), to = new Date(from.getTime() + 86400000);
+    var found = findHotelStay_(CalendarApp.getDefaultCalendar().getEvents(from, to), loc, function (addr) {
+      var n = driveSeconds_(addr, loc);
+      return !!(n && !n.error && n.seconds >= 0 && n.seconds <= HOTEL_NEAR_MINUTES_ * 60);
+    });
+    return JSON.stringify(found ? { ok: true, name: found.name, address: found.address } : { ok: false });
   } catch (e) { return JSON.stringify({ ok: false }); }
 }
 
@@ -6712,9 +6786,12 @@ function driveBetween_(from, to) {
 
 // Returns null (feature off: no starting address saved), {line} (a note for the booked event only), or
 // {leaveAt, minutes, early, resolved, line} (the full plan).
-function leavePlan_(start, location, service) {
-  var origin = String(getConfig_().HOME_ADDRESS || '').trim();
+// leavingFrom (the lead's "Leaving from", e.g. the hotel) replaces the starting address for that one show; traveling = "Yes" turns
+// the leave time off for that show (a flight, an overnight trip): just a note, no leave time, no reminder.
+function leavePlan_(start, location, service, leavingFrom, traveling) {
+  var origin = String(leavingFrom || '').trim() || String(getConfig_().HOME_ADDRESS || '').trim();
   if (!origin) return null;
+  if (String(traveling || '').trim().toLowerCase() === 'yes') return { line: 'Leave alert is off for this show (traveling).', traveling: true };
   var dest = String(location || '').trim();
   if (!dest) return { line: 'Leave alert: add an event location to get a leave time.' };
   var d = driveSeconds_(origin, dest);
@@ -6726,7 +6803,7 @@ function leavePlan_(start, location, service) {
   var leaveAt = new Date(Math.floor((start.getTime() - (early + mins) * 60000) / 300000) * 300000); // down to 5 min: earlier is safer
   var fmt = function (dt) { return Utilities.formatDate(dt, tz_(), 'h:mm a'); };
   return { leaveAt: leaveAt, minutes: mins, early: early, resolved: d.resolved,
-    line: 'Leave by ' + fmt(leaveAt) + ': about ' + mins + ' min drive (typical, no live traffic) to ' + (d.resolved || dest)
+    line: 'Leave by ' + fmt(leaveAt) + ': about ' + mins + ' min drive' + (String(leavingFrom || '').trim() ? ' from ' + String(leavingFrom).trim() : '') + ' (typical, no live traffic) to ' + (d.resolved || dest)
       + (early > 0 ? ', arriving ' + early + ' min before the ' + fmt(start) + ' start.' : ', arriving at the ' + fmt(start) + ' start.') };
 }
 
@@ -6738,6 +6815,8 @@ function leaveReminderMinutes_(start, plan) {
   return m > 0 && m <= 40320 ? m : 0;
 }
 function applyLeaveReminder_(ev, start, plan) {
+  // Switched to "traveling": drop an earlier leave reminder and go back to the calendar's own reminders.
+  if (plan && plan.traveling) { try { if (typeof ev.resetRemindersToDefault === 'function') ev.resetRemindersToDefault(); } catch (e) {} return; }
   var m = leaveReminderMinutes_(start, plan);
   if (!m) return;
   ev.removeAllReminders();
@@ -6829,7 +6908,7 @@ function syncBookedCalendarEvent_(sh, rowNum, wasBooked) {
   if (get('Phone number')) lines.push('Phone: ' + get('Phone number'));
   if (get('E-mail')) lines.push('Email: ' + get('E-mail'));
   var plan = null;
-  try { plan = leavePlan_(start, get('Event Location'), get('Service')); } catch (e) { plan = null; }
+  try { plan = leavePlan_(start, get('Event Location'), get('Service'), get('Leaving From'), get('Traveling')); } catch (e) { plan = null; }
   if (plan && plan.line) lines.push(plan.line);
   const description = lines.join('\n');
   const location = String(get('Event Location') || '');
